@@ -380,7 +380,7 @@ Optional Text-to-SQL and query explanation powered by **OpenAI**, **Anthropic**,
 SuperDBA includes a built-in **MCP (Model Context Protocol) server** that lets AI agents read your database schema and execute queries directly from their chat interface.
 
 ```bash
-SuperDBA --mcp
+superdba --mcp
 ```
 
 **One-click setup** for Claude Desktop, Cursor, and Windsurf: open **Settings → MCP Server Integration**, click **Install Config** next to your client, and restart it. Manual configuration is covered in the wiki.
