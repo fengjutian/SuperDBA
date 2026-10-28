@@ -1,0 +1,137 @@
+set shell := ["bash", "-cu"]
+set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
+
+# The Windows recipes below are [script] recipes (just 1.44+): each one runs as a
+# single PowerShell script, so variables and multi-line blocks carry across lines.
+# Bypass only applies to this process, so the default Restricted policy doesn't
+# block the temporary .ps1 file just writes.
+set script-interpreter := ["powershell.exe", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File"]
+
+# ---------------------------------------------------------------------------
+# Cross-platform recipes (only shell-agnostic tooling — cargo, npm).
+# ---------------------------------------------------------------------------
+
+# Build the plugin binary in debug mode (plus UI if present).
+build: build-ui
+    cargo build
+
+# Build for release (what the GitHub Actions workflow ships).
+release: build-ui
+    cargo build --release
+
+# Run unit tests.
+test:
+    cargo test
+
+# Launch the local REPL that simulates SuperDBA JSON-RPC calls over stdio.
+repl:
+    cargo run --bin test_plugin
+
+# Run clippy on the workspace.
+lint:
+    cargo clippy --all-targets -- -D warnings
+
+# Format the codebase.
+fmt:
+    cargo fmt --all
+
+# ---------------------------------------------------------------------------
+# Platform-specific recipes (file operations + plugin-dir conventions).
+# ---------------------------------------------------------------------------
+
+# Build the UI extension if present (no-op otherwise).
+[unix]
+build-ui:
+    @if [ -f ui/package.json ]; then \
+        echo "Building UI extension..."; \
+        (cd ui && npm install --no-audit --no-fund && npm run build); \
+    fi
+
+[windows]
+[script]
+build-ui:
+    $ErrorActionPreference = "Stop"
+    if (Test-Path ui/package.json) {
+        Write-Host "Building UI extension..."
+        Push-Location ui
+        try {
+            npm install --no-audit --no-fund
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            npm run build
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        } finally {
+            Pop-Location
+        }
+    }
+
+# Build + copy binary, manifest, and (if present) UI bundle and locales into SuperDBA's plugin folder.
+# The binary is looked up in Cargo's real target directory (from `cargo metadata`),
+# so CARGO_TARGET_DIR and `build.target-dir` in Cargo config both work.
+[linux]
+dev-install: build
+    mkdir -p ~/.local/share/superdba/plugins/drivers/${ID}
+    target_dir="$(cargo metadata --format-version 1 --no-deps | sed -n 's/.*"target_directory":"\([^"]*\)".*/\1/p')"; \
+    cp "$target_dir/debug/${BIN_NAME}" ~/.local/share/superdba/plugins/drivers/${ID}/
+    cp .tabularium ~/.local/share/superdba/plugins/drivers/${ID}/
+    @if [ -d locales ]; then \
+        mkdir -p ~/.local/share/superdba/plugins/drivers/${ID}/locales; \
+        cp -r locales/* ~/.local/share/superdba/plugins/drivers/${ID}/locales/; \
+    fi
+    @if [ -f ui/dist/index.js ]; then \
+        mkdir -p ~/.local/share/superdba/plugins/drivers/${ID}/ui/dist; \
+        cp ui/dist/index.js ~/.local/share/superdba/plugins/drivers/${ID}/ui/dist/; \
+    fi
+    @echo "Installed to ~/.local/share/superdba/plugins/drivers/${ID}"
+    @echo "Restart SuperDBA (or toggle the plugin in Settings) to pick up changes."
+
+[macos]
+dev-install: build
+    mkdir -p "$HOME/Library/Application Support/superdba/plugins/drivers/${ID}"
+    target_dir="$(cargo metadata --format-version 1 --no-deps | sed -n 's/.*"target_directory":"\([^"]*\)".*/\1/p')"; \
+    cp "$target_dir/debug/${BIN_NAME}" "$HOME/Library/Application Support/superdba/plugins/drivers/${ID}/"
+    cp .tabularium "$HOME/Library/Application Support/superdba/plugins/drivers/${ID}/"
+    @if [ -d locales ]; then \
+        mkdir -p "$HOME/Library/Application Support/superdba/plugins/drivers/${ID}/locales"; \
+        cp -r locales/* "$HOME/Library/Application Support/superdba/plugins/drivers/${ID}/locales/"; \
+    fi
+    @if [ -f ui/dist/index.js ]; then \
+        mkdir -p "$HOME/Library/Application Support/superdba/plugins/drivers/${ID}/ui/dist"; \
+        cp ui/dist/index.js "$HOME/Library/Application Support/superdba/plugins/drivers/${ID}/ui/dist/"; \
+    fi
+    @echo "Installed to ~/Library/Application Support/superdba/plugins/drivers/${ID}"
+    @echo "Restart SuperDBA (or toggle the plugin in Settings) to pick up changes."
+
+[windows]
+[script]
+dev-install: build
+    $ErrorActionPreference = "Stop"
+    $dest = Join-Path $env:APPDATA "superdba\plugins\drivers\${ID}"
+    New-Item -ItemType Directory -Force -Path $dest | Out-Null
+    Copy-Item (Join-Path (cargo metadata --format-version 1 --no-deps | ConvertFrom-Json).target_directory "debug\${BIN_NAME}.exe") $dest
+    Copy-Item ".tabularium" $dest
+    if (Test-Path "locales") {
+        New-Item -ItemType Directory -Force -Path (Join-Path $dest "locales") | Out-Null
+        Copy-Item -Recurse -Force "locales\*" (Join-Path $dest "locales")
+    }
+    if (Test-Path "ui\dist\index.js") {
+        New-Item -ItemType Directory -Force -Path (Join-Path $dest "ui\dist") | Out-Null
+        Copy-Item "ui\dist\index.js" (Join-Path $dest "ui\dist")
+    }
+    Write-Host "Installed to $dest"
+    Write-Host "Restart SuperDBA (or toggle the plugin in Settings) to pick up changes."
+
+# Remove the kind-scoped development install. Manage old flat copies in Settings.
+[linux]
+uninstall:
+    rm -rf ~/.local/share/superdba/plugins/drivers/${ID}
+
+[macos]
+uninstall:
+    rm -rf "$HOME/Library/Application Support/superdba/plugins/drivers/${ID}"
+
+[windows]
+[script]
+uninstall:
+    $ErrorActionPreference = "Stop"
+    $dest = Join-Path $env:APPDATA "superdba\plugins\drivers\${ID}"
+    if (Test-Path $dest) { Remove-Item -Recurse -Force $dest }

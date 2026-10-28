@@ -1,0 +1,40 @@
+{
+  "$schema": "https://registry.superdba.dev/manifest.schema.json?kind=driver",
+  "name": "${ID}",
+  "version": "0.1.0",
+  "description": "SuperDBA driver plugin for ${DISPLAY_NAME}",
+  "kind": "driver",
+  "engine": "${ID}",
+  "paradigms": ["relational"],
+  "default_port": ${DEFAULT_PORT},
+  "default_username": "",
+  "executable": "${BIN_NAME}",
+  "capabilities": {
+    "schemas": false,
+    "views": false,
+    "routines": false,
+    "file_based": ${FILE_BASED},
+    "folder_based": ${FOLDER_BASED},
+    "no_connection_required": ${NO_CONNECTION_REQUIRED},
+    "identifier_quote": "${QUOTE_JSON}",
+    "alter_primary_key": false,
+    "alter_column": false,
+    "create_foreign_keys": false,
+    "manage_tables": false,
+    "readonly": true
+  },
+  "data_types": [
+    {
+      "name": "INTEGER",
+      "category": "numeric",
+      "requires_length": false,
+      "requires_precision": false
+    },
+    {
+      "name": "TEXT",
+      "category": "string",
+      "requires_length": false,
+      "requires_precision": false
+    }
+  ]${UI_EXTENSIONS_ENTRY}
+}

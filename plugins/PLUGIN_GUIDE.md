@@ -1,0 +1,2043 @@
+# Writing a Custom Database Driver Plugin for SuperDBA
+
+> **New to plugins?** Start with [`PLUGIN_TUTORIAL.md`](./PLUGIN_TUTORIAL.md) — a 20-minute walkthrough that ends with a working Google Sheets driver. This document is a **reference**, not a tutorial.
+>
+> 📚 The canonical, browsable version of the plugin docs lives at [superdba.dev/wiki/plugins](https://superdba.dev/wiki/plugins).
+
+SuperDBA supports extending its capabilities via a JSON-RPC based external plugin system. By building a standalone executable that implements the JSON-RPC interface, you can add support for virtually any SQL or NoSQL database (such as DuckDB, MongoDB, etc.) using the programming language of your choice.
+
+This guide details how to implement and register a custom external plugin.
+
+Plugins that connect to more than one database engine can opt in to
+[connection metadata discovery](./CONNECTION_METADATA.md) to report capabilities
+and data types for each connection. Existing plugins keep their static manifests.
+
+---
+
+## 1. Plugin Architecture
+
+An external plugin in SuperDBA is a separate executable (binary or script) that runs alongside the main application. SuperDBA communicates with the plugin using **JSON-RPC 2.0** over standard input/output (`stdin` / `stdout`).
+
+- **Requests:** SuperDBA writes JSON-RPC request objects to the plugin's `stdin`, separated by a newline (`\n`).
+- **Responses:** The plugin processes the request and writes a JSON-RPC response object to its `stdout`, followed by a newline (`\n`).
+- **Logging:** Any output to `stderr` from the plugin is inherited/logged by SuperDBA without interfering with the JSON-RPC communication.
+
+### Selecting a database in a multi-database plugin
+
+The request-level `schema` field holds the item selected in the explorer.
+For plugins with `capabilities.schemas: false`, a connection can also have
+`params.database: ["0", "3"]` (Redis is one example). When `schema` is an
+exact member of that array, the host sends only the selected database as
+`params.database: "3"` for that RPC. Other parameters and the request's
+`schema` stay unchanged.
+
+For plugins with `capabilities.schemas: true`, the host does **not** rewrite
+`params.database`. A schema can have the same name as a database, and the
+plugin must use `schema` to select the namespace within its database.
+Single-database values and requests with no matching selection are unchanged.
+
+### Lifecycle
+
+1. SuperDBA discovers plugins in its data folder at startup:
+   - **Linux:** `~/.local/share/superdba/plugins/`
+   - **macOS:** `~/Library/Application Support/superdba/plugins/`
+   - **Windows:** `%APPDATA%\superdba\plugins\`
+2. It reads each plugin's `.tabularium` manifest (or a legacy `manifest.json`) to discover its capabilities and data types.
+3. The plugin is registered as a driver and appears in the "Database Type" list.
+4. SuperDBA spawns the executable when it registers the driver, and sends JSON-RPC messages once a connection uses it. The desktop app and each `superdba --mcp` server start their own process.
+5. The same process instance is reused for all connections and operations in that session.
+6. When the session ends, SuperDBA kills the process. **Exit when `stdin` reaches EOF** as well: if SuperDBA is killed (for example an MCP client force-quitting `superdba --mcp`), EOF may be the only signal the plugin gets. On Windows, SuperDBA also places the plugin in a job object that is killed with it.
+
+---
+
+## 2. Directory Structure & the Manifest (`.tabularium`)
+
+A SuperDBA plugin is distributed as a `.zip` file. When extracted into the plugins folder, it must have the following structure:
+
+```text
+plugins/
+└── drivers/
+    └── duckdb/
+        ├── .tabularium  (or legacy manifest.json)
+        └── duckdb-plugin  (or duckdb-plugin.exe on Windows)
+```
+
+Installations and updates always use `plugins/<kind-folder>/<name>/`, mapping `theme` to `themes`, `driver` to `drivers`, and otherwise keeping the kind unchanged. Legacy or manually copied `plugins/<name>/` bundles are a discovery fallback; the kind-scoped copy wins. An absent manifest `kind` means `driver`; declarative themes use `theme` and are never started as drivers.
+
+### The `.tabularium` manifest
+
+One manifest tells SuperDBA everything about your plugin — and, when you publish, tells the Tabularium registry how to list it. Its canonical name is **`.tabularium`**; the host still reads a legacy `manifest.json` as a fallback. With Tabularium 0.14.0+, use `id` as the stable lowercase identifier and `name` as the human-readable display name. Existing manifests without `id` remain supported: their `name` continues to supply the identifier. When publishing, the registry resolves the manifest from your **release assets** — upload `.tabularium` as a standalone asset (GitHub silently renames the dotfile to `default.tabularium`; the registry accepts both names).
+
+> **JSON Schema available:** point `$schema` at the registry's live merged schema (as below) for IDE autocompletion and validation, or at the local [`plugins/manifest.schema.json`](./manifest.schema.json) for legacy `manifest.json` files.
+
+```json
+{
+  "$schema": "https://registry.superdba.dev/manifest.schema.json?kind=driver",
+  "id": "duckdb",
+  "name": "DuckDB",
+  "kind": "driver",
+  "engine": "duckdb",
+  "paradigms": ["sql"],
+  "version": "1.0.0",
+  "description": "DuckDB file-based analytical database",
+  "default_port": null,
+  "executable": "duckdb-plugin",
+  "capabilities": {
+    "schemas": false,
+    "views": true,
+    "routines": false,
+    "file_based": true,
+    "connection_string": false,
+    "identifier_quote": "\"",
+    "alter_primary_key": false
+  },
+  "data_types": [
+    {
+      "name": "INTEGER",
+      "category": "numeric",
+      "requires_length": false,
+      "requires_precision": false
+    },
+    {
+      "name": "VARCHAR",
+      "category": "string",
+      "requires_length": true,
+      "requires_precision": false
+    }
+  ]
+}
+```
+
+### Manifest Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | Human-readable display name (e.g., `"SQLite JDBC"`, 1–120 characters). Without `id`, this remains the legacy lowercase identifier (1–64 characters). |
+| `id` | string | Stable identifier used in saved connections, the plugin folder and registry URLs; 1–64 characters matching `^[a-z][a-z0-9-]*$`. Recommended for new manifests. Must equal the existing registry slug when migrating. |
+| `engine` | string | Shared database engine (e.g., `"sqlite"` for `"jdbc-sqlite"`). Groups alternative drivers under the same engine; omit only when the plugin should form its own group. |
+| `version` | string | Plugin version (semver, **no leading `v`**). Must equal the release tag with any `v` prefix stripped — the registry rejects tag/manifest mismatches. |
+| `description` | string | Short description shown in the plugins list. Optional for the registry; max **280 chars**. |
+| `default_port` | number \| null | Default TCP port. Use `null` for file-based databases. |
+| `executable` | string | Relative path to the executable inside the plugin folder. |
+| `capabilities` | object | Feature flags (see below). |
+| `data_types` | array | List of supported data types (see below). |
+| `type_mappings` | object \| null | Optional map of generic inferred type names to driver-specific types. Used during paste/import to map generic types (e.g. `DATETIME`) to driver-native equivalents (e.g. `TIMESTAMP`). See [Type Mappings](#type-mappings) below. |
+| `connection_fields` | object | Optional hide, label, and placeholder overrides for the common `host`, `port`, `username`, `password`, and `database` fields. Omitted fields preserve the standard UI. See [Connection Fields](#connection-fields) below. |
+
+### Migrating display names
+
+Upgrade the registry before publishing the new format. Add `id` equal to the **existing registry slug**, then change `name` to the display name. Do not rename installed-plugin folders, saved driver IDs or registry entries, and do not rewrite historical release archives. For JDBC, use `id: "jdbc-sqlite"`, `name: "SQLite JDBC"`, `engine: "sqlite"` in both the source manifest and generator. Known/shared engine cards retain their engine title; standalone plugin cards use the display name.
+
+### Capabilities
+
+| Flag | Type | Description |
+|------|------|-------------|
+| `schemas` | bool | `true` if the database supports named schemas (like PostgreSQL). Controls whether the schema selector is shown in the UI. |
+| `views` | bool | `true` if the database supports views. Enables the views section in the explorer. |
+| `materialized_views` | bool | `true` if the database supports materialized views. Enables the materialized views section in the explorer (see [Materialized Views](#materialized-views)). Defaults to `false`. |
+| `routines` | bool | `true` if the database supports stored procedures/functions. |
+| `triggers` | bool | `true` if the database supports triggers. Enables trigger-related UI for drivers that implement the trigger RPCs. |
+| `file_based` | bool | `true` for local file databases (e.g., SQLite, DuckDB). Replaces host/port with a file path input in the connection form. |
+| `in_memory` | bool | Requires `file_based`. `true` if the driver also opens the path `:memory:` as a temporary database (e.g. DuckDB). Adds an in-memory shortcut next to the file path input and skips the file existence check for that path. The database lives in the plugin process: connections that use `:memory:` share it until the plugin process stops. Also accepted as camelCase `inMemory`. Defaults to `false`. |
+| `folder_based` | bool | `true` for plugins that connect to a directory rather than a single file (e.g. CSV plugin). Replaces host/port with a folder picker. |
+| `no_connection_required` | bool | `true` for API-based plugins that need no host, port, or credentials (e.g. a public REST API). Hides the entire connection form — the user only fills in the connection name. |
+| `connection_string` | bool | Set `false` to hide the connection string import UI for this driver. Defaults to `true` for network drivers. `file_based` and `folder_based` drivers skip the import UI automatically regardless of this flag. |
+| `connection_string_example` | string | Optional placeholder example shown in the connection string import field (e.g. `"clickhouse://user:pass@localhost:9000/db"`). Also accepted as camelCase `connectionStringExample`. |
+| `connection_string_examples` | array | Optional connection string presets shown beside the import field. Each item has a required `label` and `value`, plus an optional `description`. Selecting one fills the field; `connection_string_example` remains the placeholder. Also accepted as camelCase `connectionStringExamples`. |
+| `identifier_quote` | string | Character used to quote SQL identifiers. Use `"\""` for ANSI standard or `` "`" `` for MySQL style. |
+| `serial_type` | string | Replacement data type for auto-increment columns in generated DDL (e.g. `"SERIAL"` for PostgreSQL). Empty if not applicable. When set to `"SERIAL"`, the host widens it to match the column's integer width: `smallint` → `SMALLSERIAL`, `integer` → `SERIAL`, `bigint` → `BIGSERIAL`. Plugins whose serial syntax is not width-tied should use a distinct literal (e.g. `"BIGINT GENERATED BY DEFAULT AS IDENTITY"`) to avoid widening. |
+| `table_query_templates` | bool | Opts the Generate SQL dialog into the optional `get_table_query_template` RPC for SELECT/UPDATE/DELETE previews. Defaults to `false`; older plugins and built-in drivers keep the existing host templates. See [Table Query Templates](#table-query-templates). |
+| `column_comments` | bool | The DDL generation RPCs honour `ColumnDefinition.comment` (for example `OPTIONS(description=...)` or a `COMMENT` clause), so the column editor shows a description field. Defaults to `false`; the field is hidden otherwise and `comment` is omitted from requests when unset. |
+| `column_stats` | bool | Opts the data grid's **Column statistics** popover into the optional `get_column_stats` RPC. Defaults to `false`: plugins whose `sql_syntax.extends` or `sql_dialect` is `postgres`, `mysql` or `sqlite` keep the host's generic SQL, and the others don't show the menu entry. See [Column Statistics](#column-statistics). |
+| `drop_table_sql` | bool | Opts the explorer's **Drop table** action into the optional `get_drop_table_sql` RPC, so the plugin can return its own statement (for example `DROP SNAPSHOT TABLE`). Defaults to `false`: the RPC is never called and the host runs a generic `DROP TABLE` with your `identifier_quote`. See [`get_drop_table_sql`](#get_drop_table_sql). |
+| `sql_dialect` | string | Optional SQL dialect preset: `postgres`, `mysql`, `mssql`, `sqlite`, `oracle`, or `generic`. Drives statement splitting, the AI/MCP read-only check, generated SQL and literals. Oracle-like plugins, including DM/Dameng, should use `"oracle"`. A host loads a dialect it doesn't know as `generic` and logs a warning. For an engine no preset describes, keep the closest preset here and declare `sql_syntax`. |
+| `sql_syntax` | object | Optional declarative SQL syntax that extends a preset: quotes, comments, triple-quoted and prefixed strings, procedural blocks, string and boolean literals, `LIKE … ESCAPE`, formatter and autocomplete words. Hosts that predate it ignore it and use `sql_dialect`. See [SQL Syntax](#sql-syntax-sql_syntax). |
+| `alter_primary_key` | bool | `true` if the database supports altering primary keys after table creation. |
+| `manage_tables` | bool | `true` to enable table and column management UI (Create Table, Add/Modify/Drop Column, Drop Table). Does not control index or FK operations. Defaults to `true`. |
+| `readonly` | bool | When `true`, the driver is read-only: all data modification operations (INSERT, UPDATE, DELETE) are disabled in the UI. The add/delete row buttons, inline cell editing, and context menu edit actions are hidden. Table and column management is also hidden regardless of `manage_tables`. Defaults to `false`. |
+| `explain` | bool | `true` if the driver implements the `explain_query` method (EXPLAIN / query plan support). Enables the Visual EXPLAIN button in the SQL editor and notebook cells; when `false` or omitted, the Visual EXPLAIN UI is hidden for connections using this driver. Defaults to `false`. |
+| `supports_ssl` | bool | `true` to show the SSL/TLS configuration tab (mode + CA/client cert/key) in the connection modal. The values are forwarded to the plugin as `ssl_mode`, `ssl_ca`, `ssl_cert`, and `ssl_key` in `ConnectionParams`. Network drivers only. Also accepted as camelCase `supportsSsl`. Defaults to `false`. |
+
+For drivers with several URL forms, declare the single example as the placeholder and add selectable presets:
+
+For URI passthrough drivers, an opaque placeholder (such as `jdbc:h2:mem:test`) permits opaque inputs. An authority-based placeholder (such as `mongodb://localhost/db`) requires `://` and a host in imported strings.
+
+```json
+{
+  "connection_string_example": "jdbc:h2:tcp://localhost/~/test",
+  "connection_string_examples": [
+    { "label": "In-memory", "value": "jdbc:h2:mem:test", "description": "A named in-memory database." },
+    { "label": "Local file", "value": "jdbc:h2:./data/test" },
+    { "label": "TCP server", "value": "jdbc:h2:tcp://localhost/~/test" }
+  ]
+}
+```
+
+### Declare `sql_dialect` (or `sql_syntax`)
+
+Always set `sql_dialect` to the closest preset, and add `sql_syntax` when no preset describes your engine. A plugin that declares neither (or only `generic`) still loads, but the host can't know how its SQL is tokenized, so it assumes the worst:
+
+- **AI/MCP read-only check.** Without a dialect, every query is lexed under every preset's rules, and it only counts as a single read statement when all of them agree. Reads that some dialect tokenizes differently are rejected as possibly unsafe (`unknown` or a write), for example queries containing:
+  - a `#` outside a string (a comment in MySQL, an operator such as `#>` in PostgreSQL);
+  - a backslash inside a string literal (`'C:\temp'`, `'it\'s'`), which only some dialects treat as an escape;
+  - double-quoted or backtick-quoted text whose meaning differs (a string in MySQL, an identifier elsewhere), or `[bracketed]` identifiers;
+  - `$$` / `$tag$` dollar-quoted bodies, `E'…'` strings, nested `/* /* */ */` comments or `/*! … */` executable comments;
+  - `--` not followed by a space (`1--1` is arithmetic in MySQL);
+  - a `;` that any dialect reads as a statement separator, even inside what your engine treats as a string or comment.
+- **Generated SQL and literals.** Filters, dumps, notebook cell CTEs and Copy as INSERT fall back to standard quoting (`'` doubled, backslashes left as is), and dumps write booleans as `1`/`0`. On an engine where `\` is an escape character this is wrong, so declare `mysql` (or `sql_syntax.string_escape`) there; on one that rejects `1`/`0` for a boolean column, declare `sql_syntax.boolean_literals`.
+
+### SQL Syntax (`sql_syntax`)
+
+`sql_dialect` picks one of the host's presets. When your engine lexes SQL differently from all of them (GoogleSQL's triple-quoted strings, `#` comments and procedural scripts, for example), describe the difference in `capabilities.sql_syntax`. It is data only: the host never runs code from it.
+
+- `extends` names the preset to start from. It defaults to `sql_dialect`, so most plugins set it explicitly when `sql_dialect` is only a fallback for older hosts.
+- Every other field is optional and overrides one rule of that preset. Leave a field out to keep the preset's rule.
+- Older hosts ignore `sql_syntax` and keep using `sql_dialect`, so set `sql_dialect` to the closest preset (e.g. `"mysql"` for GoogleSQL: backticks, `#` comments, backslash escapes).
+- An invalid field is logged and ignored (the preset's rule stays); the plugin always loads. Unknown fields are ignored too, so newer descriptors work on this host.
+- Without `sql_syntax`, a driver behaves exactly as before.
+
+| Field | Type | Default | Meaning |
+|-------|------|---------|---------|
+| `extends` | string | `sql_dialect` | Preset to extend: `postgres`, `mysql`, `mssql`, `sqlite`, `oracle` or `generic`. Any other value is ignored. |
+| `quotes` | array | preset | Replaces the quote rules. 1 to 8 objects with a unique `open`: `{ "open", "close"?, "kind", "escape"? }`. `open` is `'`, `"`, `` ` `` or `[`; `close` defaults to (and must equal) `open`, or `]` for `[`. `kind` is `"string"` or `"identifier"`. `escape` is `"double"` (`''`, default), `"backslash"` (`\'`, no doubling), `"both"` or `"none"`. |
+| `triple_quoted_strings` | bool | `false` | `'''…'''` and `"""…"""` strings that may span lines, for the `'` and `"` quotes of kind `string`. Escapes follow that quote's rule. |
+| `string_prefixes` | string[] | `[]` | Letter prefixes accepted before a `string` quote or triple quote, any case (e.g. `r`, `b`, `rb`, `br`). At most 8, each 1 or 2 ASCII letters. A raw `r` prefix keeps a backslash as text, but with a `backslash` escape the backslash still pairs with the next character, so `r'\''` is one literal. |
+| `hash_comments` | bool | preset (`mysql`: `true`) | `#` starts a line comment. |
+| `nested_block_comments` | bool | preset (`postgres`, `mssql`: `true`) | `/* … */` comments nest. |
+| `line_comment_requires_space` | bool | preset (`mysql`: `true`) | `--` only starts a comment when followed by whitespace (`1--1` is arithmetic). |
+| `script_blocks` | bool | `false` | Procedural blocks stay one statement: `BEGIN … END` (not `BEGIN TRANSACTION`), `EXCEPTION WHEN ERROR THEN`, `IF … END IF`, `LOOP`, `WHILE`, `REPEAT`, `FOR … DO`, `CASE … END CASE`, labels and `CREATE PROCEDURE` bodies. |
+| `dollar_quoting` | bool | preset (`postgres`: `true`) | `$tag$ … $tag$` strings. |
+| `string_escape` | string | preset (`mysql`: doubled quote plus doubled backslash; others: `"standard"`) | How the host writes string literals in filters, foreign-key filters, Copy as INSERT / IN list, clipboard import, dumps and notebook cell CTEs: `"standard"` (`'it''s'`) or `"backslash"` (`'it\'s'`, with `\\`, NUL (`\0`), `\n` and `\r` escaped too). On a `mysql` base (`extends: "mysql"`, or `sql_dialect: "mysql"` without `extends`) `"standard"` is ignored with a warning, since the engine still reads `\` as an escape character; `"backslash"` is allowed. |
+| `like_escape` | bool | `true` | Whether `LIKE … ESCAPE '!'` is supported. With `false`, literal LIKE filters escape `%`, `_` and `\` with a backslash (the engine's default LIKE escape) and omit `ESCAPE`. |
+| `boolean_literals` | string | each generator's default (dumps: `TRUE`/`FALSE` on `postgres`, `1`/`0` elsewhere; Copy as INSERT and filters: `TRUE`/`FALSE`; notebook cell CTEs: `'true'`) | How the host writes boolean values in SQL it generates: `"keywords"` (`TRUE` / `FALSE`) or `"numeric"` (`1` / `0`). Applies to dumps, Copy as INSERT / IN list, foreign-key and cell-value filters, filters on `BOOL` / `BOOLEAN` columns (`true`, `false`, `1`, `0`), notebook cell CTEs and the BOOLEAN columns a clipboard import creates. Declare `"keywords"` when the engine has no implicit integer-to-boolean coercion (GoogleSQL rejects `1` for a `BOOL` column). Any other value is ignored. |
+| `formatter` | string | preset | `sql-formatter` language for Format SQL: `bigquery`, `clickhouse`, `db2`, `db2i`, `duckdb`, `hive`, `mariadb`, `mysql`, `n1ql`, `plsql`, `postgresql`, `redshift`, `singlestoredb`, `snowflake`, `spark`, `sql`, `sqlite`, `tidb`, `transactsql` or `trino`. |
+| `keywords` | string[] | `[]` | Extra autocomplete keywords. At most 1000 entries of up to 64 characters: an ASCII letter or `_`, then letters, digits, `_`, `$`, `.` or single inner spaces (`"FOR SYSTEM_TIME AS OF"`, `"SAFE."`). |
+| `functions` | string[] | `[]` | Extra autocomplete function names, same limits as `keywords`. |
+
+Rules a descriptor can't change come from the preset it extends: `E'…'` strings (`postgres`), `DELIMITER` and `/*! … */` executable comments (`mysql`), `GO` batches (`mssql`), `/` terminators, PL/SQL blocks and `q'[…]'` quotes (`oracle`). Extend `generic` to start from none of them.
+
+For the AI/MCP read-only check, a declared syntax adds one tokenization pass to the passes of `sql_dialect` (every pass, for `generic`, `oracle` or no dialect). A query counts as a single read only when every pass agrees, so a descriptor can make the check stricter, never looser. A literal the fallback dialect reads differently, such as `'''it's; ok'''` with a `mysql` fallback, is treated as possibly unsafe.
+
+`sql_syntax` comes from the manifest only; [connection metadata](CONNECTION_METADATA.md) cannot override it. When metadata overrides `sql_dialect`, a descriptor without `extends` extends the overridden dialect.
+
+The GoogleSQL descriptor of a BigQuery driver, with `"sql_dialect": "mysql"` as the fallback for older hosts:
+
+```json
+{
+  "extends": "generic",
+  "quotes": [
+    {"open": "'", "kind": "string", "escape": "backslash"},
+    {"open": "\"", "kind": "string", "escape": "backslash"},
+    {"open": "`", "kind": "identifier", "escape": "backslash"}
+  ],
+  "triple_quoted_strings": true,
+  "string_prefixes": ["r", "b", "rb", "br"],
+  "hash_comments": true,
+  "nested_block_comments": false,
+  "line_comment_requires_space": false,
+  "script_blocks": true,
+  "dollar_quoting": false,
+  "string_escape": "backslash",
+  "like_escape": false,
+  "boolean_literals": "keywords",
+  "formatter": "bigquery",
+  "keywords": [
+    "QUALIFY", "PIVOT", "UNPIVOT", "TABLESAMPLE SYSTEM", "UNNEST",
+    "WITH OFFSET", "EXCEPT", "REPLACE", "WINDOW", "OVER", "PARTITION BY",
+    "CLUSTER BY", "OPTIONS", "FOR SYSTEM_TIME AS OF", "IGNORE NULLS",
+    "RESPECT NULLS", "UNION ALL", "UNION DISTINCT", "INTERSECT DISTINCT",
+    "EXCEPT DISTINCT", "MERGE", "WHEN MATCHED", "WHEN NOT MATCHED",
+    "WHEN NOT MATCHED BY SOURCE", "CREATE OR REPLACE TABLE",
+    "CREATE TEMP TABLE", "CREATE TEMP FUNCTION",
+    "CREATE OR REPLACE PROCEDURE", "CREATE SCHEMA", "RETURNS", "LANGUAGE js",
+    "EXPORT DATA", "LOAD DATA", "ASSERT", "DECLARE", "BEGIN",
+    "BEGIN TRANSACTION", "COMMIT TRANSACTION", "ROLLBACK TRANSACTION",
+    "EXCEPTION WHEN ERROR THEN", "ELSEIF", "END IF", "LOOP", "END LOOP",
+    "WHILE", "END WHILE", "REPEAT", "UNTIL", "END REPEAT", "FOR", "DO",
+    "END FOR", "END CASE", "LEAVE", "BREAK", "CONTINUE", "ITERATE", "RETURN",
+    "CALL", "EXECUTE IMMEDIATE", "RAISE USING MESSAGE", "INT64", "FLOAT64",
+    "NUMERIC", "BIGNUMERIC", "BOOL", "STRING", "BYTES", "DATE", "DATETIME",
+    "TIME", "TIMESTAMP", "INTERVAL", "GEOGRAPHY", "JSON", "STRUCT", "ARRAY",
+    "RANGE"
+  ],
+  "functions": [
+    "SAFE_CAST", "SAFE.", "SAFE_DIVIDE", "IF", "IFNULL", "COALESCE",
+    "NULLIF", "COUNTIF", "ARRAY_AGG", "STRING_AGG", "LOGICAL_AND",
+    "LOGICAL_OR", "ANY_VALUE", "APPROX_COUNT_DISTINCT", "APPROX_QUANTILES",
+    "APPROX_TOP_COUNT", "APPROX_TOP_SUM", "ROW_NUMBER", "RANK", "DENSE_RANK",
+    "LAG", "LEAD", "FIRST_VALUE", "LAST_VALUE", "NTILE", "PERCENTILE_CONT",
+    "ARRAY_LENGTH", "ARRAY_CONCAT", "ARRAY_TO_STRING", "GENERATE_ARRAY",
+    "GENERATE_DATE_ARRAY", "SPLIT", "FORMAT", "STARTS_WITH", "ENDS_WITH",
+    "CONTAINS_SUBSTR", "REGEXP_CONTAINS", "REGEXP_EXTRACT",
+    "REGEXP_EXTRACT_ALL", "REGEXP_REPLACE", "REGEXP_INSTR",
+    "FARM_FINGERPRINT", "GENERATE_UUID", "JSON_VALUE", "JSON_QUERY",
+    "JSON_VALUE_ARRAY", "JSON_QUERY_ARRAY", "JSON_EXTRACT",
+    "JSON_EXTRACT_SCALAR", "PARSE_JSON", "TO_JSON", "TO_JSON_STRING",
+    "CURRENT_DATE", "CURRENT_DATETIME", "CURRENT_TIMESTAMP", "EXTRACT",
+    "DATE_TRUNC", "DATE_ADD", "DATE_SUB", "DATE_DIFF", "DATETIME_TRUNC",
+    "DATETIME_DIFF", "TIMESTAMP_TRUNC", "TIMESTAMP_ADD", "TIMESTAMP_SUB",
+    "TIMESTAMP_DIFF", "FORMAT_DATE", "FORMAT_TIMESTAMP", "PARSE_DATE",
+    "PARSE_TIMESTAMP", "UNIX_SECONDS", "UNIX_MILLIS", "TIMESTAMP_SECONDS",
+    "TIMESTAMP_MILLIS", "LAST_DAY", "ST_GEOGPOINT", "ST_GEOGFROMTEXT",
+    "ST_ASTEXT", "ST_DISTANCE", "ST_DWITHIN", "ST_CONTAINS", "ST_INTERSECTS",
+    "ST_AREA", "ST_LENGTH", "ST_BUFFER"
+  ]
+}
+```
+
+### Data Types
+
+Each entry in `data_types` describes a type the driver supports for column creation in the UI:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | SQL type name (e.g., `"VARCHAR"`, `"BIGINT"`). |
+| `category` | string | UI grouping category (see below). |
+| `requires_length` | bool | `true` if this type requires a length argument (e.g., `VARCHAR(255)`). |
+| `requires_precision` | bool | `true` if this type requires a precision/scale argument (e.g., `DECIMAL(10,2)`). |
+| `default_length` | string? | Optional default length pre-filled in the UI (e.g., `"255"` for `VARCHAR`). |
+
+**Type Categories:**
+
+| Category | Examples |
+|----------|----------|
+| `numeric` | INTEGER, BIGINT, DECIMAL, FLOAT, DOUBLE |
+| `string` | VARCHAR, TEXT, CHAR |
+| `date` | DATE, TIME, TIMESTAMP, DATETIME |
+| `binary` | BLOB, BYTEA, VARBINARY |
+| `json` | JSON, JSONB |
+| `spatial` | GEOMETRY, POINT, POLYGON |
+| `other` | BOOLEAN, UUID |
+
+---
+
+### Type Mappings
+
+The optional `type_mappings` field lets your plugin declare how generic inferred type names should be mapped to driver-specific types. This is used during paste/import operations where SuperDBA infers column types from data (e.g., detects a date column as `DATETIME`) and needs to translate that to a driver-native type.
+
+Since `map_inferred_type()` is a synchronous trait method that cannot issue an RPC call, the mapping is declared statically in the manifest and resolved by the host at lookup time.
+
+**Example for a PostgreSQL plugin:**
+
+```json
+{
+  "type_mappings": {
+    "DATETIME": "TIMESTAMP",
+    "JSON": "JSONB"
+  }
+}
+```
+
+**Rules:**
+- Keys are uppercase generic type names (the inferred type before mapping)
+- Values are the driver-native equivalents to use instead
+- Lookup is case-insensitive (the host uppercases the input before matching)
+- If a type has no mapping, it passes through unchanged
+- If `type_mappings` is omitted or empty, all types pass through unchanged
+
+---
+
+### Connection Fields
+
+The optional `connection_fields` object adapts the host-owned inputs of the connection modal to a driver that does not use them as-is. Each of `host`, `port`, `username`, `password` and `database` accepts:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `hidden` | boolean | Hide the input for this driver. Defaults to `false`. |
+| `label` | string | Driver-specific label (max 80 characters). |
+| `placeholder` | string | Driver-specific placeholder (max 200 characters). |
+
+**Example for a cloud warehouse addressed by project id:**
+
+```json
+{
+  "connection_fields": {
+    "host": { "hidden": true },
+    "port": { "hidden": true },
+    "username": { "hidden": true },
+    "password": { "hidden": true },
+    "database": { "label": "Project ID", "placeholder": "billing-project" }
+  }
+}
+```
+
+**Rules:**
+- Overrides are presentation only: a hidden input is not rendered, but the value already saved for it is left untouched and still sent to the driver.
+- A hidden `database` input is not required on Test Connection or Save.
+- Hiding `host` also hides the "Load databases" action next to the database input.
+- Use the `connection-modal.extra_fields` slot for the inputs the driver needs instead, and `setSecretField` for credentials (see [SlotContext](#slotcontext)).
+
+---
+
+## 3. Plugin Settings
+
+Plugins can declare custom configuration fields that SuperDBA renders in the **Settings → gear icon** modal for that plugin. Users fill in the values, SuperDBA persists them in `config.json`, and passes them to the plugin at startup via an `initialize` RPC call.
+
+### Declaring settings in the manifest
+
+Add an optional `settings` array at the top level of your manifest:
+
+```json
+{
+  "id": "my-plugin",
+  "name": "My Plugin",
+  "version": "1.0.0",
+  "description": "A custom plugin with settings",
+  "executable": "my-plugin",
+  "capabilities": { ... },
+  "data_types": [ ... ],
+  "settings": [
+    {
+      "key": "api_key",
+      "label": "API Key",
+      "type": "string",
+      "required": true,
+      "description": "Your API key for authentication."
+    },
+    {
+      "key": "region",
+      "label": "Region",
+      "type": "select",
+      "options": ["us-east-1", "eu-west-1", "ap-southeast-1"],
+      "default": "us-east-1",
+      "description": "Deployment region."
+    },
+    {
+      "key": "max_connections",
+      "label": "Max Connections",
+      "type": "number",
+      "default": 10
+    },
+    {
+      "key": "ssl",
+      "label": "Enable SSL",
+      "type": "boolean",
+      "default": true
+    }
+  ]
+}
+```
+
+### Setting definition fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `key` | string | yes | Unique identifier used as the key in the settings map. |
+| `label` | string | yes | Human-readable label shown in the UI. |
+| `type` | string | yes | One of: `"string"`, `"boolean"`, `"number"`, `"select"`. |
+| `default` | any | no | Default value pre-filled when no saved value exists. |
+| `description` | string | no | Optional hint displayed below the field. |
+| `required` | boolean | no | If `true`, saving the modal is blocked until the field is filled. |
+| `options` | string[] | no | For `"select"` type: the list of choices shown in the dropdown. |
+
+### The `initialize` RPC method
+
+Immediately after spawning the plugin process, SuperDBA sends an `initialize` call:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "initialize",
+  "params": {
+    "settings": {
+      "api_key": "abc123",
+      "region": "eu-west-1",
+      "max_connections": 10,
+      "ssl": true
+    }
+  },
+  "id": 1
+}
+```
+
+- The `settings` object contains only the keys the user has configured (merged with defaults).
+- Returning an error response is safe — SuperDBA silently ignores any `initialize` failure.
+- Plugins that do not implement `initialize` are unaffected (the error is ignored).
+- Use `initialize` to store settings in your plugin's state before any query arrives.
+
+#### Handling `initialize` in Rust
+
+```rust
+"initialize" => {
+    let settings = &params["settings"];
+    // Store settings in your plugin state, e.g.:
+    // API_KEY.set(settings["api_key"].as_str().unwrap_or("").to_string());
+    json!({
+        "jsonrpc": "2.0",
+        "result": null,
+        "id": id
+    })
+}
+```
+
+#### Handling `initialize` in Python
+
+```python
+elif method == "initialize":
+    settings = params.get("settings", {})
+    # Store settings for later use:
+    # api_key = settings.get("api_key", "")
+    send_response({"result": None, "id": req_id})
+```
+
+---
+
+## 3b. UI Extensions
+
+Plugins can inject custom React components into the host UI through a **slot-based extension system**. This is entirely optional — plugins without UI extensions continue to work as before.
+
+### Declaring UI Extensions
+
+Add an optional `ui_extensions` array to your manifest:
+
+```json
+{
+  "id": "my-plugin",
+  "name": "My Plugin",
+  "version": "1.0.0",
+  "ui_extensions": [
+    {
+      "slot": "row-editor-sidebar.field.after",
+      "module": "ui/field-preview.js",
+      "api_version": "0.1.1",
+      "order": 50
+    },
+    {
+      "slot": "data-grid.toolbar.actions",
+      "module": "ui/export-button.js",
+      "api_version": "0.1.1"
+    },
+    {
+      "slot": "settings.plugin.before_settings",
+      "module": "ui/auth-panel.js",
+      "api_version": "0.1.1",
+      "driver": "my-plugin"
+    }
+  ]
+}
+```
+
+#### Extension entry fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `slot` | string | yes | Target slot name (see table below). |
+| `module` | string | yes | Relative path to the pre-built IIFE JavaScript bundle inside the plugin folder. |
+| `order` | number | no | Sort order within the slot. Lower values render first. Default: `100`. |
+| `driver` | string | no | If set, the contribution is only active when the active connection's driver matches this value. Useful for plugins that should only appear for their own driver. |
+| `api_version` | string | recommended | Exact `@superdba/plugin-api` version used to build the bundle. Incompatible bundles are skipped before execution. Omit only for legacy compatibility. |
+
+### Available Slots
+
+| Slot Name | Location | Context Data | Use Cases |
+|-----------|----------|--------------|-----------|
+| `row-edit-modal.field.after` | After each field in New Row modal | `connectionId`, `tableName`, `schema`, `driver`, `columnName`, `rowData`, `isInsertion` | Validation hints, field previews |
+| `row-edit-modal.footer.before` | Before Save/Cancel in New Row modal | `connectionId`, `tableName`, `schema`, `driver`, `rowData`, `isInsertion` | Batch actions, templates |
+| `row-editor-sidebar.field.after` | After each field in Row Editor sidebar | `connectionId`, `tableName`, `schema`, `driver`, `columnName`, `rowData`, `rowIndex` | Field-level previews, lookups |
+| `row-editor-sidebar.header.actions` | Sidebar header action buttons | `connectionId`, `tableName`, `schema`, `driver`, `rowData`, `rowIndex` | "Copy as JSON", audit links |
+| `data-grid.toolbar.actions` | Table toolbar (right side) | `connectionId`, `tableName`, `schema`, `driver` | Export buttons, analysis tools |
+| `data-grid.context-menu.items` | Right-click context menu on grid rows | `connectionId`, `tableName`, `schema`, `driver`, `columnName`, `rowIndex`, `rowData` | Row-level custom actions |
+| `sidebar.footer.actions` | Explorer sidebar footer | `connectionId`, `driver` | Status indicators, quick actions |
+| `settings.plugin.actions` | Per-plugin actions in Settings modal | `targetPluginId` | Diagnostics, re-auth buttons |
+| `settings.plugin.before_settings` | Content above plugin settings form | `targetPluginId` | OAuth panels, status banners |
+| `connection-modal.connection_content` | Inside the connection form | `driver` | Custom connection fields |
+| `connection-modal.extra_fields` | Below host/port in the connection form | `driver`, `extra`, `setExtraField`, `credentialFieldsHidden`, `setCredentialFieldsHidden`, `secretFields`, `setSecretField` | Plugin-specific connection fields (e.g. AWS region), including values stored per connection in the OS keychain. `setCredentialFieldsHidden(true)` hides and clears the host username/password inputs for drivers that authenticate without a login; while hidden the host also ignores the login of an imported connection string and drops the stored password on save |
+
+### SlotContext
+
+Every slot component receives a `context` object with the fields listed above. The available fields depend on the slot — for example, `rowData` is only present for row-level slots. All fields are optional.
+
+```typescript
+interface SlotContext {
+  connectionId?: string | null;
+  tableName?: string | null;
+  schema?: string | null;
+  driver?: string | null;
+  rowData?: Record<string, unknown>;
+  columnName?: string;
+  rowIndex?: number;
+  isInsertion?: boolean;
+  targetPluginId?: string;
+}
+```
+
+For `connection-modal.extra_fields`, `setSecretField(key, value)` keeps the
+value out of `connections.json` and stores it under the saved connection in the
+OS keychain. Passing an empty value explicitly clears the entry. On edit,
+`secretFields[key]` exposes only `{ value, hasStoredValue, dirty }`: an existing
+secret is represented by `hasStoredValue` and is never returned to plugin UI.
+Keys are 1-64 ASCII letters, digits, `.`, `_` or `-`.
+
+At runtime the host resolves stored values into `params.extra[key]` before
+calling the driver (every RPC method, Test Connection, Load Databases and the
+MCP server), so the JSON-RPC method shapes remain backward compatible. Export
+with credentials and backups carry the values; duplicating a connection copies
+them; deleting it removes them; switching the connection to another driver
+drops them.
+
+A stored secret can be unavailable at runtime: the connections file was synced
+to a machine whose keychain does not have the entry, the keychain was reset, or
+it is locked or denies access. The host never fails the call for that. It logs
+a warning naming the key (never the value) and calls the driver with
+`params.extra[key]` unset, so the plugin must check for the value and return a
+clear error asking the user to set the credential again. Duplicating such a
+connection copies only the values that can be read, and an import skips secret
+keys with an invalid name instead of rejecting the whole file. Imported values
+are written to the keychain only after the connections file has been saved.
+
+Older SuperDBA versions do not know `plugin_secret_keys` and drop it when they
+rewrite `connections.json`. After a downgrade (or with an older install sharing
+the same file) the keychain entries stay but are no longer referenced, so the
+plugin sees the secret as unset. Setting it again from the connection modal
+restores it.
+
+Both properties are optional in the public TypeScript contract. A plugin that
+also supports older hosts must guard their presence (for example by falling
+back to the host `password` input when `setSecretField` is undefined).
+
+### Building UI Extension Bundles
+
+Installed UI extensions execute as trusted application code rather than sandboxed widgets. Review the [plugin UI extension trust model](../docs/security/plugin-ui-extensions.md) before distributing or installing third-party bundles.
+
+Plugin UI components must be pre-built as **IIFE bundles** (Immediately Invoked Function Expression). The host provides `React`, `ReactJSXRuntime`, and the plugin API as globals — your bundle must **not** bundle its own copies of these.
+
+#### Installing the plugin API types
+
+The `@superdba/plugin-api` package gives you TypeScript types, hook signatures, and the `defineSlot` helper for slot-aware type inference. Install it as a dev dependency — at runtime the host injects the real implementation, so the package itself ships as thin stubs.
+
+```bash
+npm install --save-dev @superdba/plugin-api
+# or: pnpm add -D @superdba/plugin-api
+```
+
+Then `react` and `@superdba/plugin-api` remain Vite externals in your build config — the installed package is used only for types and autocomplete in your editor.
+
+#### Vite configuration example
+
+```typescript
+// vite.config.ts
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+
+export default defineConfig({
+  plugins: [react()],
+  build: {
+    lib: {
+      entry: "src/MyComponent.tsx",
+      formats: ["iife"],
+      name: "__superdba_plugin__",
+      fileName: () => "ui/my-component.js",
+    },
+    rollupOptions: {
+      external: ["react", "react/jsx-runtime", "@superdba/plugin-api"],
+      output: {
+        globals: {
+          react: "React",
+          "react/jsx-runtime": "ReactJSXRuntime",
+          "@superdba/plugin-api": "__SUPERDBA_API__",
+        },
+      },
+    },
+  },
+});
+```
+
+> **Key points:**
+> - The `name` field **must** be `"__superdba_plugin__"` — the host looks for this global.
+> - The component must be the **default export** of the entry file.
+> - Multiple slots can reference the same `module` file.
+
+### Writing a Slot Component
+
+**Recommended: use `defineSlot` for typed context.** The helper infers the exact `context` shape for the slot you target, so fields like `context.columnName` are non-nullable where the host guarantees them:
+
+```tsx
+// src/FieldPreview.tsx
+import { defineSlot, usePluginConnection } from "@superdba/plugin-api";
+
+const FieldPreview = defineSlot(
+  "row-editor-sidebar.field.after",
+  ({ context }) => {
+    const { driver } = usePluginConnection();
+    if (context.columnName !== "geometry") return null;
+
+    return (
+      <div style={{ padding: "4px 0", fontSize: "11px", color: "#888" }}>
+        Geometry preview for {String(context.rowData[context.columnName])}
+      </div>
+    );
+  },
+);
+
+// The loader expects a default-exported React component.
+export default FieldPreview.component;
+```
+
+**Legacy form (no typed context).** Older bundles used the loose `SlotComponentProps` shape. Still supported; new plugins should prefer `defineSlot`.
+
+```tsx
+import { usePluginConnection } from "@superdba/plugin-api";
+import type { SlotComponentProps } from "@superdba/plugin-api";
+
+export default function FieldPreview({ context }: SlotComponentProps) {
+  const { driver } = usePluginConnection();
+  if (context.columnName !== "geometry") return null;
+  return <div>Geometry preview for {String(context.rowData?.[context.columnName!])}</div>;
+}
+```
+
+### Plugin API Hooks
+
+Slot components can import these hooks from `@superdba/plugin-api`:
+
+| Hook | Returns | Purpose |
+|------|---------|---------|
+| `usePluginQuery()` | `(query: string) => Promise<{ columns, rows }>` | Execute read-only queries on the active connection |
+| `usePluginConnection()` | `{ connectionId, driver, schema }` | Access active connection metadata |
+| `usePluginToast()` | `{ showInfo(), showError(), showWarning() }` | Show toast notifications |
+| `usePluginModal()` | `{ openModal(options), closeModal() }` | Open host-managed modals with custom content |
+| `usePluginSetting(pluginId)` | `{ getSetting(key), setSetting(key, value) }` | Read/write plugin settings |
+| `usePluginTheme()` | `{ themeId, themeName, isDark, colors }` | Access current theme info |
+| `usePluginTranslation(pluginId)` | `t(key)` | Access plugin-specific i18n translations |
+| `openUrl(url)` | `Promise<void>` | Open a URL in the system browser |
+
+#### Plugin Modal
+
+`usePluginModal()` lets you open a host-managed modal from within a slot component:
+
+```tsx
+const { openModal, closeModal } = usePluginModal();
+
+openModal({
+  title: "OAuth Setup",
+  content: <MyOAuthForm onDone={closeModal} />,
+  size: "md",  // "sm" | "md" | "lg" | "xl"
+});
+```
+
+#### Plugin Translations
+
+Plugins can ship locale files at `locales/{lang}.json` inside their plugin folder. The host loads them automatically and registers them under the plugin's namespace.
+
+```
+my-plugin/
+├── .tabularium
+├── my-plugin-binary
+├── locales/
+│   ├── en.json
+│   └── it.json
+└── ui/
+    └── my-component.js
+```
+
+Use `usePluginTranslation("my-plugin")` in components to access translations via `t("key")`.
+
+### Conditional Rendering
+
+You can control when a contribution appears using two mechanisms:
+
+1. **`driver` field in manifest**: Set `"driver": "my-plugin"` to only render when the active connection uses that driver.
+2. **Component-level filtering**: Return `null` from your component based on `context` values.
+
+```tsx
+export default function PostgresOnly({ context }: SlotComponentProps) {
+  // Only render for PostgreSQL connections
+  if (context.driver !== "postgres") return null;
+  return <div>PostgreSQL-specific action</div>;
+}
+```
+
+### Security Restrictions
+
+Plugin components **must not**:
+- Import from `@tauri-apps/*` directly
+- Access `window.__TAURI__` or invoke Tauri commands
+- Manipulate the DOM outside their subtree
+
+All host interaction goes through `@superdba/plugin-api`.
+
+### Error Isolation
+
+Each contribution is wrapped in a `SlotErrorBoundary`. If your component throws, a small error badge is shown instead — other plugins and the host continue working normally.
+
+For the full specification, see [`plugin-ui-extensions-spec.md`](https://superdba.dev/docs/plugin-ui-extensions-spec.md).
+
+---
+
+## 3c. Plugin-owned EXPLAIN parsers
+
+A plugin that returns the raw `explain_query` shape can ship the matching
+TypeScript parser as an IIFE bundle. Declare each parser in the optional
+`explain_parsers` manifest array:
+
+```json
+{
+  "explain_parsers": [
+    {
+      "engine": "example-db",
+      "format": "example-db-plan-text",
+      "label": "Example DB plan",
+      "module": "explain/dist/index.iife.js"
+    }
+  ]
+}
+```
+
+`engine`, `format`, and `module` are required non-empty strings. `label` is
+optional. The module path is relative to the installed plugin directory and
+must not be absolute or contain `..`.
+
+Build the module as an IIFE named `__superdba_explain_parser__`, externalize
+`@superdba/explain` to `__SUPERDBA_EXPLAIN__`, and default-export either one
+`RegisteredExplainParser` or an array. The host reads each declared module
+once, matches exports by exact `engine` and `format`, applies the manifest
+label, and calls `registerExplainParser`. For example:
+
+```ts
+import type { RegisteredExplainParser } from "@superdba/explain";
+import { parseExamplePlan } from "./parser";
+
+const parser: RegisteredExplainParser = {
+  engine: "example-db",
+  format: "example-db-plan-text",
+  label: "Example DB plan",
+  parse: parseExamplePlan,
+  sniff: (payload) => payload.startsWith("EXAMPLE PLAN"),
+};
+
+export default parser;
+```
+
+Use a separate IIFE entry that only exports the descriptor. Do not
+self-register in that entry because the desktop loader performs registration.
+A package entry intended for npm may register itself when imported. Bundle
+read, evaluation, and descriptor failures are isolated per plugin; parser
+exceptions during actual parsing propagate to Visual EXPLAIN's normal error
+handling.
+
+When enabled plugins change, SuperDBA removes the formats loaded by the
+previous pass and reloads enabled plugin manifests in sorted plugin-id order.
+This makes disable and re-enable cycles deterministic. The plugin's minimum
+runtime version must be the first SuperDBA release that supports both raw
+plugin EXPLAIN output and parser bundles. The host enforces
+`min_runtime_version` at install and load time: an older SuperDBA refuses the
+plugin with a message naming both versions instead of failing later in Visual
+EXPLAIN. Development builds of SuperDBA load the plugin anyway and show the
+mismatch as a warning toast, so a plugin can be tested against unreleased host
+features.
+
+---
+
+## 4. Implementing the JSON-RPC Interface
+
+Your plugin must run an event loop that:
+1. Reads one JSON line from `stdin`.
+2. Parses the JSON-RPC request.
+3. Executes the requested database operation.
+4. Writes a JSON-RPC response to `stdout` followed by `\n`.
+
+### Request Format
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "get_tables",
+  "params": {
+    "params": {
+      "driver": "duckdb",
+      "host": null,
+      "port": null,
+      "database": "/path/to/my_database.duckdb",
+      "username": null,
+      "password": null,
+      "ssl_mode": null
+    },
+    "schema": null
+  },
+  "id": 1
+}
+```
+
+The `params.params` object is a `ConnectionParams` — the same values the user entered in the connection form. The top-level `params` may contain additional method-specific fields (e.g., `schema`, `table`, `column_name`, etc.).
+
+### Successful Response
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": [
+    { "name": "users", "schema": "main", "comment": null }
+  ],
+  "id": 1
+}
+```
+
+### Error Response
+
+```json
+{
+  "jsonrpc": "2.0",
+  "error": {
+    "code": -32603,
+    "message": "Database file not found or inaccessible."
+  },
+  "id": 1
+}
+```
+
+**Standard JSON-RPC error codes:**
+
+| Code | Meaning |
+|------|---------|
+| `-32700` | Parse error |
+| `-32600` | Invalid request |
+| `-32601` | Method not found |
+| `-32602` | Invalid params |
+| `-32603` | Internal error |
+
+### Cancel Notification (Optional)
+
+When a call exceeds the configured plugin call timeout, SuperDBA stops waiting and reports the error to the user. Right after that it writes a JSON-RPC **notification** (no top-level `id`) naming the abandoned request:
+
+```json
+{ "jsonrpc": "2.0", "method": "cancel", "params": { "id": 1 } }
+```
+
+`params.id` is the `id` of the original request. Handling it is optional, but recommended for drivers that run statements on a server: without it a timed-out `execute_query` keeps running there (and a `DELETE` or `UPDATE` still takes effect) even though the user already saw an error.
+
+- **Do not reply.** A notification has no response; writing one would put an unexpected line on `stdout`.
+- **Ignore unknown ids** (already finished, already cancelled, or not cancellable). A late or duplicate cancel must never be treated as an error.
+- **Keep reading `stdin` while a request runs.** A plugin that processes requests strictly one at a time only sees the cancel after the long call has finished.
+- No cancel is sent when the timeout is disabled (`0`): the call simply waits.
+
+---
+
+## 5. Required Methods
+
+Your plugin must respond to the following JSON-RPC methods. For unsupported features, return an empty array `[]` or a `-32601` (Method not found) error: return code `-32601` and a message containing `Method not found` (e.g. `Method not found: execute_query_batch`). Most fallbacks for optional methods match on the message; a few, such as `get_connection_metadata`, `get_table_query_template` and `get_column_stats`, match on the code.
+
+### Connection
+
+#### `test_connection`
+
+Test whether a connection can be established.
+
+**Params:** `{ "params": ConnectionParams }`
+
+**Result:** `{ "success": true }` or an error response.
+
+---
+
+#### `ping` *(optional)*
+
+Lightweight health check called periodically (every N seconds, configurable) on active connections. If SuperDBA does not receive a successful response after 2 consecutive attempts, the connection is considered dead and automatically disconnected.
+
+**Params:** `{ "params": ConnectionParams }`
+
+**Result:** `null` (or any value) on success, or an error response if the connection is no longer alive.
+
+> If your plugin does not implement `ping`, SuperDBA falls back to calling `test_connection` instead. Implementing `ping` is recommended for plugins that can perform a cheaper connectivity check than a full `test_connection` (e.g. reusing an existing connection/session rather than opening a new one).
+
+---
+
+### Schema Discovery
+
+#### `get_databases`
+
+List available databases.
+
+**Params:** `{ "params": ConnectionParams }`
+
+**Result:** `["db1", "db2"]`
+
+---
+
+#### `get_schemas`
+
+List schemas within the current database.
+
+**Params:** `{ "params": ConnectionParams }`
+
+**Result:** `["public", "private"]`
+
+> Return `[]` if `capabilities.schemas` is `false`.
+
+---
+
+#### `get_tables`
+
+List tables in a schema/database.
+
+**Params:** `{ "params": ConnectionParams, "schema": string | null }`
+
+**Result:**
+```json
+[
+  { "name": "users", "schema": "public", "comment": "User accounts" }
+]
+```
+
+---
+
+#### `get_columns`
+
+Get column information for a table.
+
+**Params:** `{ "params": ConnectionParams, "schema": string | null, "table": string }`
+
+**Result:**
+```json
+[
+  {
+    "name": "id",
+    "data_type": "INTEGER",
+    "is_nullable": false,
+    "default_value": null,
+    "is_pk": true,
+    "is_auto_increment": true,
+    "character_maximum_length": null,
+    "numeric_precision": null,
+    "numeric_scale": null,
+    "comment": null
+  }
+]
+```
+
+> **Metadata comments:** `comment` is optional in both `get_tables` and `get_columns`. Older plugins may omit it or return `null`; SuperDBA treats both forms as “description unavailable”. This is an additive response field and does not require a manifest capability or `min_runtime_version`. When present, the host displays it in the schema inspector, explorer tooltips, and table-browse grid headers.
+>
+> **Type precision/length fields:** `character_maximum_length`, `numeric_precision`, and `numeric_scale` are optional additive fields (same backward-compatibility rules as `comment`). When present, SuperDBA preserves them in generated `CREATE TABLE` DDL — e.g. `numeric(10,2)` or `varchar(50)` instead of the bare type name — and the host may surface them in the column inspector. Omit them or return `null` for types that have no such modifier.
+>
+> **Full column type:** `full_type` is an optional additive field (same backward-compatibility rules as `comment`) carrying the full declared type with its modifiers, e.g. `varchar(255)`, `decimal(10,2)`, `int unsigned` or `integer[]`. When present, the explorer's Columns list, the table schema view and the ER diagram show it instead of `data_type`; keep the base type name in `data_type`, since value handling, editing and DDL generation match on it. Send it only when it says more than `data_type`. Without it, the host shows `data_type` with `character_maximum_length` / `numeric_precision` / `numeric_scale` appended when present (e.g. `varchar(50)`, `numeric(10,2)`), so a plugin whose `data_type` already embeds the modifiers needs no change.
+>
+> **JSON / JSONB columns:** Set `data_type` to `"JSON"` or `"JSONB"` (matched case-insensitively) to make SuperDBA render the cell with syntax highlighting and expose the JSON editor window. In `execute_query` row data, send the cell as either a native JSON value (object/array/scalar) or a JSON-formatted string — both are accepted. For text-typed columns that hold JSON, end users can opt in per connection via the **Detect JSON in text columns** setting; no plugin change required.
+
+---
+
+#### `get_foreign_keys`
+
+Get foreign key relationships for a table.
+
+**Params:** `{ "params": ConnectionParams, "schema": string | null, "table": string }`
+
+**Result:**
+```json
+[
+  {
+    "name": "fk_user_id",
+    "column_name": "user_id",
+    "ref_table": "users",
+    "ref_column": "id",
+    "on_update": "CASCADE",
+    "on_delete": "SET NULL",
+    "seq_in_fk": 1
+  }
+]
+```
+
+> **Composite foreign keys:** For a multi-column foreign key, return one entry per column, all sharing the same `name`; set `seq_in_fk` to the 1-based position of each column within its constraint. SuperDBA groups entries by `name` (ordered by `seq_in_fk`, falling back to row order) and emits a single multi-column `FOREIGN KEY (a, b) REFERENCES t (x, y)` clause. `seq_in_fk` is optional and additive; older plugins may omit it for single-column FKs.
+
+---
+
+#### `get_indexes`
+
+Get indexes for a table.
+
+**Params:** `{ "params": ConnectionParams, "schema": string | null, "table": string }`
+
+**Result:**
+```json
+[
+  {
+    "index_name": "idx_email",
+    "columns": ["email"],
+    "is_unique": true,
+    "is_primary": false
+  }
+]
+```
+
+---
+
+### Views
+
+#### `get_views`
+
+List views in a schema/database.
+
+**Params:** `{ "params": ConnectionParams, "schema": string | null }`
+
+**Result:** `[{ "name": "active_users", "schema": "public" }]`
+
+---
+
+#### `get_view_definition`
+
+Get the SQL definition of a view.
+
+**Params:** `{ "params": ConnectionParams, "schema": string | null, "view": string }`
+
+**Result:** `"SELECT * FROM users WHERE active = true"`
+
+---
+
+#### `get_view_columns`
+
+Get column information for a view.
+
+**Params:** `{ "params": ConnectionParams, "schema": string | null, "view": string }`
+
+**Result:** Same structure as `get_columns`.
+
+---
+
+#### `create_view`
+
+Create a new view.
+
+**Params:** `{ "params": ConnectionParams, "schema": string | null, "name": string, "definition": string }`
+
+**Result:** `null` on success, or an error.
+
+---
+
+#### `alter_view`
+
+Replace or modify an existing view.
+
+**Params:** `{ "params": ConnectionParams, "schema": string | null, "name": string, "definition": string }`
+
+**Result:** `null` on success, or an error.
+
+---
+
+#### `drop_view`
+
+Drop a view.
+
+**Params:** `{ "params": ConnectionParams, "schema": string | null, "name": string }`
+
+**Result:** `null` on success, or an error.
+
+---
+
+### Materialized Views
+
+These methods are optional. Declare `materialized_views: true` in capabilities to enable the UI. If your plugin returns `-32601` (method not found), the host falls back to empty results for `get_materialized_views` and `get_materialized_view_columns`; `get_materialized_view_definition` and `refresh_materialized_view` surface a "not supported by this driver" error instead.
+
+#### `get_materialized_views`
+
+List materialized views in a schema.
+
+**Params:** `{ "params": ConnectionParams, "schema": string | null }`
+
+**Result:** `[{ "name": string, "schema": string | null }]`
+
+#### `get_materialized_view_columns`
+
+Get columns of a materialized view.
+
+**Params:** `{ "params": ConnectionParams, "view_name": string, "schema": string | null }`
+
+**Result:** `[TableColumn]` (same shape as `get_columns`)
+
+#### `get_materialized_view_definition`
+
+Get the SQL definition of a materialized view.
+
+**Params:** `{ "params": ConnectionParams, "view_name": string, "schema": string | null }`
+
+**Result:** `string` (the SQL definition)
+
+#### `refresh_materialized_view`
+
+Refresh a materialized view's data.
+
+**Params:** `{ "params": ConnectionParams, "view_name": string, "schema": string | null }`
+
+**Result:** `null` on success, or an error.
+
+---
+
+### Routines
+
+#### `get_routines`
+
+List stored procedures and functions.
+
+**Params:** `{ "params": ConnectionParams, "schema": string | null }`
+
+**Result:**
+```json
+[
+  { "name": "calculate_total", "routine_type": "FUNCTION", "schema": "public" }
+]
+```
+
+##### Overloaded routines: `identity_args`
+
+A name does not identify a routine in every dialect. Where yours overloads, add
+`identity_args` to each entry with that routine's argument signature:
+
+```json
+[
+  { "name": "f", "routine_type": "FUNCTION", "identity_args": "" },
+  { "name": "f", "routine_type": "FUNCTION", "identity_args": "a integer" },
+  { "name": "f", "routine_type": "FUNCTION", "identity_args": "a text" }
+]
+```
+
+SuperDBA labels the sidebar and palette entries with it, so overloads are
+distinguishable, and sends it back as `identity_args` on the two reads below and
+on the optional `get_routine_edit_script` and `drop_routine` management RPCs, so
+each one acts on the routine the user clicked. Without it, every read takes the
+first match and the reader cannot tell which one they got.
+
+Three rules, because the field is a key and not a label:
+
+- **Omit it where a name is enough.** MySQL and SQLite do; there is no overload
+  to disambiguate and an empty label is noise.
+- **An EMPTY string is a value, not an absence.** It is the signature of a
+  routine that takes no arguments, and it is what tells `f()` apart from
+  `f(a integer)`. Only a missing field means "this dialect does not overload".
+- **Round-trip it unchanged.** SuperDBA treats it as opaque: it stores what you
+  send and sends it back verbatim. Use whatever your dialect accepts for
+  identifying one routine - the PostgreSQL driver uses
+  `pg_get_function_identity_arguments`, which `DROP`, `ALTER` and a catalog
+  lookup all take.
+
+---
+
+#### `get_routine_parameters`
+
+Get parameters of a stored routine.
+
+**Params:** `{ "params": ConnectionParams, "schema": string | null, "routine": string, "identity_args": string | null }`
+
+**Result:**
+```json
+[
+  { "name": "p_user_id", "data_type": "INTEGER", "mode": "IN" }
+]
+```
+
+`identity_args` is the signature your `get_routines` reported for the row the
+user clicked, or `null` where you reported none. Filter on it: a parameter list
+that mixes two overloads is worse than an empty one, because the Run dialog
+offers those arguments under one overload's name.
+
+---
+
+#### `get_routine_definition`
+
+Get the SQL body of a stored routine.
+
+**Params:** `{ "params": ConnectionParams, "schema": string | null, "routine": string, "identity_args": string | null }`
+
+**Result:** `"BEGIN ... END"`
+
+---
+
+### Triggers
+
+Set `capabilities.triggers` to `true` when your driver implements the trigger RPCs. SuperDBA uses this flag to show trigger-related UI.
+
+#### `get_triggers`
+
+List triggers in a schema/database.
+
+**Params:** `{ "params": ConnectionParams, "schema": string | null }`
+
+**Result:**
+```json
+[
+  {
+    "name": "users_audit_trg",
+    "table_name": "users",
+    "event": "INSERT OR UPDATE",
+    "timing": "AFTER",
+    "definition": "CREATE TRIGGER users_audit_trg ..."
+  }
+]
+```
+
+---
+
+#### `get_trigger_definition`
+
+Get the SQL definition of a trigger.
+
+**Params:** `{ "params": ConnectionParams, "schema": string | null, "trigger_name": string, "table_name": string }`
+
+**Result:** `"CREATE TRIGGER users_audit_trg ..."`
+
+---
+
+#### `create_trigger`
+
+Create a trigger from SQL generated by the UI or entered in raw SQL mode.
+
+**Params:** `{ "params": ConnectionParams, "schema": string | null, "trigger_sql": string }`
+
+**Result:** `null` on success, or an error.
+
+---
+
+#### `drop_trigger`
+
+Drop a trigger.
+
+**Params:** `{ "params": ConnectionParams, "schema": string | null, "trigger_name": string, "table_name": string }`
+
+**Result:** `null` on success, or an error.
+
+---
+
+### Query Execution
+
+#### `execute_query`
+
+Execute a SQL query and return results.
+
+**Params:**
+```json
+{
+  "params": ConnectionParams,
+  "query": "SELECT * FROM users",
+  "page": 1,
+  "page_size": 100
+}
+```
+
+**Result:**
+```json
+{
+  "columns": ["id", "name", "email"],
+  "rows": [
+    [1, "Alice", "alice@example.com"]
+  ],
+  "total_count": 1,
+  "execution_time_ms": 12
+}
+```
+
+---
+
+#### `explain_query`
+
+Run EXPLAIN or EXPLAIN ANALYZE for a query. Plugins may return either the
+historical parsed plan shape or a raw payload for a parser registered with the
+host.
+
+**Params:**
+
+```json
+{
+  "params": "ConnectionParams",
+  "query": "SELECT * FROM users WHERE id = 42",
+  "analyze": false,
+  "schema": "public"
+}
+```
+
+**Parsed plan result:**
+
+```json
+{
+  "root": {
+    "id": "node-0",
+    "node_type": "Index Scan",
+    "relation": "users",
+    "startup_cost": 0.15,
+    "total_cost": 8.17,
+    "plan_rows": 1,
+    "actual_rows": null,
+    "actual_time_ms": null,
+    "actual_loops": null,
+    "buffers_hit": null,
+    "buffers_read": null,
+    "filter": null,
+    "index_condition": "id = 42",
+    "join_type": null,
+    "hash_condition": null,
+    "extra": {},
+    "children": []
+  },
+  "planning_time_ms": 0.12,
+  "execution_time_ms": null,
+  "original_query": "SELECT * FROM users WHERE id = 42",
+  "driver": "example-db",
+  "has_analyze_data": false,
+  "raw_output": null
+}
+```
+
+**Raw result:**
+
+```json
+{
+  "engine": "example-db",
+  "format": "example-db-plan-text",
+  "payload": "raw plan payload",
+  "original_query": "SELECT * FROM users WHERE id = 42"
+}
+```
+
+The raw shape is detected only when `engine`, `format`, and `payload` are all
+strings. `original_query` may be omitted or `null`; the host then fills it from
+the request. Use a `format` registered by the plugin's EXPLAIN parser bundle.
+A plugin returning the raw shape requires a SuperDBA host new enough to
+understand raw plugin output and load that bundle, so set `min_runtime_version`
+to the first compatible host release. Older parsed-plan plugins remain
+supported permanently.
+
+---
+
+### CRUD Operations
+
+#### `insert_record`
+
+Insert a new row into a table.
+
+**Params:**
+```json
+{
+  "params": ConnectionParams,
+  "schema": null,
+  "table": "users",
+  "data": { "name": "Bob", "email": "bob@example.com" }
+}
+```
+
+**Result:** `null` on success, or an error.
+
+---
+
+#### `update_record`
+
+Update a single field in a row.
+
+**Params:**
+```json
+{
+  "params": ConnectionParams,
+  "schema": null,
+  "table": "users",
+  "pk_col": "id",
+  "pk_val": 42,
+  "col_name": "name",
+  "new_val": "Robert"
+}
+```
+
+**Result:** Number of affected rows (e.g. `1`), or an error.
+
+---
+
+#### `delete_record`
+
+Delete a row from a table.
+
+**Params:**
+```json
+{
+  "params": ConnectionParams,
+  "schema": null,
+  "table": "users",
+  "pk_col": "id",
+  "pk_val": 42
+}
+```
+
+**Result:** Number of affected rows (e.g. `1`), or an error.
+
+---
+
+### BLOB Operations
+
+These methods are optional. If your plugin returns `-32601` (method not found), the host shows "BLOB export/preview not supported" to the user.
+
+#### `save_blob_to_file`
+
+Save a binary column value to a file on disk. The plugin receives the file path and is responsible for writing the file directly (since the plugin runs on the same machine as the host).
+
+**Params:**
+```json
+{
+  "params": ConnectionParams,
+  "table": "documents",
+  "col_name": "content",
+  "pk_map": { "id": 42 },
+  "schema": "public",
+  "file_path": "/tmp/export.pdf"
+}
+```
+
+**Result:** `null` on success, or an error.
+
+**Contract:** The plugin must:
+1. Query the binary column value using the PK map to identify the row
+2. Write the raw bytes to `file_path`
+3. Return `null` on success or an error string on failure
+
+#### `fetch_blob_as_data_url`
+
+Fetch a binary column value and return it as a displayable string (for preview in the row editor).
+
+**Params:**
+```json
+{
+  "params": ConnectionParams,
+  "table": "images",
+  "col_name": "data",
+  "pk_map": { "id": 7 },
+  "schema": "public"
+}
+```
+
+**Result:** A string in the BLOB wire format: `"BLOB:<size_bytes>:<mime_type>:<base64_data>"`, or an error.
+
+**Example response:**
+```json
+{ "result": "BLOB:1024:image/png:iVBORw0KGgo..." }
+```
+
+---
+
+### AI Schema Context (Optional)
+
+AI Query Assist obtains metadata through the active database driver. Plugins
+that already implement `get_tables`, `get_columns`, and `get_foreign_keys` work
+without changes: SuperDBA calls those standard methods, limits the result, and
+formats the provider-agnostic system prompt in the host.
+
+Plugins may optionally implement `get_ai_schema_context` to replace those
+per-table calls with a database-specific batch query. Return JSON-RPC error
+`-32601` when the method is not implemented; SuperDBA then uses the standard
+metadata fallback automatically.
+
+**Params:**
+```json
+{
+  "params": ConnectionParams,
+  "schema": "public",
+  "max_tables": 20
+}
+```
+
+**Result:**
+```json
+{
+  "tables": [
+    {
+      "name": "users",
+      "columns": [ /* standard get_columns entries */ ],
+      "foreign_keys": [ /* standard get_foreign_keys entries */ ]
+    }
+  ],
+  "total_table_count": 42
+}
+```
+
+The plugin must respect `max_tables`, but `total_table_count` reports the
+number of tables before truncation. Plugins return structured metadata only;
+the host owns prompt wording, identifier quoting, and provider dispatch.
+
+---
+
+### Batch / ER Diagram Methods
+
+These methods are used to build ER diagrams efficiently by loading all metadata in one call.
+
+#### `get_schema_snapshot`
+
+Return the complete schema structure (tables + columns + foreign keys).
+
+**Params:** `{ "params": ConnectionParams, "schema": string | null }`
+
+**Result:**
+```json
+[
+  {
+    "name": "users",
+    "columns": [ /* column list */ ],
+    "foreign_keys": [ /* FK list */ ]
+  }
+]
+```
+
+---
+
+#### `get_all_columns_batch`
+
+Return columns for all tables at once.
+
+**Params:** `{ "params": ConnectionParams, "schema": string | null, "tables": ["users", "orders"] }`
+
+**Result:** `{ "users": [ /* columns */ ], "orders": [ /* columns */ ] }`
+
+---
+
+#### `get_all_foreign_keys_batch`
+
+Return foreign keys for all tables at once.
+
+**Params:** `{ "params": ConnectionParams, "schema": string | null, "tables": ["users", "orders"] }`
+
+**Result:** `{ "users": [ /* FKs */ ], "orders": [ /* FKs */ ] }`
+
+---
+
+### Table Query Templates
+
+`get_table_query_template` is an **optional, additive** RPC, called only when
+`capabilities.table_query_templates` is `true`. It returns a SQL preview and
+**must not execute** the generated statement.
+
+**Params:**
+
+```json
+{
+  "params": { "driver": "sqlserver", "connection_id": "..." },
+  "request": {
+    "table": "orders",
+    "schema": "sales",
+    "kind": "select",
+    "columns": ["id", "status"],
+    "limit": 100
+  }
+}
+```
+
+`params` is the usual resolved `ConnectionParams`. `request.kind` is `select`,
+`update` or `delete`. Table, schema and column names are **unquoted identifiers**,
+not SQL fragments; the driver must quote and escape them. `columns` defaults to
+`[]`: SELECT uses `*`, UPDATE produces an editable column placeholder. `schema`
+and `limit` may be omitted or null. `limit` is an unsigned 32-bit explicit SELECT
+row limit (including zero); UPDATE/DELETE reject a non-null limit. SELECT All
+passes no limit; SELECT Fields passes 100. UPDATE/DELETE templates must include
+`WHERE 1 = 0` to prevent accidental broad writes. UPDATE values use the host
+editor's named placeholders (`:value_1`, etc.), not driver-native bind markers.
+
+**Result:** a string, for example
+`"SELECT TOP (100) [id], [status] FROM [sales].[orders];"`.
+
+Compatibility:
+
+- Missing/false capability: no new RPC is sent; legacy generation is unchanged.
+- Remote JSON-RPC error **code** `-32601`: the host falls back to its legacy
+  template. Transport errors, other remote errors and malformed results are
+  surfaced, not silently replaced with another SQL dialect.
+- The Tauri command returns `string | null`; null is the host's fallback signal,
+  **not** a valid plugin success result.
+- Existing RPC signatures, built-in driver behavior and CREATE TABLE generation
+  are unchanged. This is not a replacement for the existing DDL methods.
+- Older hosts ignore the new manifest capability and never call the method.
+  Plugins need not raise `min_runtime_version` solely for this optional feature.
+- The capability is a static manifest opt-in, not a connection-metadata override.
+
+Registry rollout: add an optional boolean `table_query_templates` (default
+false) to the driver kind's `capabilities.properties` in Tabularium for schema
+validation and generated documentation. Do not make it required. The registry
+only distributes the manifest and release; it does not route the RPC. No change
+to registry endpoints, release formats or the Tabularium SDK is needed. Register
+the property before publishing: Tabularium ingestion uses lenient validation with
+AJV `removeAdditional: 'all'`, which strips undeclared capability keys even when
+the capabilities schema otherwise allows additional properties. Refresh an
+already-ingested manifest after updating the schema.
+
+---
+
+### Column Statistics
+
+The data grid's column header menu has a **Column statistics** entry on table
+tabs. It opens a popover with the row count, NULL count, distinct count,
+min / max and the most frequent values of the column, for the rows that match
+the tab's current filter.
+
+Which source the host uses depends on the driver's capabilities:
+
+| Driver | Statistics come from |
+|--------|----------------------|
+| Plugin with `capabilities.column_stats: true` | the plugin's `get_column_stats` RPC |
+| Built-in driver, or plugin whose `sql_syntax.extends` or `sql_dialect` is `postgres`, `mysql` or `sqlite` | the host's generic SQL (`COUNT(*)`, `COUNT(DISTINCT col)`, `MIN` / `MAX`, then `GROUP BY col ORDER BY 2 DESC, 1 LIMIT 10`) |
+| Any other plugin | nowhere: the menu entry is hidden |
+
+"SQL-compatible" means an **explicitly declared** `sql_syntax.extends` or
+`sql_dialect` that the generic SQL runs on (a valid `extends` wins when both are set;
+an `extends` that isn't a known dialect is ignored, as for the syntax preset).
+Declaring neither doesn't count (the statement splitter treats it as
+`postgres`, but that is a splitting default, not a promise that the engine
+runs arbitrary SQL). `mssql` and `oracle` have no
+`LIMIT`, and `generic` promises no particular syntax, so those plugins need
+`column_stats` to get the popover. A plugin that borrows a dialect only for
+quoting or splitting (for example a non-SQL engine declaring `mysql` for
+backtick identifiers) should opt in, or its users get a failing query.
+
+`get_column_stats` is an **optional, additive**, read-only RPC, called only
+when `capabilities.column_stats` is `true`.
+
+**Params:**
+
+```json
+{
+  "params": { "driver": "surrealdb", "connection_id": "...", "database": "app" },
+  "request": {
+    "table": "orders",
+    "schema": null,
+    "column": "total",
+    "data_type": "decimal",
+    "filter": "status = 'open'",
+    "top_values_limit": 10,
+    "include": { "distinct": true, "min_max": true, "top_values": true }
+  }
+}
+```
+
+- `params` is the usual resolved `ConnectionParams`, with the tab's database.
+- `table`, `schema` and `column` are **unquoted identifiers**; the driver quotes
+  and escapes them. `schema` is null unless the driver has `schemas: true`.
+- `data_type` is the column type the grid shows, or null when unknown.
+- `filter` is the tab's current filter, a WHERE clause without the keyword,
+  exactly as the grid query applies it (so in the plugin's own dialect), or
+  null. Sort and LIMIT are not applied.
+- `include` says which optional parts to compute. The host turns parts off for
+  types where they make no sense (no min / max for text, no top values for
+  binary or JSON columns) and for **masked columns**, which never get min / max
+  or top values. Skip what isn't asked for; the host drops it anyway.
+- The request carries no session context: the tab's `sessionId` is not sent, so
+  session-local state (temporary tables, `SET search_path`) is not visible to
+  `get_column_stats`. The same applies to `get_table_query_template`.
+
+**Result:**
+
+```json
+{
+  "row_count": 120,
+  "null_count": 3,
+  "distinct_count": 40,
+  "min": 1.5,
+  "max": 980,
+  "top_values": [{ "value": 25, "count": 12 }, { "value": 30, "count": 9 }],
+  "sample_size": null
+}
+```
+
+- `row_count` and `null_count` are required unsigned integers (rows matching the
+  filter, and those where the column is NULL or missing), with
+  `null_count <= row_count`.
+- `distinct_count`, `min`, `max` and `top_values` may be null or omitted when not
+  computed. `min` / `max` and the top `value`s are any JSON value; the popover
+  shows strings as they are and other values as JSON.
+- `top_values` lists the most frequent non-NULL values, most frequent first, at
+  most `top_values_limit` of them. Clicking one filters the table by
+  `column = value` through the usual filter clause.
+- `sample_size` (optional): set it when `distinct_count`, `min`, `max` and
+  `top_values` were computed over a sample of that many non-NULL values instead
+  of all of them. `row_count` and `null_count` must stay exact. The popover then
+  says the value statistics come from a sample, computes the top value shares
+  against the sample and doesn't claim the column is unique.
+
+Compatibility:
+
+- Missing/false capability: no RPC is sent; the rules in the table above apply.
+- Remote JSON-RPC error **code** `-32601`: the host falls back to its generic SQL
+  when the plugin is SQL-compatible, and otherwise shows "doesn't provide column
+  statistics" in the popover. Transport errors, other remote errors and
+  malformed results are shown as errors.
+- The Tauri command `get_column_stats` returns the result or `null`; null is
+  the host's fallback signal, **not** a valid plugin success result.
+- Cancellation: closing the popover doesn't cancel the RPC (there is no
+  per-request cancel, and `cancel_query` would stop the whole connection). The
+  host drops a result that arrives after the popover closed. Keep the method
+  cheap on large tables, for example by sampling.
+- Built-in drivers are unchanged. Older hosts ignore the capability and never
+  call the method.
+- The capability is a static manifest opt-in, not a connection-metadata override.
+
+Registry rollout: as for `table_query_templates`, add an optional boolean
+`column_stats` (default false) to the driver kind's `capabilities.properties`
+in Tabularium before publishing a plugin that sets it.
+
+---
+
+### DDL Generation
+
+These methods generate SQL statements. SuperDBA may display the SQL to the user before executing it. When `get_tables` / `get_columns` return comments, the host preserves them in generated inspection SQL for MySQL-family dialects and dialects that use `COMMENT ON` (currently PostgreSQL and Oracle). Other dialects continue to receive the existing DDL without comments; no manifest change is required.
+
+**Connection context.** Every DDL generation request carries `params`
+(`ConnectionParams`) with the database the user is browsing already applied:
+in a multi-database connection `params.database` is the selected database (for
+example a project), not the first one saved on the connection. Plugins can use
+it to qualify names (`project.dataset.table`) or pick a dialect variant. The
+field is additive: older plugins that ignore it keep working. These are pure
+SQL builders: SuperDBA does not open SSH/SSM/K8s tunnels for them, so
+`host`/`port` are the saved values (not a local tunnel endpoint). The keychain
+password, the connection URI and the plugin-owned secrets
+(`params.extra[key]`, see [`setSecretField`](#slotcontext)) are passed when
+they can be read; a secret that is missing or unreadable is left unset and the
+request is still sent. Build the SQL without connecting when you can. A builder
+that needs the backend (for example `get_drop_table_sql` looking up the table
+kind) must handle an unset credential by falling back to a generic statement or
+returning a clear error. Results are an array of statements, executed in
+order.
+
+`ColumnDefinition`:
+
+```json
+{ "name": "email", "data_type": "VARCHAR(255)", "is_nullable": true, "is_pk": false,
+  "is_auto_increment": false, "default_value": null, "comment": "Primary contact address" }
+```
+
+`comment` is optional and only present when the user entered a description
+(the field is shown only when the plugin declares `capabilities.column_comments`).
+In `get_alter_column_sql`, compare `old_column.comment` with
+`new_column.comment`: a missing `new_column.comment` while the old one was set
+means the description was cleared.
+
+#### `get_create_table_sql`
+
+**Params:** `{ "params": ConnectionParams, "schema": string | null, "table_name": string, "columns": ColumnDefinition[] }`
+
+**Result:** `["CREATE TABLE users (...)"]`
+
+---
+
+#### `get_add_column_sql`
+
+**Params:** `{ "params": ConnectionParams, "schema": string | null, "table": string, "column": ColumnDefinition }`
+
+**Result:** `["ALTER TABLE users ADD COLUMN ..."]`
+
+---
+
+#### `get_alter_column_sql`
+
+**Params:** `{ "params": ConnectionParams, "schema": string | null, "table": string, "old_column": ColumnDefinition, "new_column": ColumnDefinition }`
+
+**Result:** `["ALTER TABLE users MODIFY COLUMN ..."]`
+
+---
+
+#### `get_create_index_sql`
+
+**Params:** `{ "params": ConnectionParams, "schema": string | null, "table": string, "index_name": string, "columns": string[], "is_unique": boolean }`
+
+**Result:** `["CREATE INDEX idx_email ON users(email)"]`
+
+---
+
+#### `get_create_foreign_key_sql`
+
+**Params:** `{ "params": ConnectionParams, "schema": string | null, "table": string, "fk_name": string, "column": string, "ref_table": string, "ref_column": string, "on_delete": string | null, "on_update": string | null }`
+
+**Result:** `["ALTER TABLE orders ADD CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(id)"]`
+
+---
+
+#### `routine_create_template`
+
+Optional. Returns the editor template for a new routine. A `-32601` falls back
+to a generic `CREATE PROCEDURE`/`CREATE FUNCTION` skeleton.
+
+**Params:** `{ "params": ConnectionParams, "schema": string | null, "routine_type": "PROCEDURE" | "FUNCTION" }`
+
+**Result:** `"CREATE PROCEDURE my_routine() ..."`
+
+---
+
+#### `get_drop_table_sql`
+
+Optional, and only called when the manifest declares
+`capabilities.drop_table_sql: true`. Returns the statement the explorer runs
+when the user drops a table, for engines where a plain `DROP TABLE` is wrong
+for some table kinds (for example `DROP SNAPSHOT TABLE` or
+`DROP EXTERNAL TABLE`). `database` is the database the user is browsing (also
+applied to `params.database`), or `null`.
+
+**Params:** `{ "params": ConnectionParams, "table": string, "schema": string | null, "database": string | null }`
+
+**Result:** ``"DROP SNAPSHOT TABLE `project.dataset.daily`"``
+
+Return `null` (or a `-32601` Method not found error) to let SuperDBA build its
+generic `DROP TABLE <quoted schema>.<quoted table>` with your
+`identifier_quote`. A blank string or any non-string result (an array, an
+object, ...) is ignored the same way, with a warning in the host log. Any other
+error is shown to the user and nothing is executed. Plugins without the
+capability, and built-in drivers, never receive this call; older hosts ignore
+the flag and always run the generic statement.
+
+---
+
+#### `drop_index`
+
+**Params:** `{ "params": ConnectionParams, "schema": string | null, "table": string, "index_name": string }`
+
+**Result:** `null` on success, or an error.
+
+---
+
+#### `drop_foreign_key`
+
+**Params:** `{ "params": ConnectionParams, "schema": string | null, "table": string, "constraint_name": string }`
+
+**Result:** `null` on success, or an error.
+
+---
+
+## 6. Example: Building a Minimal Plugin in Rust
+
+Here is a minimal but functional skeleton for a plugin executable in Rust.
+
+```rust
+use std::io::{self, BufRead, Write};
+use serde_json::{json, Value};
+
+fn main() {
+    let stdin = io::stdin();
+    let mut stdout = io::stdout();
+
+    for line in stdin.lock().lines() {
+        let line = line.unwrap();
+        if line.trim().is_empty() {
+            continue;
+        }
+
+        let req: Value = serde_json::from_str(&line).unwrap_or_else(|_| {
+            // Ignore unparseable lines
+            return Value::Null;
+        });
+
+        if req.is_null() {
+            continue;
+        }
+
+        let id = req["id"].clone();
+        let method = req["method"].as_str().unwrap_or("");
+        let params = &req["params"];
+
+        let response = dispatch(method, params, id);
+
+        let mut res_str = serde_json::to_string(&response).unwrap();
+        res_str.push('\n');
+        stdout.write_all(res_str.as_bytes()).unwrap();
+        stdout.flush().unwrap();
+    }
+}
+
+fn dispatch(method: &str, params: &Value, id: Value) -> Value {
+    match method {
+        "test_connection" => json!({
+            "jsonrpc": "2.0",
+            "result": { "success": true },
+            "id": id
+        }),
+
+        // Optional: lightweight health check (called periodically).
+        // If omitted, SuperDBA falls back to test_connection.
+        "ping" => json!({
+            "jsonrpc": "2.0",
+            "result": null,
+            "id": id
+        }),
+
+        "get_databases" => json!({
+            "jsonrpc": "2.0",
+            "result": ["my_database"],
+            "id": id
+        }),
+
+        "get_schemas" => json!({
+            "jsonrpc": "2.0",
+            "result": [],
+            "id": id
+        }),
+
+        "get_tables" => {
+            // Connect to the database using params["params"]["database"], etc.
+            json!({
+                "jsonrpc": "2.0",
+                "result": [
+                    { "name": "example_table", "schema": null, "comment": null }
+                ],
+                "id": id
+            })
+        },
+
+        "execute_query" => {
+            let query = params["query"].as_str().unwrap_or("");
+            // Execute query and return results
+            json!({
+                "jsonrpc": "2.0",
+                "result": {
+                    "columns": ["id", "name"],
+                    "rows": [[1, "Alice"]],
+                    "total_count": 1,
+                    "execution_time_ms": 5
+                },
+                "id": id
+            })
+        },
+
+        _ => json!({
+            "jsonrpc": "2.0",
+            "error": {
+                "code": -32601,
+                "message": format!("Method not found: {}", method)
+            },
+            "id": id
+        }),
+    }
+}
+```
+
+Add `serde_json` to your `Cargo.toml`:
+
+```toml
+[dependencies]
+serde_json = "1"
+```
+
+---
+
+## 7. Testing Your Plugin
+
+### Manual Testing via Shell
+
+You can test your plugin directly by piping JSON-RPC messages:
+
+```bash
+echo '{"jsonrpc":"2.0","method":"get_tables","params":{"params":{"driver":"duckdb","database":"/tmp/test.duckdb"},"schema":null},"id":1}' \
+  | ./duckdb-plugin
+```
+
+You should see a valid JSON-RPC response on stdout.
+
+### Installing Locally
+
+1. Create the plugin directory in SuperDBA's data folder:
+   - **Linux:** `~/.local/share/superdba/plugins/drivers/myplugin/`
+   - **macOS:** `~/Library/Application Support/superdba/plugins/drivers/myplugin/`
+   - **Windows:** `%APPDATA%\superdba\plugins\drivers\myplugin\`
+2. Place your `.tabularium` (or legacy `manifest.json`) and the compiled executable in that directory.
+3. On Linux/macOS, make the executable runnable: `chmod +x myplugin`
+4. Restart SuperDBA (or install via Settings to hot-reload without restart).
+5. Open **Settings → Installed Plugins** — your driver should appear.
+6. Try creating a new connection using your driver from the connection form.
+
+---
+
+## 8. Publishing Your Plugin
+
+To make your plugin available in the official registry:
+
+1. Build release binaries for all supported platforms.
+2. Package each platform binary with your `.tabularium` into a `.zip` file (the scaffolded release workflow does this).
+3. Create a GitHub Release with the ZIP files attached — **plus `.tabularium` as a standalone asset** (GitHub renames it to `default.tabularium`; the registry accepts both). The registry resolves the manifest from release assets, and the tag stripped of `v` must equal the manifest `version`.
+4. Submit your plugin at [registry.superdba.dev/submit](https://registry.superdba.dev/submit) — ownership is verified via OAuth against your linked repository, and CI can pre-validate the manifest via `POST /api/manifest/validate`. A manifest that fails validation is rejected with **HTTP 422** — there is no silent fallback. The registry's [plugin development page](https://registry.superdba.dev/docs/plugin-development) documents every `.tabularium` field; the full author docs live at [docs.tabularium.wiki](https://docs.tabularium.wiki/manifest/).
+5. Installs are verified client-side: SuperDBA checks the registry's JWS signature and the download's SHA-256 before anything runs.
+
+The legacy path — a pull request adding an entry to `plugins/registry.json` (format in [README.md](./README.md)) — still works during the transition; new plugins should submit to the registry directly.
+
+> **Note:** `min_superdba_version` is specified per-release inside the `releases[]` array,
+> not at the root plugin level. This allows older SuperDBA installs to install an older
+> compatible release even when a newer release requires a higher app version.

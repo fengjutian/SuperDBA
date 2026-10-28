@@ -1,0 +1,83 @@
+name: superdba
+base: core24
+version: "0.0.0"
+summary: Open-source database client with AI, notebooks, and plugins
+website: https://superdba.dev
+issues: https://github.com/SuperDBA/SuperDBA/issues
+source-code: https://github.com/SuperDBA/SuperDBA
+title: SuperDBA
+contact: andrea@debbaweb.it
+description: |
+  SuperDBA is a free, open-source desktop database client for PostgreSQL,
+  MySQL/MariaDB, and SQLite. Built with Rust (Tauri v2) and React, it is
+  fast, lightweight, and designed for everyday SQL work.
+
+  SQL Notebooks: combine SQL and Markdown cells with inline charts, cross-cell
+  variables, parameters, and export to HTML/CSV/JSON.
+
+  AI-Powered SQL Assistant: generate SQL from natural language, explain queries,
+  and get optimization suggestions. Supports OpenAI, Claude, Ollama (local),
+  OpenRouter, Requesty, and any OpenAI-compatible API.
+
+  MCP Server: built-in Model Context Protocol server for AI agent integration
+  with Claude Desktop, Claude Code, Cursor, and Windsurf.
+
+  Visual Query Builder: drag-and-drop interface for JOINs, filters, aggregates,
+  and sorting with real-time SQL generation.
+
+  Plugin System: add any database driver (DuckDB, ClickHouse, MongoDB, etc.)
+  using JSON-RPC plugins in any language.
+
+  Also includes: Monaco-based SQL editor with smart autocomplete, high-performance
+  virtualized data grid with inline editing, ER diagram visualization, SSH
+  tunneling, system keychain credential storage, split view, SQL dump/import,
+  10+ themes, customizable keyboard shortcuts, and multi-language support
+  (EN, IT, ES, ZH, FR, DE).
+
+  Website: https://superdba.dev
+  Source: https://github.com/SuperDBA/SuperDBA
+
+grade: stable
+confinement: strict
+
+platforms:
+  amd64:
+    build-on: [amd64]
+    build-for: [amd64]
+
+parts:
+  superdba:
+    plugin: dump
+    source: superdba.deb
+    source-type: deb
+    # WebKitGTK deliberately comes from the gnome-46-2404 platform snap, not
+    # from stage-packages. The gnome extension bind-mounts the platform's
+    # /usr/lib/<arch>/webkit2gtk-4.1 (helper processes, injected bundle)
+    # into the snap, so staging a second libwebkit2gtk-4.1 here pairs a
+    # library from one WebKitGTK release with helper processes from another.
+    # Relying on the platform keeps the whole stack version-coherent and
+    # security updates arrive through the platform snap without a rebuild.
+    stage-packages:
+      - libayatana-appindicator3-1
+
+apps:
+  superdba:
+    command: usr/bin/superdba
+    extensions: [gnome]
+    environment:
+      WEBKIT_DISABLE_DMABUF_RENDERER: "1" # disable DMABuf in WebKit
+      LIBGL_ALWAYS_SOFTWARE: "1"
+    plugs:
+      - home
+      - network
+      # Lets xdg-desktop-portal report HasNetworkStatus=true for this snap.
+      # The gnome extension sets GTK_USE_PORTAL=1, so WebKit's network
+      # process resolves proxies through the portal; without this plug the
+      # portal refuses with "This call is not available inside the sandbox"
+      # and every request made by the WebView itself fails.
+      - network-status
+      - opengl
+      # Not auto-connected by default: saving connection credentials needs
+      # `sudo snap connect superdba:password-manager-service` until the
+      # Snap Store grants auto-connection for this snap.
+      - password-manager-service

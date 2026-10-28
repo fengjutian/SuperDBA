@@ -1,0 +1,11 @@
+[
+  {
+    "name": "with_cross_schema_fk_lookup_code_fkey",
+    "column_name": "lookup_code",
+    "ref_table": "lookup",
+    "ref_column": "code",
+    "on_delete": "NO ACTION",
+    "on_update": "NO ACTION",
+    "seq_in_fk": 1
+  }
+]

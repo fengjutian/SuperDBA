@@ -1,0 +1,27 @@
+SuperDBA Web is starting at {{ include "superdba.publicUrl" . }}
+{{- if not .Values.ingress.enabled }}
+
+No ingress is enabled. Route {{ include "superdba.publicHost" . }} to the service
+{{ include "superdba.fullname" . }}:{{ .Values.service.port }} and keep the original Host header.
+{{- end }}
+{{- if eq .Values.auth.mode "password" }}
+
+Login password:
+{{- if include "superdba.hasSecretKey" (list .Values "web-password") }}
+  kubectl get secret -n {{ .Release.Namespace }} {{ include "superdba.secretName" . }} \
+    -o jsonpath='{.data.web-password}' | base64 -d; echo
+{{- else }}
+  kubectl exec -n {{ .Release.Namespace }} deploy/{{ include "superdba.fullname" . }} -- cat /data/web-password; echo
+{{- end }}
+{{- end }}
+{{- if include "superdba.hasSecretKey" (list .Values "secret-key") }}
+
+Back up the `secret-key` of the secret {{ include "superdba.secretName" . }}
+together with the data volume: the saved connection credentials cannot be
+decrypted without it.
+{{- else }}
+
+The secret-store key was generated in /data/secrets.key on the data volume.
+Anyone who can read the volume can decrypt the saved credentials; set
+secretStore.key to keep the key separate.
+{{- end }}

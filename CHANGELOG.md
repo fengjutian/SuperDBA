@@ -1,0 +1,2128 @@
+# [0.30.0](https://github.com/SuperDBA/SuperDBA/compare/v0.29.0...v0.30.0) (2026-10-26)
+
+
+### Bug Fixes
+
+* **ci:** repair web and PostgreSQL checks ([64472f0](https://github.com/SuperDBA/SuperDBA/commit/64472f08534b73e5323d28ad921ff7f0b4473372))
+* **cli:** make web a subcommand ([55bf5db](https://github.com/SuperDBA/SuperDBA/commit/55bf5db032af95e640ece9f2891e2d9ee63e0fa4))
+* **clipboard:** quote copied column names by driver ([b446e37](https://github.com/SuperDBA/SuperDBA/commit/b446e37fb138cf5d8b4dc3a624ce10b9a56021ec))
+* **clipboard:** quote SQL INSERT identifiers with the driver's quote character ([4e3738b](https://github.com/SuperDBA/SuperDBA/commit/4e3738b28cba24657ce79d02b6477de2a07ceba2)), closes [#1027](https://github.com/SuperDBA/SuperDBA/issues/1027)
+* **column-stats:** plugin stats follow-ups (i18n, sql_syntax.extends, sample_size, docs) ([#1239](https://github.com/SuperDBA/SuperDBA/issues/1239)) ([c9dccba](https://github.com/SuperDBA/SuperDBA/commit/c9dccbadaccacad4b12691abbbfb82c43b49d301))
+* **connections:** harden db.trim() call sites against non-string database values ([#1136](https://github.com/SuperDBA/SuperDBA/issues/1136)) ([5e5a0c7](https://github.com/SuperDBA/SuperDBA/commit/5e5a0c7098be0071f5d5207632eb246caaabf2bc))
+* **create-plugin:** add a create-plugin bin so npm and pnpm create work ([#1270](https://github.com/SuperDBA/SuperDBA/issues/1270)) ([fe1bab5](https://github.com/SuperDBA/SuperDBA/commit/fe1bab5f36923e00276bd6c4954e02de74e68dcd))
+* **create-plugin:** build darwin-arm64 on macos-latest in the release template ([#1269](https://github.com/SuperDBA/SuperDBA/issues/1269)) ([377dee9](https://github.com/SuperDBA/SuperDBA/commit/377dee9511ada4dff9ba437121711bd9852ec6df)), closes [actions/runner-images#13518](https://github.com/actions/runner-images/issues/13518)
+* **create-plugin:** resolve shared aliases from web UI package ([5bbe34c](https://github.com/SuperDBA/SuperDBA/commit/5bbe34cbb319bea907774e8a7b6ed26cb0f93fb6))
+* **desktop:** restore secondary window and export permissions ([ca11778](https://github.com/SuperDBA/SuperDBA/commit/ca1177800b9ebe2b12ca36efd1171a53c726ded0))
+* **editor:** preserve normalized query error messages ([5be8cd9](https://github.com/SuperDBA/SuperDBA/commit/5be8cd96d61ecb3c18d6dc2ced0e7b547ef565d2))
+* **editor:** quote autocompleted identifiers that need it ([#1261](https://github.com/SuperDBA/SuperDBA/issues/1261)) ([555bebe](https://github.com/SuperDBA/SuperDBA/commit/555bebe3c3b37eab9669577fb9698fc9b5d6a9a5)), closes [#1260](https://github.com/SuperDBA/SuperDBA/issues/1260)
+* **explorer:** show the full column type with length and precision ([#1279](https://github.com/SuperDBA/SuperDBA/issues/1279)) ([be532e3](https://github.com/SuperDBA/SuperDBA/commit/be532e370c7450739b89bd3ffc6a4daab67e5f6f)), closes [#1277](https://github.com/SuperDBA/SuperDBA/issues/1277)
+* **export:** warn on partial loaded-row exports when total is unknown ([#1225](https://github.com/SuperDBA/SuperDBA/issues/1225)) ([0da8a14](https://github.com/SuperDBA/SuperDBA/commit/0da8a14800fa35e6e2bf569557a4e2606147c03f))
+* **filters:** reset applied state when Match case changes ([c4a2fce](https://github.com/SuperDBA/SuperDBA/commit/c4a2fcefd26c134c37941e7041cea5371d99c6e1))
+* **grid:** fetch every result page when copying all rows ([aeb589e](https://github.com/SuperDBA/SuperDBA/commit/aeb589e6a3fdd091184a3693bb2f8629bff46f96))
+* handle IME composition in table filters ([#1201](https://github.com/SuperDBA/SuperDBA/issues/1201)) ([160b4bc](https://github.com/SuperDBA/SuperDBA/commit/160b4bc2d1e3fe107d5c8fc001a9b9114aa808ae))
+* **helm:** render the same output on every helm template ([b8b5c51](https://github.com/SuperDBA/SuperDBA/commit/b8b5c512c8b21f85c8ebbe2374e75a8479ef8898))
+* **history:** match the custom range date fields to the filter selects ([#1286](https://github.com/SuperDBA/SuperDBA/issues/1286)) ([bfcbcd8](https://github.com/SuperDBA/SuperDBA/commit/bfcbcd8ae129043fa44f2b5b5bbf51135a8d6379))
+* **history:** retain query connection across navigation ([4b44468](https://github.com/SuperDBA/SuperDBA/commit/4b4446830a4443f7ce8da298ace52ee17da3f427))
+* **import:** cancel pending uploads before starting SQL ([a26d111](https://github.com/SuperDBA/SuperDBA/commit/a26d1119cdcf5f18c720cf697eff5cd76a2a7585))
+* **json-viewer:** ignore sessions owned by other windows ([e2a1b9e](https://github.com/SuperDBA/SuperDBA/commit/e2a1b9e141fa72100ff911b04fc6bfc5f6c7e191))
+* **mcp:** report keychain read failures instead of connecting without the secret ([809c865](https://github.com/SuperDBA/SuperDBA/commit/809c8659858dbfba6950cb758828786502db8916)), closes [#1144](https://github.com/SuperDBA/SuperDBA/issues/1144)
+* **notebook:** close bracket-quoted identifiers with ] ([#1285](https://github.com/SuperDBA/SuperDBA/issues/1285)) ([571fdd2](https://github.com/SuperDBA/SuperDBA/commit/571fdd2a916ca0c95c81bc4872d33cd3cd86b6c5)), closes [#1261](https://github.com/SuperDBA/SuperDBA/issues/1261)
+* **plugins:** authorize declared explain parser assets ([505cea9](https://github.com/SuperDBA/SuperDBA/commit/505cea901cf076b1ccb1576e2ad1f7b6d2360fdb))
+* **plugins:** keep installed binaries in local storage ([7a430e8](https://github.com/SuperDBA/SuperDBA/commit/7a430e8fe488b98f62a286a9fd59771fa2442b68))
+* **plugins:** refresh connection catalogue after plugin install/remove ([5a33611](https://github.com/SuperDBA/SuperDBA/commit/5a3361114b22140e60826afa2d0f5d0239ce4537))
+* **plugins:** share plugin registry result with connection catalogue ([#1266](https://github.com/SuperDBA/SuperDBA/issues/1266)) ([1fd6384](https://github.com/SuperDBA/SuperDBA/commit/1fd63845ee54cbe0f54cbaa027d6ad7787f77ebc))
+* **plugins:** stop plugin processes when SuperDBA or its MCP server is killed ([#1284](https://github.com/SuperDBA/SuperDBA/issues/1284)) ([0848fbe](https://github.com/SuperDBA/SuperDBA/commit/0848fbec9f7adc2dd6c9add9d76589883f95f36c)), closes [#1280](https://github.com/SuperDBA/SuperDBA/issues/1280) [#1280](https://github.com/SuperDBA/SuperDBA/issues/1280)
+* **runtime:** preserve liveness while another host is running ([e0039f7](https://github.com/SuperDBA/SuperDBA/commit/e0039f7799e87cd1833c7021c99dbbc821f23827))
+* **runtime:** publish approval heartbeats for web hosts ([99a34c2](https://github.com/SuperDBA/SuperDBA/commit/99a34c2a9c0fb3fbb14b083642eecda0335cf2c1))
+* **scripts:** read locales from packages/web-ui in sync-contribute-discussion ([0670bbc](https://github.com/SuperDBA/SuperDBA/commit/0670bbc4403f6b35ce200439accec81027428681)), closes [#676](https://github.com/SuperDBA/SuperDBA/issues/676)
+* **security:** preserve keys and active authentication state ([97d067e](https://github.com/SuperDBA/SuperDBA/commit/97d067e4c904eb5f996139ff753a6bcf65bcd463))
+* **security:** preserve private SSH profile permissions ([a2f949e](https://github.com/SuperDBA/SuperDBA/commit/a2f949e7d16611081f0ec9fcd4ff78cfe1d69c68))
+* **settings:** persist grid and masking preferences ([334b184](https://github.com/SuperDBA/SuperDBA/commit/334b1844d12083d1ce1970d4c2733158c587ca03))
+* **settings:** restore theme font when selecting System ([#1245](https://github.com/SuperDBA/SuperDBA/issues/1245)) ([39dab01](https://github.com/SuperDBA/SuperDBA/commit/39dab01bb1bfb1dd4dce4fbe4aff1072727d8d9b))
+* **storage:** use runtime paths for desktop query persistence ([a6c0488](https://github.com/SuperDBA/SuperDBA/commit/a6c048822d48ed6909f72356dfdd7c692ec81aca))
+* **web-ui:** keep a replaced event socket from cancelling new subscriptions ([a3a7109](https://github.com/SuperDBA/SuperDBA/commit/a3a7109abce1c01863f946dbde49aee3b18877e9))
+* **web-ui:** recover when the server rejects the browser session ([b4786b9](https://github.com/SuperDBA/SuperDBA/commit/b4786b9a81b54b5f207d455c2036bfad9b102c05))
+* **web:** authorize file databases and bind saved credential targets ([173551d](https://github.com/SuperDBA/SuperDBA/commit/173551dae5d2013d936b3ec92cf18c23670369fa))
+* **web:** authorize inline connection host capabilities ([75741eb](https://github.com/SuperDBA/SuperDBA/commit/75741ebcb63490abd2beaae19e754bb6c960efa7))
+* **web:** confine save targets to configured roots ([75b26bc](https://github.com/SuperDBA/SuperDBA/commit/75b26bc4b4221d6d5bc7976f67eadd8ce154dc73))
+* **web:** count failed logins per client ([8ea681e](https://github.com/SuperDBA/SuperDBA/commit/8ea681eb699b529a8535610793ffc6600e5761eb))
+* **web:** expire sessions and in-flight requests ([bd27a87](https://github.com/SuperDBA/SuperDBA/commit/bd27a87a8686885e3e91c62a9eb64c6ba14cc6f2))
+* **web:** harden icon assets, proxy sessions and directory targets ([982005e](https://github.com/SuperDBA/SuperDBA/commit/982005e0b98b7b5021561dd2e1f37237e61ab72a))
+* **web:** isolate restricted event subscriptions ([5cac900](https://github.com/SuperDBA/SuperDBA/commit/5cac90077c2440a248be8babb3f74f75d4092f4e))
+* **web:** load SuperDBA favicon ([fc0f3ba](https://github.com/SuperDBA/SuperDBA/commit/fc0f3ba7e5514ed650d724dea03edba0defd07af))
+* **web:** one RPC entry point, real authorization in context, typed 413 ([831b936](https://github.com/SuperDBA/SuperDBA/commit/831b9369842125049a6c545ff212cb214ff64db6))
+* **web:** print the one-time sign-in URL when the browser cannot be opened ([64ba653](https://github.com/SuperDBA/SuperDBA/commit/64ba6535e88799cef076892a260d208e5ec90509))
+* **web:** recover sessions and trust only configured proxies ([3a67ca6](https://github.com/SuperDBA/SuperDBA/commit/3a67ca6b0f52fe306f44586020f5659034efa4b6))
+* **web:** stop sweeping every file transfer on each request ([8b75144](https://github.com/SuperDBA/SuperDBA/commit/8b751446a534d5bbc62ae50f280004222cdab11b))
+
+
+### Features
+
+* add AI generate and explain to command palette ([#1268](https://github.com/SuperDBA/SuperDBA/issues/1268)) ([88d1cb3](https://github.com/SuperDBA/SuperDBA/commit/88d1cb3336e4df665be2e3acdc7bf8ad6ed75eb6))
+* **backup:** schedule database content backups (Milestone 1) ([#1169](https://github.com/SuperDBA/SuperDBA/issues/1169)) ([#1207](https://github.com/SuperDBA/SuperDBA/issues/1207)) ([6324058](https://github.com/SuperDBA/SuperDBA/commit/632405813f66691a8192e7597501d4ea9ceadc9c))
+* **build:** ship source maps in nightly builds ([#1272](https://github.com/SuperDBA/SuperDBA/issues/1272)) ([7fdd836](https://github.com/SuperDBA/SuperDBA/commit/7fdd83659c2948edbd1612f5fcf44261db521723)), closes [#1135](https://github.com/SuperDBA/SuperDBA/issues/1135)
+* **docker:** publish Debian and Alpine images and a Helm chart ([52a8859](https://github.com/SuperDBA/SuperDBA/commit/52a8859ddda13255483e6b41ce7f09f07ac7c7dd))
+* **editor:** add a chart view for query results ([#1193](https://github.com/SuperDBA/SuperDBA/issues/1193)) ([c27474c](https://github.com/SuperDBA/SuperDBA/commit/c27474ca53f1b5b1eec0053f2e463308bcb8b317)), closes [#1168](https://github.com/SuperDBA/SuperDBA/issues/1168) [#1168](https://github.com/SuperDBA/SuperDBA/issues/1168) [#1168](https://github.com/SuperDBA/SuperDBA/issues/1168)
+* **explain:** numeric cost and gap columns in the EXPLAIN CSV export ([#1237](https://github.com/SuperDBA/SuperDBA/issues/1237)) ([5caeaf7](https://github.com/SuperDBA/SuperDBA/commit/5caeaf7a2ed829fda95bf4f2d68696cbd1e9b1a0)), closes [#1231](https://github.com/SuperDBA/SuperDBA/issues/1231)
+* **filters:** choose case sensitivity for PostgreSQL text filters ([0cea48c](https://github.com/SuperDBA/SuperDBA/commit/0cea48c79277f73f911787e6892fa1db534b4024)), closes [#1164](https://github.com/SuperDBA/SuperDBA/issues/1164)
+* **grid:** export selected rows as CSV or JSON ([#1227](https://github.com/SuperDBA/SuperDBA/issues/1227)) ([ad1e471](https://github.com/SuperDBA/SuperDBA/commit/ad1e4715cf582f4f851e3860ce86ad922bfd3d3d)), closes [#1154](https://github.com/SuperDBA/SuperDBA/issues/1154) [#1187](https://github.com/SuperDBA/SuperDBA/issues/1187) [#1233](https://github.com/SuperDBA/SuperDBA/issues/1233) [#1225](https://github.com/SuperDBA/SuperDBA/issues/1225) [#1247](https://github.com/SuperDBA/SuperDBA/issues/1247) [#1233](https://github.com/SuperDBA/SuperDBA/issues/1233) [#676](https://github.com/SuperDBA/SuperDBA/issues/676) [#1154](https://github.com/SuperDBA/SuperDBA/issues/1154)
+* **grid:** freeze the first data column while scrolling horizontally ([#1234](https://github.com/SuperDBA/SuperDBA/issues/1234)) ([6ca96f0](https://github.com/SuperDBA/SuperDBA/commit/6ca96f02cb2f6f87493ecd5acfcaeb71b74dd9a7)), closes [#1152](https://github.com/SuperDBA/SuperDBA/issues/1152)
+* **grid:** resize columns with the mouse and keyboard ([#1222](https://github.com/SuperDBA/SuperDBA/issues/1222)) ([a73dc0f](https://github.com/SuperDBA/SuperDBA/commit/a73dc0f3e3235e2e585371fd9dbbcad9a19482bf)), closes [#1151](https://github.com/SuperDBA/SuperDBA/issues/1151) [#844](https://github.com/SuperDBA/SuperDBA/issues/844)
+* **history:** filter query history by database ([#1218](https://github.com/SuperDBA/SuperDBA/issues/1218)) ([19d3903](https://github.com/SuperDBA/SuperDBA/commit/19d390389327488ce82cd3598ec715582a587d11)), closes [#1148](https://github.com/SuperDBA/SuperDBA/issues/1148)
+* **history:** make the custom date range a mode of the time-range select ([#1226](https://github.com/SuperDBA/SuperDBA/issues/1226)) ([fa0ae7a](https://github.com/SuperDBA/SuperDBA/commit/fa0ae7a502e10f237152b164247515af99f537c7)), closes [#1218](https://github.com/SuperDBA/SuperDBA/issues/1218) [#1247](https://github.com/SuperDBA/SuperDBA/issues/1247) [#676](https://github.com/SuperDBA/SuperDBA/issues/676) [#1149](https://github.com/SuperDBA/SuperDBA/issues/1149)
+* **proxy:** add per-scope system, custom and diasbled modes ([#1283](https://github.com/SuperDBA/SuperDBA/issues/1283)) ([902f4d1](https://github.com/SuperDBA/SuperDBA/commit/902f4d1e963b8f55f225d24907a0f8cdbda904b7))
+* **runtime:** add an encrypted file secret store ([64f5d70](https://github.com/SuperDBA/SuperDBA/commit/64f5d706a1df56ecfc0f2f9e9e53432a0f696878))
+* **server:** build the container image without Tauri ([24a97e8](https://github.com/SuperDBA/SuperDBA/commit/24a97e8dfdb22c73f327c3a70d1d41e0dc39584c))
+* **social:** add LinkedIn company profile ([#1244](https://github.com/SuperDBA/SuperDBA/issues/1244)) ([4ed94a8](https://github.com/SuperDBA/SuperDBA/commit/4ed94a83fb0a4bc8ad374ce16056a907375e8773))
+* **web:** accept loopback HTTP public URLs in remote mode ([17d09a4](https://github.com/SuperDBA/SuperDBA/commit/17d09a411595bbd29422c4fe86815cc2e17d0b84))
+* **web:** adapt browser host capabilities ([efb63ca](https://github.com/SuperDBA/SuperDBA/commit/efb63ca0052755867e0485aa7bb800d2660a1395))
+* **web:** adapt plugin install links ([2a99495](https://github.com/SuperDBA/SuperDBA/commit/2a99495c7b3aff70e1e0af026122d69d65104a40))
+* **web:** adapt secondary windows ([3471f84](https://github.com/SuperDBA/SuperDBA/commit/3471f84efd7604b140161b1ae5e3456126ef51d6))
+* **web:** adapt updater for browser hosting ([5342792](https://github.com/SuperDBA/SuperDBA/commit/534279205fd7263e9673771232d2d300175f655c))
+* **web:** add AI and approval parity ([d3e2d7a](https://github.com/SuperDBA/SuperDBA/commit/d3e2d7ade2ae6a012e8d8b09223e7ecb27ba441d))
+* **web:** add application client provider ([b5f1f5e](https://github.com/SuperDBA/SuperDBA/commit/b5f1f5e78ee1d426d031ca277a5ab59b13a0cecd))
+* **web:** add browser HTTP transport ([df609f9](https://github.com/SuperDBA/SuperDBA/commit/df609f9ec92c1080c47aeeec80a33b741fff22db))
+* **web:** add connection management parity ([409c4ba](https://github.com/SuperDBA/SuperDBA/commit/409c4ba2163ba317842e1bde49f711ac7696ed34))
+* **web:** add connection transfer and backup parity ([a7f9a75](https://github.com/SuperDBA/SuperDBA/commit/a7f9a757b919ac3c95a107108c332dea3bdb0088))
+* **web:** add data editing and blob parity ([91e3082](https://github.com/SuperDBA/SuperDBA/commit/91e3082c8e33fca168637254a8bdb66990990fda))
+* **web:** add database dump and import parity ([1893178](https://github.com/SuperDBA/SuperDBA/commit/18931782ae18bfec6a90c4bc8d699034a142ac75))
+* **web:** add database object and user parity ([389dc2b](https://github.com/SuperDBA/SuperDBA/commit/389dc2b4ae0af4614f8bf6c441671af903a1adcd))
+* **web:** add generic export parity ([023ca59](https://github.com/SuperDBA/SuperDBA/commit/023ca599b24e9511cdb02d7e731383307a9cd73f))
+* **web:** add HTTP server skeleton ([d3757a1](https://github.com/SuperDBA/SuperDBA/commit/d3757a1ec4750dacb39c7dc9594e7ae93b5bf990))
+* **web:** add logs and task manager parity ([f8083eb](https://github.com/SuperDBA/SuperDBA/commit/f8083eb977a7a2cfccd31d1216bf728cdd7209b5))
+* **web:** add MCP host configuration parity ([ec4beb2](https://github.com/SuperDBA/SuperDBA/commit/ec4beb24ace725a24dba95d13e8062decdf673fd))
+* **web:** add metadata explorer parity ([8bd7392](https://github.com/SuperDBA/SuperDBA/commit/8bd73926d7d173d8f2429248d062a626cd6019e8))
+* **web:** add notebook parity ([6efaf79](https://github.com/SuperDBA/SuperDBA/commit/6efaf7910cfd21fa4c2de6820a2ece4a7b04615a))
+* **web:** add platform capabilities ([c28194e](https://github.com/SuperDBA/SuperDBA/commit/c28194e426ce13bc45c586056f6552eb482c9d6a))
+* **web:** add plugin lifecycle parity ([dac2170](https://github.com/SuperDBA/SuperDBA/commit/dac21707548d24a33ec010566236d1e1d03265ac))
+* **web:** add plugin UI extension parity ([98cf1cd](https://github.com/SuperDBA/SuperDBA/commit/98cf1cd2090ff0b035f0fd61062e75713451ab31))
+* **web:** add query execution parity ([6cb5051](https://github.com/SuperDBA/SuperDBA/commit/6cb505180fae6c758b6e4ff947a43dedda1a6ebf))
+* **web:** add saved query and history parity ([c8079d8](https://github.com/SuperDBA/SuperDBA/commit/c8079d804771010809d6154f33ad721932b41047))
+* **web:** add secure server file picker ([1c32773](https://github.com/SuperDBA/SuperDBA/commit/1c327735792c1dc68b2e82e7165a4a59c3f728aa))
+* **web:** add settings and preferences parity ([05ec0b3](https://github.com/SuperDBA/SuperDBA/commit/05ec0b31de98823e4b0d230e3fb6928c1756d283))
+* **web:** add SSH and K8s tunnel parity ([8f6344e](https://github.com/SuperDBA/SuperDBA/commit/8f6344eeae8a2743bce60af81254478233cc67ca))
+* **web:** add streaming file transfer tokens ([717f6c7](https://github.com/SuperDBA/SuperDBA/commit/717f6c7c91e4674c176f0ed2f5dd04996a24dfbf))
+* **web:** add typed command contracts ([81f04dd](https://github.com/SuperDBA/SuperDBA/commit/81f04dd00b9a914a6cf4641981753920096be1b3))
+* **web:** add versioned RPC dispatcher ([2b6ec03](https://github.com/SuperDBA/SuperDBA/commit/2b6ec030b9d94e9d8fd9a87bc2ce434b4b19d64c))
+* **web:** add web CLI options ([8397ca5](https://github.com/SuperDBA/SuperDBA/commit/8397ca5707945751a7cbeb4a30c610d3248092ee))
+* **web:** add websocket event bus ([ce5e051](https://github.com/SuperDBA/SuperDBA/commit/ce5e05165925ce5140013f2c20006177b0df43aa))
+* **web:** bring main's new features to the browser and share UI state ([a5d6bcb](https://github.com/SuperDBA/SuperDBA/commit/a5d6bcb3d5c3039738944ababecca31f0feb9aa9))
+* **web:** harden and centralize task runner ([bac0b30](https://github.com/SuperDBA/SuperDBA/commit/bac0b30dd1f7315294c4f058e2dffc9a851e00ef))
+* **web:** harden performance and resilience ([cacefd3](https://github.com/SuperDBA/SuperDBA/commit/cacefd3224f63bc4b5227f8a6f5136cb03e9143b))
+* **web:** make browser routes refresh-safe ([6094fa4](https://github.com/SuperDBA/SuperDBA/commit/6094fa483518963f0600414d74e710cf5b7c7431))
+* **web:** route editors by connection ([9e75c18](https://github.com/SuperDBA/SuperDBA/commit/9e75c18351b2330a196d7a41cd9747c3198bb448))
+* **web:** secure local browser sessions ([1434b5c](https://github.com/SuperDBA/SuperDBA/commit/1434b5c536ded80852ad306d0abcdb74b183ee69))
+* **web:** secure remote authenticated access ([0bbf7eb](https://github.com/SuperDBA/SuperDBA/commit/0bbf7eb48928f334baf79947f2cd2aec52f8e8f1))
+
+# [0.29.0](https://github.com/SuperDBA/SuperDBA/compare/v0.28.0...v0.29.0) (2026-10-20)
+
+
+### Bug Fixes
+
+* **ci:** make typecheck follow the project references ([#1143](https://github.com/SuperDBA/SuperDBA/issues/1143)) ([2c1ce63](https://github.com/SuperDBA/SuperDBA/commit/2c1ce63353ae01fad79320bb74484df278de8878))
+* **clipboard:** quote CSV fields that contain the delimiter, a quote or a line break ([#1047](https://github.com/SuperDBA/SuperDBA/issues/1047)) ([50e5937](https://github.com/SuperDBA/SuperDBA/commit/50e59376fc7d3c6d7e384f43190099dbb81e0ed1)), closes [#1028](https://github.com/SuperDBA/SuperDBA/issues/1028)
+* close per-database pool overrides on disconnect ([#1063](https://github.com/SuperDBA/SuperDBA/issues/1063)) ([0a7b40d](https://github.com/SuperDBA/SuperDBA/commit/0a7b40d148bcaa880ac0e21dbc77a92876d3cc21)), closes [#946](https://github.com/SuperDBA/SuperDBA/issues/946) [#946](https://github.com/SuperDBA/SuperDBA/issues/946) [#946](https://github.com/SuperDBA/SuperDBA/issues/946)
+* close pools before SSH/K8s resolution on disconnect and health-check ([#1070](https://github.com/SuperDBA/SuperDBA/issues/1070)) ([129a83c](https://github.com/SuperDBA/SuperDBA/commit/129a83cbcc983a2b22a1992a5233df542097b990)), closes [#946](https://github.com/SuperDBA/SuperDBA/issues/946) [#1065](https://github.com/SuperDBA/SuperDBA/issues/1065)
+* **connections:** clear drop zones for folders and connections ([#1123](https://github.com/SuperDBA/SuperDBA/issues/1123)) ([a78cb9c](https://github.com/SuperDBA/SuperDBA/commit/a78cb9c986c63a0b983db85b66d6db7361f24b83))
+* **connections:** don't crash saving a connection whose ssl_mode is null ([#1086](https://github.com/SuperDBA/SuperDBA/issues/1086)) ([c4b1abf](https://github.com/SuperDBA/SuperDBA/commit/c4b1abf2ad00ab8cd40f430b1cdafe222ce5076e))
+* **connections:** let duplicated URI connections be deleted ([#1085](https://github.com/SuperDBA/SuperDBA/issues/1085)) ([eb51a55](https://github.com/SuperDBA/SuperDBA/commit/eb51a55a2bd5f2b4b48b4f55042eb057297703dc))
+* **create-plugin:** add ui_extensions entry to the manifest with --with-ui ([#1053](https://github.com/SuperDBA/SuperDBA/issues/1053)) ([13c7831](https://github.com/SuperDBA/SuperDBA/commit/13c7831600e7ff0436f547281d23c9e9b7c8fbeb)), closes [#891](https://github.com/SuperDBA/SuperDBA/issues/891)
+* **create-plugin:** copy locales folder in dev-install and release workflow ([#1090](https://github.com/SuperDBA/SuperDBA/issues/1090)) ([#1092](https://github.com/SuperDBA/SuperDBA/issues/1092)) ([ddd3ba4](https://github.com/SuperDBA/SuperDBA/commit/ddd3ba406f4da717efc5a07f973761e5f699c2df))
+* **create-plugin:** find the plugin binary in Cargo's real target directory ([#1096](https://github.com/SuperDBA/SuperDBA/issues/1096)) ([13d01b2](https://github.com/SuperDBA/SuperDBA/commit/13d01b260d830b246bee8cb72a2ddd16077a6a88)), closes [#1091](https://github.com/SuperDBA/SuperDBA/issues/1091)
+* **create-plugin:** run the Windows justfile recipes as PowerShell scripts ([#1190](https://github.com/SuperDBA/SuperDBA/issues/1190)) ([355595c](https://github.com/SuperDBA/SuperDBA/commit/355595c840ace9023976546c64090a9f2ce3c54e))
+* **datagrid:** return focus when the column statistics popover closes ([#1179](https://github.com/SuperDBA/SuperDBA/issues/1179)) ([c80187c](https://github.com/SuperDBA/SuperDBA/commit/c80187c491c50f4ef07a9cce81d9f2f523f6be8b)), closes [#1138](https://github.com/SuperDBA/SuperDBA/issues/1138)
+* **editor:** announce a SQL file tab's unsaved marker to screen readers ([#1141](https://github.com/SuperDBA/SuperDBA/issues/1141)) ([732d11c](https://github.com/SuperDBA/SuperDBA/commit/732d11c1dae4371aaa2557dbb21518fb6cc77f36))
+* **editor:** clear pending grid focus request after a failed filter-by-value query ([#1221](https://github.com/SuperDBA/SuperDBA/issues/1221)) ([511a317](https://github.com/SuperDBA/SuperDBA/commit/511a3171eef762b4229618b1573b638e1417cbd0))
+* **editor:** do not trigger pagination shortcuts when typing in filter inputs ([#1013](https://github.com/SuperDBA/SuperDBA/issues/1013)) ([#1024](https://github.com/SuperDBA/SuperDBA/issues/1024)) ([f9909b2](https://github.com/SuperDBA/SuperDBA/commit/f9909b2bbfb378eabbd8211624b241bb9cfc2e5c))
+* **editor:** give Copy SQL Without Comments feedback and hide it on generic-only dialects ([#1224](https://github.com/SuperDBA/SuperDBA/issues/1224)) ([b09c204](https://github.com/SuperDBA/SuperDBA/commit/b09c2047b1da5912a71c852cbd1a97eb72b0ddc9)), closes [#1211](https://github.com/SuperDBA/SuperDBA/issues/1211)
+* **editor:** show a saved query's database in its tab and selector ([#1125](https://github.com/SuperDBA/SuperDBA/issues/1125)) ([4688aa9](https://github.com/SuperDBA/SuperDBA/commit/4688aa9ed8d618c07dd0204710e26cb762fa1070)), closes [#1114](https://github.com/SuperDBA/SuperDBA/issues/1114)
+* **editor:** show the full tab name as a tooltip and accessible name ([#1134](https://github.com/SuperDBA/SuperDBA/issues/1134)) ([f100a7e](https://github.com/SuperDBA/SuperDBA/commit/f100a7ebcb51b81624a3aff7878702a9fe08ef08)), closes [#1132](https://github.com/SuperDBA/SuperDBA/issues/1132)
+* **explorer:** keep every selected schema loaded after confirming the picker ([#1203](https://github.com/SuperDBA/SuperDBA/issues/1203)) ([1c96442](https://github.com/SuperDBA/SuperDBA/commit/1c9644225d1dc793cb9871d7168f94a08a188d16))
+* **export:** end every CSV and NDJSON record with a newline ([#1233](https://github.com/SuperDBA/SuperDBA/issues/1233)) ([a54b766](https://github.com/SuperDBA/SuperDBA/commit/a54b766e2a29791eb1af63121f67f03ae941b485))
+* **export:** notebook CSV/JSON export reuses the editor formatter ([#1208](https://github.com/SuperDBA/SuperDBA/issues/1208)) ([#1209](https://github.com/SuperDBA/SuperDBA/issues/1209)) ([bcbfe59](https://github.com/SuperDBA/SuperDBA/commit/bcbfe594a92e577e1ee05e3b073410e6bfb803aa))
+* **export:** write CSV NULL the same way in both export paths ([#1175](https://github.com/SuperDBA/SuperDBA/issues/1175)) ([4e6609b](https://github.com/SuperDBA/SuperDBA/commit/4e6609b910c50783fc08d18ff929d104c740332f))
+* **favorites:** follow-up fixes for saved query folders ([#1183](https://github.com/SuperDBA/SuperDBA/issues/1183)) ([5e5b947](https://github.com/SuperDBA/SuperDBA/commit/5e5b947b406c71f08ecfda2d226547d25c48358e))
+* **favorites:** translate unreadable-folders error and log it once ([#1215](https://github.com/SuperDBA/SuperDBA/issues/1215)) ([82f1384](https://github.com/SuperDBA/SuperDBA/commit/82f13849b1333fc579be380d89f644e9ed847a6d))
+* follow-ups from PRs [#1063](https://github.com/SuperDBA/SuperDBA/issues/1063), [#1066](https://github.com/SuperDBA/SuperDBA/issues/1066), [#1069](https://github.com/SuperDBA/SuperDBA/issues/1069) ([#1100](https://github.com/SuperDBA/SuperDBA/issues/1100)) ([ca6de53](https://github.com/SuperDBA/SuperDBA/commit/ca6de53336557a677865496415c6213b584a6cb3))
+* **generate-sql:** quote table and column names in every generated tab ([#1133](https://github.com/SuperDBA/SuperDBA/issues/1133)) ([2fe5453](https://github.com/SuperDBA/SuperDBA/commit/2fe54531da18c31fe53fe49ef850ed2aac1039ba)), closes [#1131](https://github.com/SuperDBA/SuperDBA/issues/1131)
+* get_materialized_view_definition fails with 'error serializing parameter 0' on PG 16 ([#1061](https://github.com/SuperDBA/SuperDBA/issues/1061)) ([2376b47](https://github.com/SuperDBA/SuperDBA/commit/2376b47b223a04585822c25283606542937169bb)), closes [#1060](https://github.com/SuperDBA/SuperDBA/issues/1060) [#1060](https://github.com/SuperDBA/SuperDBA/issues/1060) [superdba-postgresql-plugin#146](https://github.com/superdba-postgresql-plugin/issues/146) [#1060](https://github.com/SuperDBA/SuperDBA/issues/1060)
+* **grid:** keep the quotes of a JSON string pasted into a JSON column ([#1142](https://github.com/SuperDBA/SuperDBA/issues/1142)) ([5c3b0cd](https://github.com/SuperDBA/SuperDBA/commit/5c3b0cd8680baf0d1962f83a008466691a03c829))
+* guard AiQueryModal database fallback to the active connection ([#1121](https://github.com/SuperDBA/SuperDBA/issues/1121)) ([2ea3a6e](https://github.com/SuperDBA/SuperDBA/commit/2ea3a6e22a6ec648d10b79aa2de881e235af3b76)), closes [#1119](https://github.com/SuperDBA/SuperDBA/issues/1119)
+* **history:** accessibility polish for the history pause toggle ([#1212](https://github.com/SuperDBA/SuperDBA/issues/1212)) ([#1223](https://github.com/SuperDBA/SuperDBA/issues/1223)) ([86cd998](https://github.com/SuperDBA/SuperDBA/commit/86cd9983ec691007cc2b6864eee4d4f9a99abadd))
+* **i18n:** apply system language when Language is set to Auto ([#1116](https://github.com/SuperDBA/SuperDBA/issues/1116)) ([8e6aaa3](https://github.com/SuperDBA/SuperDBA/commit/8e6aaa3ddd405200992233b083e9c9af1c1794ae)), closes [#1093](https://github.com/SuperDBA/SuperDBA/issues/1093)
+* **i18n:** use resolved UI language for AI Explain modal in auto mode ([#1099](https://github.com/SuperDBA/SuperDBA/issues/1099)) ([433e871](https://github.com/SuperDBA/SuperDBA/commit/433e8719f3c7ccde89df450801aee7562d899849))
+* **i18n:** use resolved UI language for Visual Explain AI analysis in auto mode ([#1026](https://github.com/SuperDBA/SuperDBA/issues/1026)) ([ea486a0](https://github.com/SuperDBA/SuperDBA/commit/ea486a02c2dc1c340ef43bbd78edd1957c453599)), closes [#894](https://github.com/SuperDBA/SuperDBA/issues/894)
+* ignore src-tauri in vite watcher to avoid EBUSY crash on Windows ([#1217](https://github.com/SuperDBA/SuperDBA/issues/1217)) ([ed80475](https://github.com/SuperDBA/SuperDBA/commit/ed804751692b78cfbeb304228b42eded61fd4b45))
+* **import:** retry the last source and show plain noData for empty files ([#1103](https://github.com/SuperDBA/SuperDBA/issues/1103)) ([ec3d892](https://github.com/SuperDBA/SuperDBA/commit/ec3d892ddc858ac17f67288ca456aecc13bfee23)), closes [#1023](https://github.com/SuperDBA/SuperDBA/issues/1023)
+* **k8s:** read k8s connection profiles from the custom storage location ([#1229](https://github.com/SuperDBA/SuperDBA/issues/1229)) ([0a64906](https://github.com/SuperDBA/SuperDBA/commit/0a64906c4f2262c740704400700508763bbe10d5))
+* **mcp:** fail closed on hash comments and backslash escapes in the read-only check ([#1197](https://github.com/SuperDBA/SuperDBA/issues/1197)) ([befa402](https://github.com/SuperDBA/SuperDBA/commit/befa402129a22fd99aac9704420100725e0397bf))
+* **mysql:** keep fractional seconds in DATETIME and TIMESTAMP values ([#1120](https://github.com/SuperDBA/SuperDBA/issues/1120)) ([4bc1022](https://github.com/SuperDBA/SuperDBA/commit/4bc1022462f5284dc7d68a70902c4a88f374d880))
+* **mysql:** scope batch foreign key join by table name for MariaDB 12.1+ ([#1005](https://github.com/SuperDBA/SuperDBA/issues/1005)) ([fc01f5f](https://github.com/SuperDBA/SuperDBA/commit/fc01f5f81f9db739ce7ae05f62c9022647bc4b51))
+* **mysql:** show FLOAT values without float noise and keep row matching ([#1068](https://github.com/SuperDBA/SuperDBA/issues/1068)) ([d596e1a](https://github.com/SuperDBA/SuperDBA/commit/d596e1a281d297151f8cc36c9c05f1f6cd30bb40)), closes [#1012](https://github.com/SuperDBA/SuperDBA/issues/1012)
+* **plugins:** build dumps and notebook literals from driver capabilities ([#1198](https://github.com/SuperDBA/SuperDBA/issues/1198)) ([6c9777c](https://github.com/SuperDBA/SuperDBA/commit/6c9777c34cb9969b05dcfce641239b7e91a49d3b))
+* **plugins:** use the target table context for UI slots ([#1078](https://github.com/SuperDBA/SuperDBA/issues/1078)) ([d7b6875](https://github.com/SuperDBA/SuperDBA/commit/d7b68754f9a42c5f4e26c32bad84818d725552c8))
+* reject database mismatch on pinned export session ([#1069](https://github.com/SuperDBA/SuperDBA/issues/1069)) ([e8138d6](https://github.com/SuperDBA/SuperDBA/commit/e8138d6f7688ff4939c27ce259af91c3d5f6f046)), closes [#947](https://github.com/SuperDBA/SuperDBA/issues/947) [#947](https://github.com/SuperDBA/SuperDBA/issues/947) [#947](https://github.com/SuperDBA/SuperDBA/issues/947) [#947](https://github.com/SuperDBA/SuperDBA/issues/947) [#1067](https://github.com/SuperDBA/SuperDBA/issues/1067)
+* reject database mismatch on pinned PostgreSQL transaction ([#1066](https://github.com/SuperDBA/SuperDBA/issues/1066)) ([8f183ef](https://github.com/SuperDBA/SuperDBA/commit/8f183efcc7d84aa92009140567f654b623b00adc)), closes [#947](https://github.com/SuperDBA/SuperDBA/issues/947) [#947](https://github.com/SuperDBA/SuperDBA/issues/947) [#947](https://github.com/SuperDBA/SuperDBA/issues/947)
+* scope AI schema context to the active database ([#948](https://github.com/SuperDBA/SuperDBA/issues/948)) ([#1104](https://github.com/SuperDBA/SuperDBA/issues/1104)) ([bee8a51](https://github.com/SuperDBA/SuperDBA/commit/bee8a51e0bb65d0cb1c4bd2b6b8c25ff12762d4f))
+* **shortcuts:** let global shortcuts fire from the SQL editor ([#1101](https://github.com/SuperDBA/SuperDBA/issues/1101)) ([130d714](https://github.com/SuperDBA/SuperDBA/commit/130d7148032b5ea1df14f383136f56e133984c63))
+* **sidebar:** keep the metadata error popover inside the viewport ([#1204](https://github.com/SuperDBA/SuperDBA/issues/1204)) ([eeecf80](https://github.com/SuperDBA/SuperDBA/commit/eeecf8025d534bf7ae3c9514bcd398477c5e8dee))
+* **ssh:** discard a cached SSH tunnel whose session has ended ([#1124](https://github.com/SuperDBA/SuperDBA/issues/1124)) ([2bcad6e](https://github.com/SuperDBA/SuperDBA/commit/2bcad6e12b28bcbf2f0dc7edbb410e10c2d448d1))
+
+
+### Features
+
+* **ai-activity:** record the target database in the audit log ([#1129](https://github.com/SuperDBA/SuperDBA/issues/1129)) ([bd73da9](https://github.com/SuperDBA/SuperDBA/commit/bd73da9e4bff13d1ebe81d28b13a1ab0f74c0df9))
+* **ai:** add ChatGPT sign-in and plan usage ([#1118](https://github.com/SuperDBA/SuperDBA/issues/1118)) ([721f024](https://github.com/SuperDBA/SuperDBA/commit/721f024723aa1cb023f9be1936657a0397fcef18))
+* **ai:** add Requesty as an AI provider ([#817](https://github.com/SuperDBA/SuperDBA/issues/817)) ([4e10fe0](https://github.com/SuperDBA/SuperDBA/commit/4e10fe0e8a69d19a84b74b183682e107dd81357d))
+* **command-palette:** add a toggle editor word wrap command (closes [#1036](https://github.com/SuperDBA/SuperDBA/issues/1036)) ([#1076](https://github.com/SuperDBA/SuperDBA/issues/1076)) ([941f8bd](https://github.com/SuperDBA/SuperDBA/commit/941f8bd14cc9a56a34c32458decaea0d8c5ef931))
+* **connections:** add copy button to error banner ([#1062](https://github.com/SuperDBA/SuperDBA/issues/1062)) ([b05e1d5](https://github.com/SuperDBA/SuperDBA/commit/b05e1d51525d6030784b3d4a8ca85483579d47d4))
+* **connections:** choose the default database ([#1020](https://github.com/SuperDBA/SuperDBA/issues/1020)) ([a4e82c4](https://github.com/SuperDBA/SuperDBA/commit/a4e82c4911906493889134a005fe047bda88a495))
+* **data-grid:** add random UUID cell action ([#1049](https://github.com/SuperDBA/SuperDBA/issues/1049)) ([07b018e](https://github.com/SuperDBA/SuperDBA/commit/07b018e0072acddaf6a128520165b3e5d9feafe7))
+* **data-grid:** open a URL or email address from a cell ([#1079](https://github.com/SuperDBA/SuperDBA/issues/1079)) ([a4b44ea](https://github.com/SuperDBA/SuperDBA/commit/a4b44ea8d5fb7e4306b4ece37fdf6b87f67a6c53)), closes [#1033](https://github.com/SuperDBA/SuperDBA/issues/1033)
+* **datagrid:** column statistics popover in the column header menu ([#1127](https://github.com/SuperDBA/SuperDBA/issues/1127)) ([bcf3afd](https://github.com/SuperDBA/SuperDBA/commit/bcf3afdfd9abbb003cdc7fbf11de4c7ea892ade1)), closes [#1001](https://github.com/SuperDBA/SuperDBA/issues/1001)
+* **datagrid:** comparison and contains operators in "Filter by this value" ([#1081](https://github.com/SuperDBA/SuperDBA/issues/1081)) ([91bf15c](https://github.com/SuperDBA/SuperDBA/commit/91bf15c1c57d4abf8e1ed0e23c91fd51d6aecf6c)), closes [#1031](https://github.com/SuperDBA/SuperDBA/issues/1031)
+* **datagrid:** edit a cell selection in bulk from the context menu ([#1130](https://github.com/SuperDBA/SuperDBA/issues/1130)) ([5163260](https://github.com/SuperDBA/SuperDBA/commit/51632604f6059af6e96ece29ab52a02ea5a9f17d)), closes [#1000](https://github.com/SuperDBA/SuperDBA/issues/1000)
+* **drivers:** allow in-memory databases for file-based plugins ([#1182](https://github.com/SuperDBA/SuperDBA/issues/1182)) ([cbc7d58](https://github.com/SuperDBA/SuperDBA/commit/cbc7d587a7bd3fcdfd18c214924f20cadec3109f)), closes [SuperDBA/superdba-duckdb-plugin#14](https://github.com/SuperDBA/superdba-duckdb-plugin/issues/14)
+* **editor:** add Copy SQL Without Comments action ([#1172](https://github.com/SuperDBA/SuperDBA/issues/1172)) ([257a755](https://github.com/SuperDBA/SuperDBA/commit/257a7553e8dae62125dd70086e0605f514d413ee)), closes [#1161](https://github.com/SuperDBA/SuperDBA/issues/1161)
+* **editor:** add Transform to Uppercase/Lowercase to the SQL editor context menu ([#1072](https://github.com/SuperDBA/SuperDBA/issues/1072)) ([e637bde](https://github.com/SuperDBA/SuperDBA/commit/e637bde135a59199af59b84db493594471dec00d))
+* **editor:** allow renaming console tabs ([#1056](https://github.com/SuperDBA/SuperDBA/issues/1056)) ([766c1f9](https://github.com/SuperDBA/SuperDBA/commit/766c1f92d3c3fbefd88e00182bfec1ee2c41f1be))
+* **editor:** export loaded query results as an HTML file ([#1205](https://github.com/SuperDBA/SuperDBA/issues/1205)) ([d75f7b7](https://github.com/SuperDBA/SuperDBA/commit/d75f7b7b54a827694fa1f38d63b572e819205f2f))
+* **editor:** export loaded query results as NDJSON ([#1156](https://github.com/SuperDBA/SuperDBA/issues/1156)) ([#1187](https://github.com/SuperDBA/SuperDBA/issues/1187)) ([5fa1343](https://github.com/SuperDBA/SuperDBA/commit/5fa1343c6729dbdbea7531aac1860faee24e20cb))
+* **editor:** move a tab left or right from its context menu ([#1195](https://github.com/SuperDBA/SuperDBA/issues/1195)) ([03ff075](https://github.com/SuperDBA/SuperDBA/commit/03ff075955d232568c32c949b6d4957409608d5b))
+* **editor:** select the current SQL statement ([#1055](https://github.com/SuperDBA/SuperDBA/issues/1055)) ([43aa1e9](https://github.com/SuperDBA/SuperDBA/commit/43aa1e96975c9731be7611d5ee2524a402cf611f))
+* **editor:** show server time and fetch time separately in result status bar ([#990](https://github.com/SuperDBA/SuperDBA/issues/990)) ([#1021](https://github.com/SuperDBA/SuperDBA/issues/1021)) ([4c2e6e1](https://github.com/SuperDBA/SuperDBA/commit/4c2e6e11b9bf9145adab67f453150f5cdfbbe6cc))
+* **editor:** show the number of columns in the result status bar ([#1057](https://github.com/SuperDBA/SuperDBA/issues/1057)) ([9c118af](https://github.com/SuperDBA/SuperDBA/commit/9c118af7bac49841124488a328b1c04d1cc60f2e)), closes [#1035](https://github.com/SuperDBA/SuperDBA/issues/1035)
+* **editor:** undo and redo pending grid edits ([#1167](https://github.com/SuperDBA/SuperDBA/issues/1167)) ([#1206](https://github.com/SuperDBA/SuperDBA/issues/1206)) ([444b06e](https://github.com/SuperDBA/SuperDBA/commit/444b06ec3e06a95eb4dc797fa0d283671ff14b72))
+* **editor:** zoom the SQL editor font with Ctrl/Cmd + =, - and 0 ([#1071](https://github.com/SuperDBA/SuperDBA/issues/1071)) ([7c74171](https://github.com/SuperDBA/SuperDBA/commit/7c74171d4ca43139db45cdd571bd2bdffcfecf56))
+* **explain:** export complete EXPLAIN table as CSV ([#1163](https://github.com/SuperDBA/SuperDBA/issues/1163)) ([#1184](https://github.com/SuperDBA/SuperDBA/issues/1184)) ([14888af](https://github.com/SuperDBA/SuperDBA/commit/14888afb4ecfffbc41abcfba6f9ba0b24031b386))
+* **explain:** save raw plan output to file ([#1162](https://github.com/SuperDBA/SuperDBA/issues/1162)) ([#1178](https://github.com/SuperDBA/SuperDBA/issues/1178)) ([506ce56](https://github.com/SuperDBA/SuperDBA/commit/506ce56daa4eba3ad9a6f685a08a71cb93f79942))
+* **explorer:** copy quoted and qualified object names ([#1077](https://github.com/SuperDBA/SuperDBA/issues/1077)) ([6ca030e](https://github.com/SuperDBA/SuperDBA/commit/6ca030e109eef40814ca5519b0c6c40b71d3bbfa))
+* **export:** propose a file name based on the table ([#1052](https://github.com/SuperDBA/SuperDBA/issues/1052)) ([52fc943](https://github.com/SuperDBA/SuperDBA/commit/52fc9437a24561b502f14afeb228f5ea8c95e108))
+* **favorites:** organize saved queries in connection folders ([#1181](https://github.com/SuperDBA/SuperDBA/issues/1181)) ([8471d97](https://github.com/SuperDBA/SuperDBA/commit/8471d97c3c28c764d0ecba7af8d3ce4f3255e820))
+* **grid:** add setting for default sort direction on header click ([#996](https://github.com/SuperDBA/SuperDBA/issues/996)) ([#1006](https://github.com/SuperDBA/SuperDBA/issues/1006)) ([ba22659](https://github.com/SuperDBA/SuperDBA/commit/ba22659a725d0ad1f43ee1930181bcda6b528125))
+* **grid:** copy column names as lines and json array ([#1048](https://github.com/SuperDBA/SuperDBA/issues/1048)) ([423749f](https://github.com/SuperDBA/SuperDBA/commit/423749f83fb469ce11ba7c98fdb17cbca61ae629)), closes [#1030](https://github.com/SuperDBA/SuperDBA/issues/1030)
+* **grid:** copy column names as quoted SQL list ([#1153](https://github.com/SuperDBA/SuperDBA/issues/1153)) ([#1185](https://github.com/SuperDBA/SuperDBA/issues/1185)) ([0524ac9](https://github.com/SuperDBA/SuperDBA/commit/0524ac9ae3d37135b62c763bb8c79b3b8227462d))
+* **grid:** copy the selection as an HTML table ([#1080](https://github.com/SuperDBA/SuperDBA/issues/1080)) ([5d90a9b](https://github.com/SuperDBA/SuperDBA/commit/5d90a9b30a85300a4e6ef600cee85974ac525518)), closes [#1029](https://github.com/SuperDBA/SuperDBA/issues/1029)
+* **history:** add Copy Details to the query history context menu ([#1073](https://github.com/SuperDBA/SuperDBA/issues/1073)) ([9a4d5f8](https://github.com/SuperDBA/SuperDBA/commit/9a4d5f85fafce08e6007a6c7202b4e0eafd00d55))
+* **history:** temporarily pause editor query history capture ([#1150](https://github.com/SuperDBA/SuperDBA/issues/1150)) ([#1186](https://github.com/SuperDBA/SuperDBA/issues/1186)) ([6858098](https://github.com/SuperDBA/SuperDBA/commit/6858098b2d92f35be6726661079ebbeafe25899b))
+* **import:** load data from files ([#1023](https://github.com/SuperDBA/SuperDBA/issues/1023)) ([715089c](https://github.com/SuperDBA/SuperDBA/commit/715089cde0980c210bb2ccb588953546e9735284))
+* **json:** add expand all and collapse all controls to JSON trees ([#1174](https://github.com/SuperDBA/SuperDBA/issues/1174)) ([765a902](https://github.com/SuperDBA/SuperDBA/commit/765a9020e2b5f1d709f1d2397a86bce058278303))
+* **mcp:** let list_tables, describe_table and run_query pick the database ([#1089](https://github.com/SuperDBA/SuperDBA/issues/1089)) ([da90d2a](https://github.com/SuperDBA/SuperDBA/commit/da90d2a6000244c5d258fee833ca820493cd745a))
+* model pooler mode in ConnectionParams ([#1128](https://github.com/SuperDBA/SuperDBA/issues/1128)) ([1003c93](https://github.com/SuperDBA/SuperDBA/commit/1003c9315050c164f60ddc3a59e41cead67c7778)), closes [#1126](https://github.com/SuperDBA/SuperDBA/issues/1126) [#1126](https://github.com/SuperDBA/SuperDBA/issues/1126)
+* **palette:** show keyboard shortcuts in command rows ([#1084](https://github.com/SuperDBA/SuperDBA/issues/1084)) ([6e86d7d](https://github.com/SuperDBA/SuperDBA/commit/6e86d7da2922c8bb5b85642687e18a1436e34d66))
+* **plugins:** let drivers declare their SQL syntax ([#1200](https://github.com/SuperDBA/SuperDBA/issues/1200)) ([2b5765c](https://github.com/SuperDBA/SuperDBA/commit/2b5765cac9b31ac8db77e5fb9b0cd697fadf3f74))
+* **plugins:** make the shutdown grace period configurable ([#1025](https://github.com/SuperDBA/SuperDBA/issues/1025)) ([a84838e](https://github.com/SuperDBA/SuperDBA/commit/a84838e1fbd8818dd97f5b675ecf2508bd3a2a8b)), closes [#1016](https://github.com/SuperDBA/SuperDBA/issues/1016)
+* **plugins:** optional get_column_stats RPC for the column statistics popover ([#1180](https://github.com/SuperDBA/SuperDBA/issues/1180)) ([3103535](https://github.com/SuperDBA/SuperDBA/commit/3103535c3264f981eb26795561f80705eeeeefc4)), closes [#1137](https://github.com/SuperDBA/SuperDBA/issues/1137)
+* **plugins:** send connection context to DDL builders and add drop_table_sql ([#1199](https://github.com/SuperDBA/SuperDBA/issues/1199)) ([312cef8](https://github.com/SuperDBA/SuperDBA/commit/312cef81a181fa6b7bb8b50efbf3faa23529d0f0))
+* **plugins:** support plugin-owned connection fields and secrets ([#629](https://github.com/SuperDBA/SuperDBA/issues/629)) ([6b28df2](https://github.com/SuperDBA/SuperDBA/commit/6b28df225bfc86e419124f3a3e8307cc6b224115))
+* **postgres:** browse multiple databases on one connection ([#822](https://github.com/SuperDBA/SuperDBA/issues/822)) ([15868e4](https://github.com/SuperDBA/SuperDBA/commit/15868e4cddc28556048f2231be0667416d338f7e)), closes [725/#340](https://github.com/SuperDBA/SuperDBA/issues/340) [SuperDBA/SuperDBA#837](https://github.com/SuperDBA/SuperDBA/issues/837) [#119](https://github.com/SuperDBA/SuperDBA/issues/119) [#614](https://github.com/SuperDBA/SuperDBA/issues/614) [#1](https://github.com/SuperDBA/SuperDBA/issues/1) [#3](https://github.com/SuperDBA/SuperDBA/issues/3) [#4](https://github.com/SuperDBA/SuperDBA/issues/4) [#5](https://github.com/SuperDBA/SuperDBA/issues/5) [#6](https://github.com/SuperDBA/SuperDBA/issues/6) [#7](https://github.com/SuperDBA/SuperDBA/issues/7) [#8](https://github.com/SuperDBA/SuperDBA/issues/8) [#9](https://github.com/SuperDBA/SuperDBA/issues/9) [#10](https://github.com/SuperDBA/SuperDBA/issues/10) [#2](https://github.com/SuperDBA/SuperDBA/issues/2) [#2](https://github.com/SuperDBA/SuperDBA/issues/2) [#9](https://github.com/SuperDBA/SuperDBA/issues/9) [#10](https://github.com/SuperDBA/SuperDBA/issues/10) [#3](https://github.com/SuperDBA/SuperDBA/issues/3) [#4](https://github.com/SuperDBA/SuperDBA/issues/4) [#3](https://github.com/SuperDBA/SuperDBA/issues/3) [#8](https://github.com/SuperDBA/SuperDBA/issues/8) [#7](https://github.com/SuperDBA/SuperDBA/issues/7) [#1](https://github.com/SuperDBA/SuperDBA/issues/1) [#5](https://github.com/SuperDBA/SuperDBA/issues/5) [#6](https://github.com/SuperDBA/SuperDBA/issues/6) [7/#10](https://github.com/SuperDBA/SuperDBA/issues/10) [#N](https://github.com/SuperDBA/SuperDBA/issues/N) [#2](https://github.com/SuperDBA/SuperDBA/issues/2)
+* replace the app logo and icons with the new SuperDBA mark ([#935](https://github.com/SuperDBA/SuperDBA/issues/935)) ([494b2b3](https://github.com/SuperDBA/SuperDBA/commit/494b2b3b500b2e99d7d07eb480896f37975f767d))
+* **saved queries:** open, copy, and duplicate without running SQL ([#1083](https://github.com/SuperDBA/SuperDBA/issues/1083)) ([6e5c1a0](https://github.com/SuperDBA/SuperDBA/commit/6e5c1a02b103e38d895fb5939bccee231f62f040))
+* **sidebar:** export a saved query directly as a SQL file ([#1146](https://github.com/SuperDBA/SuperDBA/issues/1146)) ([#1196](https://github.com/SuperDBA/SuperDBA/issues/1196)) ([222242b](https://github.com/SuperDBA/SuperDBA/commit/222242bc2bf0f0fb51e94d52aedba34c3c7b2754))
+* **sidebar:** optionally group open connections by folder ([#1122](https://github.com/SuperDBA/SuperDBA/issues/1122)) ([afbe9c6](https://github.com/SuperDBA/SuperDBA/commit/afbe9c656b40136a5ee76722aceca5115753db28)), closes [#876](https://github.com/SuperDBA/SuperDBA/issues/876)
+* **sidebar:** show matching SQL excerpt in saved query search ([#1177](https://github.com/SuperDBA/SuperDBA/issues/1177)) ([cf51828](https://github.com/SuperDBA/SuperDBA/commit/cf518285cba3fe4c1e74f711d08093062cb1620a))
+* **team-share:** vault file format and three-way merge ([#778](https://github.com/SuperDBA/SuperDBA/issues/778)) ([bebdd9d](https://github.com/SuperDBA/SuperDBA/commit/bebdd9d134ee208f7bf31fa5fa1bba80694548a7))
+
+# [0.28.0](https://github.com/SuperDBA/SuperDBA/compare/v0.27.0...v0.28.0) (2026-10-13)
+
+
+### Bug Fixes
+
+* **ai:** stop sending temperature to Anthropic ([#918](https://github.com/SuperDBA/SuperDBA/issues/918)) ([20eb0cd](https://github.com/SuperDBA/SuperDBA/commit/20eb0cd28b4540cff0d8620284408fd82f1e0f6d))
+* **ci:** find the PR of fork preview builds by head branch ([#979](https://github.com/SuperDBA/SuperDBA/issues/979)) ([c6fea37](https://github.com/SuperDBA/SuperDBA/commit/c6fea37eaf72944b112487570d491dd7416f917a)), closes [#978](https://github.com/SuperDBA/SuperDBA/issues/978)
+* **ci:** preserve executable AppRun.wrapped in stable AppImage ([#962](https://github.com/SuperDBA/SuperDBA/issues/962)) ([fdac3b6](https://github.com/SuperDBA/SuperDBA/commit/fdac3b6f2cb3226162735870d0a8d5973490d2b7))
+* **connections:** keep secrets in the keychain by default and write config files 0600 ([#980](https://github.com/SuperDBA/SuperDBA/issues/980)) ([e1ef75f](https://github.com/SuperDBA/SuperDBA/commit/e1ef75ff6f4e49637fe02900bacc4e40b3aaebdf))
+* **connections:** reject unknown SSL modes instead of skipping verification ([#974](https://github.com/SuperDBA/SuperDBA/issues/974)) ([eba54f7](https://github.com/SuperDBA/SuperDBA/commit/eba54f76754eb86b21f137bc1fd79271a32a823a))
+* copy all rows from multi-result and detached result views ([97a0e1e](https://github.com/SuperDBA/SuperDBA/commit/97a0e1e3a09ffadf83e0ab56147e9d415bf8b771))
+* **create-plugin:** generate rustfmt-clean driver plugins ([#988](https://github.com/SuperDBA/SuperDBA/issues/988)) ([846ad0b](https://github.com/SuperDBA/SuperDBA/commit/846ad0bea99dd280d9a133d083e95da5311d02dc))
+* **create-plugin:** upload the theme manifest with each release ([#984](https://github.com/SuperDBA/SuperDBA/issues/984)) ([17e252d](https://github.com/SuperDBA/SuperDBA/commit/17e252d2a06e6903cdabaa92d473e1009ab0312d))
+* **distribution:** pass the WinGet Tauri config by file ([#976](https://github.com/SuperDBA/SuperDBA/issues/976)) ([8636068](https://github.com/SuperDBA/SuperDBA/commit/86360689db9cc4d3d5678c06266b3a9a97e23c9a))
+* **distribution:** publish a WinGet-managed NSIS installer ([#975](https://github.com/SuperDBA/SuperDBA/issues/975)) ([e98c77f](https://github.com/SuperDBA/SuperDBA/commit/e98c77f3266611d3dc1b0199f5e9411d2c395765))
+* **editor:** preserve SQL edits when switching console tabs ([#970](https://github.com/SuperDBA/SuperDBA/issues/970)) ([5648e51](https://github.com/SuperDBA/SuperDBA/commit/5648e51b6179bb7c9c16a5cceb04465fe501f797))
+* **filter:** expose the Match all/any toggle as pressed buttons instead of radios ([dd13706](https://github.com/SuperDBA/SuperDBA/commit/dd137066755fb5fb6226ac4e9f687b4f9a46bd16))
+* **filter:** ignore incomplete structured filters when building the WHERE clause ([#941](https://github.com/SuperDBA/SuperDBA/issues/941)) ([e156c26](https://github.com/SuperDBA/SuperDBA/commit/e156c265d00fdf113b99124b5a130fa0335e299e))
+* **filter:** reset the filter panel when the active table tab changes ([8c7856e](https://github.com/SuperDBA/SuperDBA/commit/8c7856ebf277ee741509f337e8f990aac44d6a8b))
+* **filters:** preserve quoted values in IN and NOT IN clauses ([#969](https://github.com/SuperDBA/SuperDBA/issues/969)) ([79931d9](https://github.com/SuperDBA/SuperDBA/commit/79931d9fb7f787481cc9e98cd607760b549ed1b4))
+* **filter:** use ! as LIKE escape so text operators work on MySQL/MariaDB ([c7fd46c](https://github.com/SuperDBA/SuperDBA/commit/c7fd46cc20de22e91e817c11e6b311eb03459c57))
+* **filter:** use theme tokens and a visible focus state for the Match all/any toggle ([703a059](https://github.com/SuperDBA/SuperDBA/commit/703a059749e32755ebd5d670407203ff6d3da99e))
+* **import:** send booleans as literals into existing MySQL TINYINT columns ([#967](https://github.com/SuperDBA/SuperDBA/issues/967)) ([08999b5](https://github.com/SuperDBA/SuperDBA/commit/08999b5c98dc4dc930cd666709e1dd1130a19bec))
+* **import:** use the driver's identifier quote in Import from Clipboard ([#936](https://github.com/SuperDBA/SuperDBA/issues/936)) ([62a0157](https://github.com/SuperDBA/SuperDBA/commit/62a01576dfaded55f064eb676d4ed1fcf669b6b4)), closes [#904](https://github.com/SuperDBA/SuperDBA/issues/904) [#904](https://github.com/SuperDBA/SuperDBA/issues/904)
+* **k8s:** stop and health-check port-forward tunnels ([#942](https://github.com/SuperDBA/SuperDBA/issues/942)) ([9879ab4](https://github.com/SuperDBA/SuperDBA/commit/9879ab473984939d16d6b81797c37ecfb77a8d83)), closes [#886](https://github.com/SuperDBA/SuperDBA/issues/886)
+* keep the primary key in Generate SQL for SQLite tables ([#983](https://github.com/SuperDBA/SuperDBA/issues/983)) ([6591db4](https://github.com/SuperDBA/SuperDBA/commit/6591db4645849c8706bb4f8c0f26f7f445a13382))
+* **linux:** keep zbus on the async-io backend to avoid the notification crash ([a7c67c4](https://github.com/SuperDBA/SuperDBA/commit/a7c67c422ba711be95e06cfdfdfb3d8515e91050))
+* **logging:** honour RUST_LOG for the log level ([#933](https://github.com/SuperDBA/SuperDBA/issues/933)) ([7b5c5cf](https://github.com/SuperDBA/SuperDBA/commit/7b5c5cf802d0968611dda9a0dfcb40a9973561b9)), closes [#897](https://github.com/SuperDBA/SuperDBA/issues/897) [#895](https://github.com/SuperDBA/SuperDBA/issues/895) [#895](https://github.com/SuperDBA/SuperDBA/issues/895)
+* make --debug raise the log level to Debug ([f5a9f32](https://github.com/SuperDBA/SuperDBA/commit/f5a9f3223b9fc05899310c8fa1e34be1c6ed66c4)), closes [#895](https://github.com/SuperDBA/SuperDBA/issues/895)
+* **mcp:** block side-effecting calls hidden by quoted names or dollar/E literals in read-only mode ([#1054](https://github.com/SuperDBA/SuperDBA/issues/1054)) ([ecc12a6](https://github.com/SuperDBA/SuperDBA/commit/ecc12a665b26bd57b42aefb559dde8da7b062cc0))
+* **mcp:** write the Claude Desktop config to %APPDATA%\Claude on Windows ([#902](https://github.com/SuperDBA/SuperDBA/issues/902)) ([7ddceea](https://github.com/SuperDBA/SuperDBA/commit/7ddceea549612b9378ee95a0fe6c23e53f09e7b0)), closes [#885](https://github.com/SuperDBA/SuperDBA/issues/885)
+* **mysql:** read column lengths on MySQL 8 ([#968](https://github.com/SuperDBA/SuperDBA/issues/968)) ([bf04de5](https://github.com/SuperDBA/SuperDBA/commit/bf04de5bfbf1f55074b9cf7f99e0d95e08320f29))
+* **mysql:** read index column positions on MySQL 8 ([#966](https://github.com/SuperDBA/SuperDBA/issues/966)) ([3ffddf9](https://github.com/SuperDBA/SuperDBA/commit/3ffddf9218b4443716f6bf6251bf5303a14c19b2)), closes [#944](https://github.com/SuperDBA/SuperDBA/issues/944)
+* **mysql:** read routine parameter positions on MySQL 8 ([#944](https://github.com/SuperDBA/SuperDBA/issues/944)) ([1a7f86d](https://github.com/SuperDBA/SuperDBA/commit/1a7f86d180e66e6ce4927a30c297115df586ca06)), closes [#903](https://github.com/SuperDBA/SuperDBA/issues/903)
+* **plugins:** accept JSON-RPC error responses with a null id ([3f8e6ed](https://github.com/SuperDBA/SuperDBA/commit/3f8e6ed640239d5aa489182271219a023b11e81c))
+* **plugins:** drain in-flight RPCs during bounded shutdown ([#961](https://github.com/SuperDBA/SuperDBA/issues/961)) ([47da9fa](https://github.com/SuperDBA/SuperDBA/commit/47da9fa60261c791a6b4229d750b17c132f06c1f))
+* **plugins:** honor selected Redis database in RPC requests ([#960](https://github.com/SuperDBA/SuperDBA/issues/960)) ([05e0daa](https://github.com/SuperDBA/SuperDBA/commit/05e0daa58a0f9db1da6312163a9f39514d468722))
+* **plugins:** pass SlotContextMap fields to UI slot hosts ([#951](https://github.com/SuperDBA/SuperDBA/issues/951)) ([7f5eda0](https://github.com/SuperDBA/SuperDBA/commit/7f5eda00ebc665a6064b0fbafef23e0c1302d6ae))
+* **postgres:** identify routine overloads by signature, not by name ([#893](https://github.com/SuperDBA/SuperDBA/issues/893)) ([#926](https://github.com/SuperDBA/SuperDBA/issues/926)) ([aa3870e](https://github.com/SuperDBA/SuperDBA/commit/aa3870ec3e283a64671bb3c2457b1b02b1132ff0))
+* **postgres:** show real values without float noise and keep row matching ([#950](https://github.com/SuperDBA/SuperDBA/issues/950)) ([8121adc](https://github.com/SuperDBA/SuperDBA/commit/8121adcfe50f0b9b0a762569aac3bda57c205e9d))
+* recover table refresh after an initial query failure ([0d0d85c](https://github.com/SuperDBA/SuperDBA/commit/0d0d85ca9fd9baa3f4a9a2a53a6184b69c96e963))
+* release the log buffer lock before logging in get_logs ([d708114](https://github.com/SuperDBA/SuperDBA/commit/d708114c1f62ba458a079d3752fbe8a41153869f))
+* restore type fidelity in Generate SQL / Create Table ([#840](https://github.com/SuperDBA/SuperDBA/issues/840)) ([#939](https://github.com/SuperDBA/SuperDBA/issues/939)) ([f9a897c](https://github.com/SuperDBA/SuperDBA/commit/f9a897c2907d31996e0677323eb5b371a3d4dff8)), closes [#2](https://github.com/SuperDBA/SuperDBA/issues/2)
+* scope detached results sync and copy events per tab ([#958](https://github.com/SuperDBA/SuperDBA/issues/958)) ([ea8f0f4](https://github.com/SuperDBA/SuperDBA/commit/ea8f0f4178ba16e176d8d364d6f8890db6d0e2f1))
+* **settings:** persist column masking and grid interaction settings ([f4b3871](https://github.com/SuperDBA/SuperDBA/commit/f4b38712525e7a3f289d5d93b7ca5513d12f8b2c)), closes [#883](https://github.com/SuperDBA/SuperDBA/issues/883)
+* **settings:** show an error when a log action fails ([#987](https://github.com/SuperDBA/SuperDBA/issues/987)) ([bb31cbb](https://github.com/SuperDBA/SuperDBA/commit/bb31cbb61be9ebf193c0539ec2d2ff9cb5d599f8))
+* **settings:** stop the Export Logs confirmation mentioning the clipboard ([e0fda9b](https://github.com/SuperDBA/SuperDBA/commit/e0fda9b19c55ca955b9d5b01ffb1e2db111bc208)), closes [#907](https://github.com/SuperDBA/SuperDBA/issues/907)
+* **sidebar:** add New routine button to schema and multi-database layouts ([8063b64](https://github.com/SuperDBA/SuperDBA/commit/8063b64675fbecf74cfd0781e94223e4c3322f8a)), closes [#888](https://github.com/SuperDBA/SuperDBA/issues/888)
+* **sidebar:** import from a table's menu into that table's schema ([#945](https://github.com/SuperDBA/SuperDBA/issues/945)) ([f9d79c6](https://github.com/SuperDBA/SuperDBA/commit/f9d79c6bf0c8c90ad3ad0c918b05ae6f2a23124b))
+* **sidebar:** refresh the explorer tree after Import from Clipboard ([a846bf5](https://github.com/SuperDBA/SuperDBA/commit/a846bf5ca15553a2af9ee12cd9bb995c71055b8a)), closes [#905](https://github.com/SuperDBA/SuperDBA/issues/905)
+* **sqlite:** report columns without a default as having none ([#982](https://github.com/SuperDBA/SuperDBA/issues/982)) ([c85b90d](https://github.com/SuperDBA/SuperDBA/commit/c85b90dda055aef1376e8db6059dd148191ea595))
+* **ssh:** use the selected key and passphrase without a system askpass ([#848](https://github.com/SuperDBA/SuperDBA/issues/848)) ([7cac68e](https://github.com/SuperDBA/SuperDBA/commit/7cac68e895539eef33baab907df38c0cd41d1a3b))
+* **triggers:** dialect-aware guided create/edit and safe restore ([#955](https://github.com/SuperDBA/SuperDBA/issues/955)) ([f938a8a](https://github.com/SuperDBA/SuperDBA/commit/f938a8adee82b024b3a1c8b5e0416e81f36a7889))
+* **ui:** align auto-refresh select with toolbar styling ([#1022](https://github.com/SuperDBA/SuperDBA/issues/1022)) ([a3e6153](https://github.com/SuperDBA/SuperDBA/commit/a3e6153a1b9be5d8e2a65e9b3f99cb46c565c1f1))
+* **updater:** detect Homebrew Cask and WinGet installs ([57c9999](https://github.com/SuperDBA/SuperDBA/commit/57c9999b5ffef47f7fc8ca6a78a3ec4787d5efaf))
+* **updater:** keep the in-app updater for Homebrew, tidy WinGet detection ([fba9741](https://github.com/SuperDBA/SuperDBA/commit/fba97412dbf0ce78e418de544e989b93664d96ca))
+
+
+### Features
+
+* **autocomplete:** resolve CTE and derived-table columns ([#963](https://github.com/SuperDBA/SuperDBA/issues/963)) ([54c7019](https://github.com/SuperDBA/SuperDBA/commit/54c7019c6ddee51e30110c17b046424a4971cff9))
+* **connections:** import JDBC URLs, query credentials and SSL modes ([#952](https://github.com/SuperDBA/SuperDBA/issues/952)) ([c496bc9](https://github.com/SuperDBA/SuperDBA/commit/c496bc9fc279c46e7bd70cc0bfec30a50b8513ed))
+* **datagrid:** show when table auto-refresh is active ([aca5fd7](https://github.com/SuperDBA/SuperDBA/commit/aca5fd7acd3b12c2673a2a90f93a4fbefcb0ef50))
+* **editor:** duplicate tab from the tab context menu ([#875](https://github.com/SuperDBA/SuperDBA/issues/875)) ([427a7d6](https://github.com/SuperDBA/SuperDBA/commit/427a7d66986aaa3a83256eab5cd0a036a4def888))
+* **editor:** make hidden SQL characters visible and easy to clean ([#1015](https://github.com/SuperDBA/SuperDBA/issues/1015)) ([8bb50f6](https://github.com/SuperDBA/SuperDBA/commit/8bb50f6bc9e034d4421002b0597f6e73b6640e0d))
+* **editor:** notify when a long-running query finishes in the background ([#867](https://github.com/SuperDBA/SuperDBA/issues/867)) ([f0f12b9](https://github.com/SuperDBA/SuperDBA/commit/f0f12b983f462a18350114d93758d03264167db1))
+* **editor:** reopen the last closed tab (Ctrl/Cmd+Shift+T) ([e161d7e](https://github.com/SuperDBA/SuperDBA/commit/e161d7eb91c73c1ff7f348ab383d51f2f2ea0a78)), closes [#866](https://github.com/SuperDBA/SuperDBA/issues/866)
+* **editor:** switch tabs in most recently used order ([#1011](https://github.com/SuperDBA/SuperDBA/issues/1011)) ([a323b57](https://github.com/SuperDBA/SuperDBA/commit/a323b572a99b3ffa076cd3df1d9dd4e2b26577f3))
+* **explorer:** show definition and copy DDL for views ([#1010](https://github.com/SuperDBA/SuperDBA/issues/1010)) ([ad3b19a](https://github.com/SuperDBA/SuperDBA/commit/ad3b19ae4c96a5fa4c44f231841bc6e2296d2e72))
+* **filter:** add Match all / Match any (AND/OR) toggle to structured filter ([9543741](https://github.com/SuperDBA/SuperDBA/commit/954374140252d106f3fffe57a68c59be5d074d1f))
+* **filter:** add text-friendly operators for string columns ([70085fc](https://github.com/SuperDBA/SuperDBA/commit/70085fc48e4e2a2584dfab794a06f8d097b1fa1e)), closes [#852](https://github.com/SuperDBA/SuperDBA/issues/852)
+* **filter:** pick structured filter values from the column's distinct values ([#956](https://github.com/SuperDBA/SuperDBA/issues/956)) ([f75f376](https://github.com/SuperDBA/SuperDBA/commit/f75f37682a1a4b55ea5d33cbfdb145c8b2b9d902)), closes [#869](https://github.com/SuperDBA/SuperDBA/issues/869)
+* **filter:** render the structured filter panel inline instead of as an overlay ([943f4ee](https://github.com/SuperDBA/SuperDBA/commit/943f4ee8803714d0b6d9d31641770afc1bc938e1))
+* **grid:** jump to column picker (rebase onto main) ([#954](https://github.com/SuperDBA/SuperDBA/issues/954)) ([4fe5959](https://github.com/SuperDBA/SuperDBA/commit/4fe595922b2fb232869f9bc62adc7bdf3642f8de))
+* **grid:** support image preview on hover and SVG text detection ([#998](https://github.com/SuperDBA/SuperDBA/issues/998)) ([#1008](https://github.com/SuperDBA/SuperDBA/issues/1008)) ([6b7f2ee](https://github.com/SuperDBA/SuperDBA/commit/6b7f2ee6dda49a8f041f98899f81f330c740a2d3))
+* **json-viewer:** support clickable links and color swatches ([#997](https://github.com/SuperDBA/SuperDBA/issues/997)) ([#1007](https://github.com/SuperDBA/SuperDBA/issues/1007)) ([e765b76](https://github.com/SuperDBA/SuperDBA/commit/e765b767ac85ef2c24a6684d12862f7c3ae6de82))
+* preserve per-tab table auto-refresh deadlines ([7295026](https://github.com/SuperDBA/SuperDBA/commit/72950265e936bd47169ae1b1a8eb1835fc79f8cb))
+* **query-history:** filter by outcome and time range ([#943](https://github.com/SuperDBA/SuperDBA/issues/943)) ([393b612](https://github.com/SuperDBA/SuperDBA/commit/393b612fdde28f000f744185c7cdd802ac1d908e))
+* **window:** remember main window size and position ([#953](https://github.com/SuperDBA/SuperDBA/issues/953)) ([f10bef8](https://github.com/SuperDBA/SuperDBA/commit/f10bef89fe2759b4da21eefb9a45ffb12dc30965))
+
+# [0.27.0](https://github.com/SuperDBA/SuperDBA/compare/v0.26.0...v0.27.0) (2026-10-08)
+
+
+### Bug Fixes
+
+* **create-plugin:** answer unimplemented methods with "Method not found" ([237daf2](https://github.com/SuperDBA/SuperDBA/commit/237daf25ff8e2f26b0854671231572c699d419f6)), closes [#890](https://github.com/SuperDBA/SuperDBA/issues/890)
+* **create-plugin:** correct method-not-found guidance, tighten test ([0817b6f](https://github.com/SuperDBA/SuperDBA/commit/0817b6f328b99328a172f9c9761269a0feb39a97))
+* **datagrid:** keep column widths stable while scrolling ([2017ff3](https://github.com/SuperDBA/SuperDBA/commit/2017ff305c0ebaf310227ae4de6d48eb1b3f902e)), closes [#844](https://github.com/SuperDBA/SuperDBA/issues/844)
+* **datagrid:** keep masked cell values out of filter-by-value ([853cc02](https://github.com/SuperDBA/SuperDBA/commit/853cc02965da361fea0bfd3c28390fca8d44eb43))
+* **editor:** guard each statement of a T-SQL batch ([6e7f487](https://github.com/SuperDBA/SuperDBA/commit/6e7f487f23eb4826ec3f9164ca3d61bf6d139940))
+* **editor:** keep T-SQL routine bodies whole in the query guard ([c2dbeb9](https://github.com/SuperDBA/SuperDBA/commit/c2dbeb9a1eb9ae86710abe024128320b4e9e0e04))
+* **editor:** scope the routine-definition guard exemption to its own batch ([93236f3](https://github.com/SuperDBA/SuperDBA/commit/93236f3a15b6a8cd10c6d9ded7a15d1bea2c9f64))
+* **explain:** default Analyze off for every data-modifying statement ([61dba51](https://github.com/SuperDBA/SuperDBA/commit/61dba5156141d0d793246d94a7de46f688901d51)), closes [#884](https://github.com/SuperDBA/SuperDBA/issues/884)
+* **explain:** mask strings under every dialect and catch SELECT INTO ([86967a5](https://github.com/SuperDBA/SuperDBA/commit/86967a54d8f666ab6aaabbbe48251173fba3bef2))
+* run T-SQL scripts as one batch instead of per statement ([3e5095a](https://github.com/SuperDBA/SuperDBA/commit/3e5095a2bc1899f7a8869f190b2d148da6473e95))
+* **settings:** persist zebra stripes and sticky headers; tune striped row colors ([e1c7a7f](https://github.com/SuperDBA/SuperDBA/commit/e1c7a7fd0c665ddb9359799f6f68e419ea627a5b))
+* **sidebar:** label the routine dialog button "Open in Editor" ([c9e527c](https://github.com/SuperDBA/SuperDBA/commit/c9e527cef4a12f27050cb6ef5a18d23b214a74b4))
+* **sidebar:** open the Run… routine call for review instead of executing it ([e563d56](https://github.com/SuperDBA/SuperDBA/commit/e563d56b3e460fd5815ac26b249e4472df31e025)), closes [#887](https://github.com/SuperDBA/SuperDBA/issues/887)
+
+
+### Features
+
+* **connections:** reorder connections within a group by drag ([e24cf9f](https://github.com/SuperDBA/SuperDBA/commit/e24cf9fa140b52fbf592e94885917a7831dcf8c4))
+* **datagrid:** filter by this value from the cell context menu ([#853](https://github.com/SuperDBA/SuperDBA/issues/853)) ([ac240f0](https://github.com/SuperDBA/SuperDBA/commit/ac240f020811c642d5fa2091e52724b56885070d))
+* **datagrid:** optional alternating row background ([f30ab78](https://github.com/SuperDBA/SuperDBA/commit/f30ab78d3d322c22dc2d5b66715f9f1faaef988f)), closes [#854](https://github.com/SuperDBA/SuperDBA/issues/854)
+* **editor:** convert selection to SQL list ([242a5e6](https://github.com/SuperDBA/SuperDBA/commit/242a5e64a2051f71ac12f0bf8b3a8619426ac615)), closes [#870](https://github.com/SuperDBA/SuperDBA/issues/870)
+* **editor:** show the schema on same-name table tabs ([b678226](https://github.com/SuperDBA/SuperDBA/commit/b678226737a006010fa0d21b31ee76e6047a990e))
+* name result tabs from leading SQL comments ([7ffa5d8](https://github.com/SuperDBA/SuperDBA/commit/7ffa5d8b2e92491808e9be7e681d246830ff7227))
+
+# [0.26.0](https://github.com/SuperDBA/SuperDBA/compare/v0.25.0...v0.26.0) (2026-10-01)
+
+
+### Bug Fixes
+
+* address command palette review feedback ([f1bf295](https://github.com/SuperDBA/SuperDBA/commit/f1bf295c057922dcee6ae4a4cbe33e883a27b6bf))
+* address command palette review feedback ([ac8e53d](https://github.com/SuperDBA/SuperDBA/commit/ac8e53d9d8de69ce10d4d32f22cde5bee7f1e3e8))
+* address review feedback on DataGrid scroll restore ([e3a6429](https://github.com/SuperDBA/SuperDBA/commit/e3a642916804ab286efce2573064d7eeee0cf98f))
+* address review feedback on local path sanitization ([33c769d](https://github.com/SuperDBA/SuperDBA/commit/33c769d90de8b5117b89de11b8f0dd301fe3489b))
+* address shortcut review feedback ([d9a1b79](https://github.com/SuperDBA/SuperDBA/commit/d9a1b79d493bdac68f6396fbdd1216cf0d30b17e))
+* align reserved grid shortcuts with handlers ([6558d92](https://github.com/SuperDBA/SuperDBA/commit/6558d929d972ea69721dd672ed004068faa70c80))
+* allow shortcuts with both primary modifiers ([7ba12c0](https://github.com/SuperDBA/SuperDBA/commit/7ba12c09429ef6d459401d54d3c1460eb340a7bf))
+* connect saved databases from command palette ([612c0b4](https://github.com/SuperDBA/SuperDBA/commit/612c0b4cdc4b181f941cc9a57daf302ccf891a3d))
+* copy pending rows from data grid ([d99eac0](https://github.com/SuperDBA/SuperDBA/commit/d99eac0741473e482bda85c0950affc496d02db3))
+* count pending rows in copy command ([a724447](https://github.com/SuperDBA/SuperDBA/commit/a724447f3f01b166cb2e91dfd8bb09943cb1e863))
+* declare optional query templates in manifest schemas ([a54684c](https://github.com/SuperDBA/SuperDBA/commit/a54684c66409ad1d04762f6ab6605e21fd462dfa))
+* **editor:** announce an open transaction from a mounted status region ([a3e9473](https://github.com/SuperDBA/SuperDBA/commit/a3e9473f5ea40bd6a31133b06c54530c9a9c2b9b))
+* **editor:** count and export inside a tab's open transaction ([e4b4f37](https://github.com/SuperDBA/SuperDBA/commit/e4b4f376b42be8a9f25a0e0c30e36cdc34331194))
+* **editor:** release a tab's session on every close path ([3f81d24](https://github.com/SuperDBA/SuperDBA/commit/3f81d240bfdca437451cd0124bfeb37c5d589049))
+* **editor:** release every closing tab's session ([4f1c498](https://github.com/SuperDBA/SuperDBA/commit/4f1c498a37a5f3ccec71f240b9be6b7f5b555c26))
+* **editor:** use the warning tone tokens for the TX badge ([64ad27a](https://github.com/SuperDBA/SuperDBA/commit/64ad27a8aaf35df92d0dd56402b684209c280c96))
+* expose editor commands in root palette ([6b555cb](https://github.com/SuperDBA/SuperDBA/commit/6b555cbd44663537bd00978c8a27ff51e67a5152))
+* expose JSON viewer in read-only menus ([190be38](https://github.com/SuperDBA/SuperDBA/commit/190be38b249832ac6ea30412a25b0174e2aaa336))
+* finish nightly publication before starting another run ([6d8d4a6](https://github.com/SuperDBA/SuperDBA/commit/6d8d4a62fd3456b9bedbd0a89736702d3efbb67f))
+* **grid:** clear the editing ref only when the editor closes ([c2c6be9](https://github.com/SuperDBA/SuperDBA/commit/c2c6be99c1252e8f4b376dc71fa1d4f400d27964))
+* **grid:** commit an accepted date only once ([8491c4b](https://github.com/SuperDBA/SuperDBA/commit/8491c4b84b7fb6abb832200261144b2694fb55df))
+* **grid:** readable edited cells and acceptable prefilled dates ([79e5b5b](https://github.com/SuperDBA/SuperDBA/commit/79e5b5b50a9a4eeeb0a0373df40f025e91468ca1)), closes [#826](https://github.com/SuperDBA/SuperDBA/issues/826)
+* **grid:** soften the edited JSON cell tint so the primary text stays readable on light row-state colors ([0079a99](https://github.com/SuperDBA/SuperDBA/commit/0079a9901d859c70e1728761d9706b23fde079e2))
+* group new console with editor commands ([5d3b0dc](https://github.com/SuperDBA/SuperDBA/commit/5d3b0dc225f724f2fdf74b822c499cb01fac4de7))
+* harden command palette shortcuts ([a168c67](https://github.com/SuperDBA/SuperDBA/commit/a168c676d66d1e4dafe5efa8a02876435c16d175))
+* harden shortcut editing ([a712e2d](https://github.com/SuperDBA/SuperDBA/commit/a712e2d14a2b5b830bc4ea29cd1be56f75ad25a1))
+* keep scroll offsets out of tab state, fix insertion auto-scroll race ([5b1916f](https://github.com/SuperDBA/SuperDBA/commit/5b1916fe656ce0f394978a831ca937b630bcfa65))
+* keep scroll position of grids in multi-result panel ([09a11f4](https://github.com/SuperDBA/SuperDBA/commit/09a11f41b879c85b1d9441fdba1c059cb71bf449))
+* list only driver plugins in the connection catalogue ([11c4689](https://github.com/SuperDBA/SuperDBA/commit/11c468981967a7956b277d037cbea36b9e00c3fe)), closes [#824](https://github.com/SuperDBA/SuperDBA/issues/824)
+* **mysql:** speed up foreign-key metadata lookup ([840c053](https://github.com/SuperDBA/SuperDBA/commit/840c05359156e88ec99338dab418daa0ddcfbd0c))
+* pin the connection for single statements too ([2f1a36b](https://github.com/SuperDBA/SuperDBA/commit/2f1a36b8f76deb03c94b45a35e3beda972ad7216))
+* **plugins:** keep last-known-good call timeouts on config read failure ([96b4245](https://github.com/SuperDBA/SuperDBA/commit/96b42459bd7390405ea768e5b6982c519d2e3211))
+* **plugins:** learn the session state a failed statement left ([ff13213](https://github.com/SuperDBA/SuperDBA/commit/ff132136b1b4654fc361aea3a61b8b69f9ee08b0))
+* **plugins:** read a null in_transaction as false and restore a doc comment ([00288cb](https://github.com/SuperDBA/SuperDBA/commit/00288cb4c357c3c173c48eb5f2c68da4e549ea45))
+* **plugins:** resolve call timeout for get_table_query_template after merging main ([ea853b1](https://github.com/SuperDBA/SuperDBA/commit/ea853b1eba723c7ad8da4b664f4a4643e50cec62))
+* **plugins:** revert Cloudflare D1 0.3.1 entry (release never published) ([29628a8](https://github.com/SuperDBA/SuperDBA/commit/29628a836e92b4b57ca71081dc376f8c8ce2e66b))
+* **postgres:** bound the session map and never wait on exit ([7380b4f](https://github.com/SuperDBA/SuperDBA/commit/7380b4f42b41f53e7d1402a16da8ab3b3c947f7b))
+* **postgres:** end the tab's transaction when COMMIT itself fails ([31d8f71](https://github.com/SuperDBA/SuperDBA/commit/31d8f7113a803e43d6c4f27fc276adab44df41e3))
+* **postgres:** keep a busy session tracked on exit and close any dropped pin ([e950589](https://github.com/SuperDBA/SuperDBA/commit/e95058985400e9dd34afc9b8e7db612b802d51a5))
+* **postgres:** read transaction keywords past comments and optional WORK/TRANSACTION ([2c18fd7](https://github.com/SuperDBA/SuperDBA/commit/2c18fd7d4b73bdc8642bfcb7251c9ca5642ba9af))
+* **postgres:** serialize a tab's runs and close cancelled connections ([bc5301d](https://github.com/SuperDBA/SuperDBA/commit/bc5301d6a45f8e50cac28096793e8465fcae6fcb))
+* **postgres:** stream a mid-transaction export on the pinned connection ([1d036bb](https://github.com/SuperDBA/SuperDBA/commit/1d036bb23b003415ee261c227ca5e5b1c15db1cd))
+* **postgres:** sweep idle pinned sessions on a timer ([2fda2dc](https://github.com/SuperDBA/SuperDBA/commit/2fda2dcc58bb22dbdd93f584a57909e70175b6f2))
+* **postgres:** treat a successful AND CHAIN as in a transaction ([7778134](https://github.com/SuperDBA/SuperDBA/commit/777813472d8e19b168c294ffe52e5e8ffc0f2d7a))
+* refine shortcut conflict validation ([91cb7af](https://github.com/SuperDBA/SuperDBA/commit/91cb7af763d59d0306e18bff64ed6bacd97c0262))
+* release a connection's open transactions on disconnect ([47a420c](https://github.com/SuperDBA/SuperDBA/commit/47a420c69eb2089bbc0f24b550b5d464c8320dee))
+* release open transactions on every connection close, without waiting ([a181e67](https://github.com/SuperDBA/SuperDBA/commit/a181e6769caa8faf33dbcfef75d933e18cb4e882))
+* release pinned sessions on app exit ([5ee85ab](https://github.com/SuperDBA/SuperDBA/commit/5ee85ab742ac49d4aaebc545243413a214c1f117))
+* report session state after a failed or cancelled run ([060b3d4](https://github.com/SuperDBA/SuperDBA/commit/060b3d4de76fb188cb458d372c812fffee558035))
+* restore DataGrid scroll position across tab switches ([#823](https://github.com/SuperDBA/SuperDBA/issues/823)) ([f044624](https://github.com/SuperDBA/SuperDBA/commit/f044624648103cce1bd865ec71a1d2a7e683e75a))
+* safely pass nightly version and organize script tests ([a998fc0](https://github.com/SuperDBA/SuperDBA/commit/a998fc0fbc683318886dc8d60f5e62403dd85b61))
+* sanitize quoted local file paths for DB connections ([1e7e265](https://github.com/SuperDBA/SuperDBA/commit/1e7e2658d6012a212674860a43bccd83e87957a2))
+* **shortcuts:** use the error text token for the modifier warning ([d375796](https://github.com/SuperDBA/SuperDBA/commit/d375796b771aff2bb96eedf8f5812220ecbb826f))
+* **ssm:** find the AWS CLI when launched from the desktop ([449aade](https://github.com/SuperDBA/SuperDBA/commit/449aadee968624aab81fae5e56a092e9eb8a75dd))
+* stamp nightly Cargo versions portably on macOS ([84ac156](https://github.com/SuperDBA/SuperDBA/commit/84ac156242a0244a5fb014e823199560d5e00692))
+* support JSON menus in query results ([c78ae84](https://github.com/SuperDBA/SuperDBA/commit/c78ae8422ef581373e5ae9af074dc701cc6ac2aa))
+* **themes:** use text.accent, border.focus and theme fonts as the contract intends ([5a09dae](https://github.com/SuperDBA/SuperDBA/commit/5a09dae46212c9626325c8c3c2972e79d74b41d7))
+* use native-roots rustls for the Tabularium registry HTTP client ([844b96b](https://github.com/SuperDBA/SuperDBA/commit/844b96b7d2b361ada82408832b1ca0781bb27338)), closes [#810](https://github.com/SuperDBA/SuperDBA/issues/810)
+
+
+### Features
+
+* **a11y:** lint JSX with jsx-a11y and fix every violation ([adba98b](https://github.com/SuperDBA/SuperDBA/commit/adba98b72f77f1e463626199f91e3844dafc5239))
+* add editor actions to command palette ([a0e9982](https://github.com/SuperDBA/SuperDBA/commit/a0e99827a5ac60afeebafcef5c08baa49ee71502))
+* add result actions to command palette ([86a4fe3](https://github.com/SuperDBA/SuperDBA/commit/86a4fe393c6c9643144901337e10e7e9f6585cdf))
+* **autocomplete:** harden nearest-table ranking edge cases and quoted identifiers (resolves [#760](https://github.com/SuperDBA/SuperDBA/issues/760)) ([60913f7](https://github.com/SuperDBA/SuperDBA/commit/60913f7c6d9a74a2b02266515bc5cf8f71f6c622))
+* **editor:** carry a tab's transaction across runs ([86e4d85](https://github.com/SuperDBA/SuperDBA/commit/86e4d85a3c5a7d10ba3fcd00a79053ecefcfe004))
+* improve keyboard shortcut handling ([a4a1852](https://github.com/SuperDBA/SuperDBA/commit/a4a18527e8d2a6d8588afb54e9cba47cf06e475f))
+* opt in to driver-owned table query templates ([288c20a](https://github.com/SuperDBA/SuperDBA/commit/288c20a3c6ced3129bfad140d99584585e39fcd8))
+* **plugins:** configurable plugin call timeout with per-plugin override ([7de9bec](https://github.com/SuperDBA/SuperDBA/commit/7de9bec59f21229fcada07a22fe40f946f9d1677))
+* **plugins:** send a cancel notification to the plugin on call timeout ([f818595](https://github.com/SuperDBA/SuperDBA/commit/f8185959a4e56b67b7cf91b1bf9084d67986bbbe)), closes [#832](https://github.com/SuperDBA/SuperDBA/issues/832)
+* **postgres:** pin a tab's connection while its transaction is open ([f0f05aa](https://github.com/SuperDBA/SuperDBA/commit/f0f05aa99db518393ce8436b60fcf236f846ac47))
+* switch connections from command palette ([0edce1d](https://github.com/SuperDBA/SuperDBA/commit/0edce1d80212ebfcb7ae0f6463597eecba36ac82))
+* **themes:** enforce WCAG AA contrast in every built-in theme ([670eed3](https://github.com/SuperDBA/SuperDBA/commit/670eed306007d1a4be9257318ced4fbb1f552eba))
+* **themes:** route every UI color, radius and font through the theme tokens ([9d33279](https://github.com/SuperDBA/SuperDBA/commit/9d33279a7dac92726073ec7a1d0f809f01ca3426))
+* **themes:** split the manifest contract between host and registry ([483d425](https://github.com/SuperDBA/SuperDBA/commit/483d425bb25629e7399049fea4745d8aecb927b6))
+* unify command palette search ([c5d0440](https://github.com/SuperDBA/SuperDBA/commit/c5d044052f2fc0ceceb31396f0e41c47bc160da4))
+
+# [0.25.0](https://github.com/SuperDBA/SuperDBA/compare/v0.24.0...v0.25.0) (2026-09-22)
+
+
+### Bug Fixes
+
+* address review nits from [#784](https://github.com/SuperDBA/SuperDBA/issues/784) on the driver-registry rescan ([0ac2625](https://github.com/SuperDBA/SuperDBA/commit/0ac262527d36d6bc4d501f063d81ea13c36ecf3a))
+* address startup resource review findings ([378d8f3](https://github.com/SuperDBA/SuperDBA/commit/378d8f342e1aa72fca07e0cc95d0ad989d98cb3f))
+* allow selecting and copying table schema text ([ecdf876](https://github.com/SuperDBA/SuperDBA/commit/ecdf876ea18fc1fa41e9a0a0d88e14a4c833906a))
+* allow viewing generated JSON columns ([1cf126f](https://github.com/SuperDBA/SuperDBA/commit/1cf126fdff8d362f98978968179a99e8fe5a7b5b))
+* canonicalize connection metadata cache keys ([b2317f8](https://github.com/SuperDBA/SuperDBA/commit/b2317f8e20649c7da68e5f1eea4a3e3c75124703))
+* **ci:** build nightlies from the newest green commit and show their real version ([ffa8e7b](https://github.com/SuperDBA/SuperDBA/commit/ffa8e7b6e5254a424775966a612826c1d3fdfea6))
+* **connections:** accept MongoDB replica set URIs ([f0a4bc4](https://github.com/SuperDBA/SuperDBA/commit/f0a4bc40c2979ef3f8a4c44b0b169e2613a78868))
+* **connections:** drop the stored password when a plugin hides the login inputs ([ea3b0af](https://github.com/SuperDBA/SuperDBA/commit/ea3b0aff53e5f275e681a6fa15b653f44832c43f))
+* **connections:** stop AWS SSM failures being reported as database errors ([d8d6029](https://github.com/SuperDBA/SuperDBA/commit/d8d6029813cbd07e9a0988bd3fcaec561b9a5c7b))
+* keep blob editor behind readonly guard ([e85a526](https://github.com/SuperDBA/SuperDBA/commit/e85a526f658f137566492b133aad49d56d8adc1a))
+* keep schema selection readable across themes ([16d757b](https://github.com/SuperDBA/SuperDBA/commit/16d757ba3e7b84fe58e3ab3c484ac91e3cf4670f))
+* open JSON viewers for read-only results ([6321545](https://github.com/SuperDBA/SuperDBA/commit/6321545f7a82ad2c6886767e2a00bef6498cf29f))
+* **plugins:** respect standalone driver display names ([e80f5e6](https://github.com/SuperDBA/SuperDBA/commit/e80f5e6ae83f606a874dfe07a1b9133c1c70a9c2))
+* preserve built-in-collision refusal and bound rescan frequency ([4524666](https://github.com/SuperDBA/SuperDBA/commit/452466642a69b78c74367780cb8b3c7b3d982adc)), closes [#783](https://github.com/SuperDBA/SuperDBA/issues/783)
+* reconcile MCP driver registry against disabled/uninstalled plugins ([#787](https://github.com/SuperDBA/SuperDBA/issues/787)) ([44e1d8d](https://github.com/SuperDBA/SuperDBA/commit/44e1d8d5239569223c688ac1d6c38721dd9d8c38))
+* self-heal MCP driver registry on unsupported-driver misses ([#783](https://github.com/SuperDBA/SuperDBA/issues/783)) ([89afca5](https://github.com/SuperDBA/SuperDBA/commit/89afca5018c1ac036f4b74cadd5902bed8d2ec8c))
+* **themes:** reuse plugin removal dialog for theme packages ([268e0b2](https://github.com/SuperDBA/SuperDBA/commit/268e0b2544bac9c10a68f1a57aa33cbd2193a3bb))
+
+
+### Features
+
+* **connections:** add AWS SSM Session Manager port forwarding ([109f18c](https://github.com/SuperDBA/SuperDBA/commit/109f18c8aed64a711f1cc4561c04d98bd29144a9))
+* expose table and column comments ([c62a328](https://github.com/SuperDBA/SuperDBA/commit/c62a328421bcc656b7a54ae4a26de70df22c4b0e))
+* **mcp:** add default output format setting ([9bda9bb](https://github.com/SuperDBA/SuperDBA/commit/9bda9bbc8b1e6d2c43ef75be7dd174200a8e87e8))
+* **mcp:** add optional TOON tool output ([0c52f89](https://github.com/SuperDBA/SuperDBA/commit/0c52f89911f2c49612e3f12976aac2ef08e85af3))
+* **plugins:** let the extra_fields slot hide host credential inputs ([d1d26ac](https://github.com/SuperDBA/SuperDBA/commit/d1d26ace3507f08a9323df92ed99d3f4e868817d))
+* **themes:** add registry schema hints and authoring CI ([ce59500](https://github.com/SuperDBA/SuperDBA/commit/ce59500087382f6fadf33f66d27c43586f9e0eab))
+* **themes:** add secure installable declarative themes ([331a94a](https://github.com/SuperDBA/SuperDBA/commit/331a94a6bd47b0d505544cb613d6c051f0a93416))
+* **themes:** unify theme management and theme-aware controls ([253a101](https://github.com/SuperDBA/SuperDBA/commit/253a101db7948cf6fac138106d4061340cf5dcfb))
+* **ui:** unify update cues across connections, plugins and sidebar ([4567a9a](https://github.com/SuperDBA/SuperDBA/commit/4567a9a9816559a5bf9a407825c480d44a011202))
+* **updates:** surface core and plugin updates ([cbbe704](https://github.com/SuperDBA/SuperDBA/commit/cbbe704bf725ae56e86edff3560a5d4edab0e303))
+
+
+### Performance Improvements
+
+* reduce startup loading and defer plugin initialization ([d16d5bb](https://github.com/SuperDBA/SuperDBA/commit/d16d5bb2ea789b6d929c22e5c64ce5fe8890e9cf))
+
+# [0.24.0](https://github.com/SuperDBA/SuperDBA/compare/v0.23.0...v0.24.0) (2026-09-16)
+
+
+### Bug Fixes
+
+* address proxy PR review (blocker + notes + registry proxy) ([a9d0298](https://github.com/SuperDBA/SuperDBA/commit/a9d02987752f2076f814e8fc54c492cde04931a9))
+* close MigrationChecklistModal on Escape ([789dfad](https://github.com/SuperDBA/SuperDBA/commit/789dfad8364c0905902b2be3936888c3842586cf)), closes [#4](https://github.com/SuperDBA/SuperDBA/issues/4)
+* comments raised ([4ddc723](https://github.com/SuperDBA/SuperDBA/commit/4ddc72328ac2195e858eae17cb889997c028ad8b))
+* failing test cases ([4feed3c](https://github.com/SuperDBA/SuperDBA/commit/4feed3c585bfc83a6e62d509f965aa47283fbeda))
+* **linux:** repair desktop entry for deep links, category and name ([b5a4d4d](https://github.com/SuperDBA/SuperDBA/commit/b5a4d4da00636e64189170ede707839ae6d93e2c)), closes [#671](https://github.com/SuperDBA/SuperDBA/issues/671)
+* nitpics in utils changes ([afe9d38](https://github.com/SuperDBA/SuperDBA/commit/afe9d387ec8e414dc77ebb2c2d733b8e4602941c))
+* nits raised ([fedd827](https://github.com/SuperDBA/SuperDBA/commit/fedd827fadfbf41b079df1869d6c3b7560413e99))
+* Notebook View and also include mariaDB case ([f134bd9](https://github.com/SuperDBA/SuperDBA/commit/f134bd94e3202d819aa06cc04c34204e62184135))
+* parse connection port as number in NewConnectionModal ([cc9b7cb](https://github.com/SuperDBA/SuperDBA/commit/cc9b7cbcc8192f1ae8f135a2cb19e0f17678728c))
+* render update release notes as markdown ([400aed3](https://github.com/SuperDBA/SuperDBA/commit/400aed35d46f4dad42b5a3067e2b4b1e805224f9))
+* resolve tabularium reqwest mismatch and SOCKS read_exact ambiguity ([e575767](https://github.com/SuperDBA/SuperDBA/commit/e575767a1ab8a799de43803dbdce62b2cd34d0a3))
+* result toolbar method ([a0beaa9](https://github.com/SuperDBA/SuperDBA/commit/a0beaa966e72ae69c44cabdb81e862e980cbee5a))
+* route Tabularium SDK HTTP through app_http proxy ([f5dc637](https://github.com/SuperDBA/SuperDBA/commit/f5dc6373f56df60cbad958fac4cad0c4a6cfa650))
+* **snap:** repair snap sandbox integration ([6f8dae5](https://github.com/SuperDBA/SuperDBA/commit/6f8dae555d2865f9cbee6cbeaef1c6ad8db24bed)), closes [#732](https://github.com/SuperDBA/SuperDBA/issues/732) [#710](https://github.com/SuperDBA/SuperDBA/issues/710)
+* **sqlContext:** reset table refs when frame transitions to statement scope ([46f288a](https://github.com/SuperDBA/SuperDBA/commit/46f288a95abe333dff55314549821a5acf71c828))
+* stop persist_activation from reverting concurrent config changes ([ec3428c](https://github.com/SuperDBA/SuperDBA/commit/ec3428c70f44d72ce5778761f4b16093a7f0ea61))
+* stop SSH tunnels on proxy config save instead of orphaning them ([74faeea](https://github.com/SuperDBA/SuperDBA/commit/74faeead8071a73012cda5d705ba8c26461d8517))
+* test cases ([d007d91](https://github.com/SuperDBA/SuperDBA/commit/d007d91c04358a41d2dddb3eb26aaa3bbb89048c))
+* **theme:** follow Linux desktop portal preferences ([191aad9](https://github.com/SuperDBA/SuperDBA/commit/191aad90e8e62a67f56e94f2f6129909fd6289cc))
+* **theme:** follow native system appearance ([d2b0aa8](https://github.com/SuperDBA/SuperDBA/commit/d2b0aa8734610c5b6f6cbd30a25e5f3aac4204d1)), closes [#716](https://github.com/SuperDBA/SuperDBA/issues/716)
+* **theme:** resolve Linux desktop default without forced-theme feedback ([537f7ca](https://github.com/SuperDBA/SuperDBA/commit/537f7ca90d51320655ae6be8b356d9a42e4c5aa8))
+* **ui:** respect theme colors in saved query modal ([70af5d6](https://github.com/SuperDBA/SuperDBA/commit/70af5d6298873fffa4d551ed4eaf474f2cf59583))
+* widen NewConnectionModal updateField for proxy override ([262082c](https://github.com/SuperDBA/SuperDBA/commit/262082c93feb437f7ecd441d1e48c41187092f18))
+
+
+### Features
+
+* add pluggable HTTP/SOCKS5 proxy settings and fork-local Windows CI ([d7e1902](https://github.com/SuperDBA/SuperDBA/commit/d7e1902c74aec09f997b75d1ab785ac7e5e63a37))
+* **autocomplete:** rank columns of nearest table first (closes [#507](https://github.com/SuperDBA/SuperDBA/issues/507)) ([1c90484](https://github.com/SuperDBA/SuperDBA/commit/1c9048402f6c1294109dbb5e757e58b793d1c6a7))
+* **changelog:** add personal sponsorship and GitHub star invitation ([ca4e869](https://github.com/SuperDBA/SuperDBA/commit/ca4e8699be34bfaec30e64f351259045870f5a25))
+* create reusuable visual explain component ([ad36307](https://github.com/SuperDBA/SuperDBA/commit/ad3630741f5ed16d105c882fc24e9da98db0bdf5))
+* **editor:** show a running indicator on the tab whose query is executing ([240f070](https://github.com/SuperDBA/SuperDBA/commit/240f070c2607ac8a3c9ee68f9cd712061b456c7c))
+* **notebook:** inline query plan in SQL cells, plus notebook UX fixes ([83da5eb](https://github.com/SuperDBA/SuperDBA/commit/83da5eb729f0621b7ce92392bc9f0c8f2fe8f9bf))
+* **plugins:** discover capabilities and types per connection ([50b1a9e](https://github.com/SuperDBA/SuperDBA/commit/50b1a9e95d08baf621e82bfd2f62e8a91cedfac6))
+* **settings:** add a font setting for query result cells ([fa59d9e](https://github.com/SuperDBA/SuperDBA/commit/fa59d9e2707a3abf0ec41a42117244cb0d93909f)), closes [#726](https://github.com/SuperDBA/SuperDBA/issues/726)
+
+# [0.23.0](https://github.com/SuperDBA/SuperDBA/compare/v0.22.0...v0.23.0) (2026-09-10)
+
+
+### Bug Fixes
+
+* add missing deprecated-driver translations and drop a leftover placeholder ([0bdbae1](https://github.com/SuperDBA/SuperDBA/commit/0bdbae1d078b108fb5c1aa23bfe5362e5c129019))
+* bugs found in manual dev-mode verification of Chunks 3-4 ([8c1745b](https://github.com/SuperDBA/SuperDBA/commit/8c1745bce0f8d9ec83aa351e4b3a2247475093aa))
+* bulk migration loses history records to a stale closure ([4a5626d](https://github.com/SuperDBA/SuperDBA/commit/4a5626d83ce43e301a5195aee7dbbaf0bbeb135a))
+* checklist rows vanish mid-run and the footer goes stale ([01c41ae](https://github.com/SuperDBA/SuperDBA/commit/01c41ae7fd9315aa5c872a9f6b4c8636742b3274))
+* correct connection-string capability check, default URI rows unchecked, add repo-URL fallback ([3339024](https://github.com/SuperDBA/SuperDBA/commit/3339024972078f20f16fb39bc7ddaf05b742cabb))
+* derive postgres/postgresql references in Connections.tsx from the hook, not hardcoded strings ([1c6035e](https://github.com/SuperDBA/SuperDBA/commit/1c6035eab3ed39f276f8d1eebd811b1dd79e184d))
+* derive the migration checklist's default selection once data has loaded ([16a3c75](https://github.com/SuperDBA/SuperDBA/commit/16a3c7536f61eaa2c45b06d2146d29025b09de12))
+* **dump:** escape JSON columns and backslashes per dialect ([05df3f9](https://github.com/SuperDBA/SuperDBA/commit/05df3f9979ac007096bd86eae2136607c365e66c)), closes [#717](https://github.com/SuperDBA/SuperDBA/issues/717)
+* **editor:** keep typed characters after a backward selection on WebKit ([f8f4d68](https://github.com/SuperDBA/SuperDBA/commit/f8f4d687dcec58a67244551abb6e460d6e44c484)), closes [#731](https://github.com/SuperDBA/SuperDBA/issues/731)
+* **editor:** stop the debounced query flush from dropping keystrokes ([fabea7f](https://github.com/SuperDBA/SuperDBA/commit/fabea7f5615c69b63e82a57773adf4ad3df017f8)), closes [#731](https://github.com/SuperDBA/SuperDBA/issues/731)
+* give the bulk checklist feedback during a long connection test ([7ae9186](https://github.com/SuperDBA/SuperDBA/commit/7ae918656ffdcf4e1ed23a6ddb98252c4d52359f))
+* migrateConnection/undoMigration never reject on unexpected errors ([c2c8b86](https://github.com/SuperDBA/SuperDBA/commit/c2c8b86de676d4cba79200cbabe77d23221a84ac))
+* misattribute a pre-existing connectivity failure to the plugin ([2c1e6c8](https://github.com/SuperDBA/SuperDBA/commit/2c1e6c857909b0ee53c3f9ea1691752320c8c58f))
+* **postgres:** make pool size configurable ([38aac16](https://github.com/SuperDBA/SuperDBA/commit/38aac16a351cce725956f1cd13967aaff295f702))
+* preserve unknown connection fields ([19a4f5e](https://github.com/SuperDBA/SuperDBA/commit/19a4f5eda7d438cd47d91e1ef0f21a9d13dee80f))
+* rank tables first and tighten search in the quick navigator ([e67e23b](https://github.com/SuperDBA/SuperDBA/commit/e67e23b3d6a2c57d8ee6220dac2d9dd689329aa3))
+* read the migration banner's removal date from the manifest, not a hardcoded string ([4cc2acf](https://github.com/SuperDBA/SuperDBA/commit/4cc2acff36d2ca16da9300f7c5f0e3508325fab6))
+* reconnect after migrating/undoing a connection that was open ([5ea965c](https://github.com/SuperDBA/SuperDBA/commit/5ea965c8346f4844c04fb194f92100da93b794c4))
+* scope the quick navigator to the selected schemas ([68b5e57](https://github.com/SuperDBA/SuperDBA/commit/68b5e57629bd9ebf1d7cc9a6b2cfa2fe638b71f6))
+* seed active_external_drivers from installed plugins before force-install ([aad99c7](https://github.com/SuperDBA/SuperDBA/commit/aad99c767edb3c961511798ce53213b3701dcb2a))
+* show the migration outcome toast at the resolve site, not via a lastOutcome effect ([58fa17f](https://github.com/SuperDBA/SuperDBA/commit/58fa17f7cc9d897a180d2316bc58cd6df0c638e1)), closes [#2](https://github.com/SuperDBA/SuperDBA/issues/2)
+* sync frontend state when the background force-install activates a plugin ([3583832](https://github.com/SuperDBA/SuperDBA/commit/3583832708cd8061b00bfd7d3ec4ab4c673db9c1))
+* **test:** bind storage globals to the jsdom environment ([ffb26b1](https://github.com/SuperDBA/SuperDBA/commit/ffb26b14326530e0092a5ad3157d5bc605d51fdd))
+* translate the new pre-existing-failure and checklist-progress copy ([bf01c05](https://github.com/SuperDBA/SuperDBA/commit/bf01c05e512823cbbdaf5cef118c717c8aa43ded))
+* undoMigration reads stale connection state from the toast's closure ([4e849f9](https://github.com/SuperDBA/SuperDBA/commit/4e849f9cab57e55e1f7ff7c0e55d8670cd5f3f09))
+
+
+### Features
+
+* card migration button, pre-migration confirm, and Chunk 5 issue link ([72f4dfc](https://github.com/SuperDBA/SuperDBA/commit/72f4dfc205b0d22476478a2d329c62b0bf9aafaa))
+* custom storage location for connections and app data ([81484b8](https://github.com/SuperDBA/SuperDBA/commit/81484b81dbc9ef3273d639af24500d7a98bad8a9)), closes [#702](https://github.com/SuperDBA/SuperDBA/issues/702)
+* **explain:** add parser registry ([f64db40](https://github.com/SuperDBA/SuperDBA/commit/f64db40e0109b87353cf81b2e6d606649d5f301f))
+* **explain:** render XML raw plans and cover loader cancellation ([6159ac7](https://github.com/SuperDBA/SuperDBA/commit/6159ac779059b2b6e18c7b38fd9ea75ee4e65ee4))
+* migration checklist modal, banner-link fix, commit-prefix correction ([8fef147](https://github.com/SuperDBA/SuperDBA/commit/8fef147b96eecd0e1cfaf206b505aac3a205ee4e))
+* migration hook, banner, and connectivity gate ([e552cad](https://github.com/SuperDBA/SuperDBA/commit/e552cad518b8e0f03be35a1f8c0346e8eb5aab88))
+* open, edit and save SQL files in editor tabs ([fba877c](https://github.com/SuperDBA/SuperDBA/commit/fba877c1f7a961134d55dbd01f4a30bb21f4fb00))
+* per-connection switch action, deprecated badges, catalogue ordering ([7f916c4](https://github.com/SuperDBA/SuperDBA/commit/7f916c4af98f7d6d60398cbf8a8a0a1606870cb5))
+* **plugins:** enforce min_runtime_version at install and load time ([ac87e73](https://github.com/SuperDBA/SuperDBA/commit/ac87e735c6da1190fb3fed5727b51dd44a4ebd83))
+* **plugins:** let development builds bypass min_runtime_version with a warning toast ([7cb24f3](https://github.com/SuperDBA/SuperDBA/commit/7cb24f3340c43c456205286961c094187763a9c3))
+* **plugins:** load explain parser bundles ([ba0463d](https://github.com/SuperDBA/SuperDBA/commit/ba0463d3b861ec8fad110126c67e3fc12bac9839))
+* **plugins:** support raw explain output ([5f0fa21](https://github.com/SuperDBA/SuperDBA/commit/5f0fa219f80e8b1706159569745fce7e199e87a1))
+* Rust backend foundation for builtin-to-plugin driver migration ([ec30d3a](https://github.com/SuperDBA/SuperDBA/commit/ec30d3a45f01955477ebf2bb5c51a5f3d7353c61))
+* TS types, settings, and pure utils for driver migration ([c904547](https://github.com/SuperDBA/SuperDBA/commit/c9045471708f1cacbbaaaffc2304a81c72b8dfdc))
+* wire up the post-migration outcome toast (Undo / Report an issue) ([2651e60](https://github.com/SuperDBA/SuperDBA/commit/2651e60345e30086376f4c5d7136a1d40703755c))
+
+### Added
+
+- Custom storage location: a new Settings > Storage tab lets you move the data folder (connections, settings, saved queries, themes, notebooks, query history) to any folder, for example one synced by iCloud Drive or Dropbox, so connections follow you across machines. The choice is recorded in `storage-location.json` in the default config directory and can be overridden with the `SUPERDBA_DATA_DIR` environment variable. Installed plugins always stay local. (#702)
+- Open, edit, and save `.sql`, `.psql`, and `.pgsql` files in SQL editor tabs without executing them. The toolbar Save split button and the tab context menu expose Save, Save As, and Add to Saved Queries; unsaved files are flagged on the tab.
+
+# [0.22.0](https://github.com/SuperDBA/SuperDBA/compare/v0.21.0...v0.22.0) (2026-09-01)
+
+
+### Bug Fixes
+
+* add test case for useCopyFeedback.test.ts hook and error handling ([3ffc973](https://github.com/SuperDBA/SuperDBA/commit/3ffc973ff3d11a5771b3809f4630878835cb202a))
+* comments raised by klio ([0814a3a](https://github.com/SuperDBA/SuperDBA/commit/0814a3a46f9ecd69d466467e87df738a83adcccb))
+* edge case reported by Kilo bot ([5c244e1](https://github.com/SuperDBA/SuperDBA/commit/5c244e1a958e6c0c5ecc0ae4bb21232a10365a33))
+* **layout:** keep pages inside main when the production banner is shown ([ad44b6d](https://github.com/SuperDBA/SuperDBA/commit/ad44b6dcc24b815ac0909755111676fb4d5ce5b1))
+* **mysql:** qualify SHOW CREATE routine with target schema ([dff8a4a](https://github.com/SuperDBA/SuperDBA/commit/dff8a4a8378f5ac1c70bb6879d7b7def4f2150d7)), closes [#699](https://github.com/SuperDBA/SuperDBA/issues/699)
+* nitpicks raised during review ([5e25f98](https://github.com/SuperDBA/SuperDBA/commit/5e25f98382f8bdd043f9225e8489e6ae6d5bb5ca))
+* notebook cell scroll into view UX ([2bd51eb](https://github.com/SuperDBA/SuperDBA/commit/2bd51ebc0f7d5a02d524d8913c6cbd8b36768f95))
+* **notebook:** address bugs in the frontend part of notebook feature ([f94f714](https://github.com/SuperDBA/SuperDBA/commit/f94f714e5951943a6c4a5d6f6ccc93a2501f1c03))
+* **postgres:** use rustls connector in test_connection to support client certs and custom CA ([98247e1](https://github.com/SuperDBA/SuperDBA/commit/98247e15f11f341161ad101b33b489be95d03e1b))
+* refine code a bit ([50a3de0](https://github.com/SuperDBA/SuperDBA/commit/50a3de0af2cd7b4d461777b2b1de9a38d5cbaaaa))
+* SQL cell in editor to be in full size by default ([66cdfdb](https://github.com/SuperDBA/SuperDBA/commit/66cdfdbe2761cddfc3de3bbc695358ff077db38c))
+* **sqlite:** display text blobs as UTF-8 ([b90292c](https://github.com/SuperDBA/SuperDBA/commit/b90292c66de37b93c1437f60ae25357f5cff25b3))
+* **theme:** add final fallback for delete-active replacement ([d0ca886](https://github.com/SuperDBA/SuperDBA/commit/d0ca886d69a71b82bf29e608b43707aa48858cec))
+* **theme:** mode-correct load fallback, pure setState updater ([f838204](https://github.com/SuperDBA/SuperDBA/commit/f838204192ec7e4fcbc5acd3ee2d6ca602b86c10))
+* **theme:** replace active theme with OS-mode preset on delete in follow-system mode ([c721476](https://github.com/SuperDBA/SuperDBA/commit/c72147685d6bd7494550d040d62a2e7afefba9f3)), closes [#650](https://github.com/SuperDBA/SuperDBA/issues/650)
+* **ui:** stable keys, useCopyFeedback hook, sanitize HTML, eliminate render-time setState ([730213a](https://github.com/SuperDBA/SuperDBA/commit/730213a11f8d7c7239cda322e113864dfa33b946))
+
+
+### Features
+
+* **config:** add follow-system theme fields to AppConfig ([cdc1418](https://github.com/SuperDBA/SuperDBA/commit/cdc1418bd79350ca31b2e9a99273d705b4898b31))
+* configure window decorations for tiling managers ([0495121](https://github.com/SuperDBA/SuperDBA/commit/049512167e9655e58b0888eaf75549da707f8710))
+* **grid:** spreadsheet-style keyboard selection and header column select ([fca23d3](https://github.com/SuperDBA/SuperDBA/commit/fca23d397d539d4a2935b1cad674008d05c8be6f)), closes [#673](https://github.com/SuperDBA/SuperDBA/issues/673)
+* **settings:** add static/follow-system theme mode UI ([b9809a7](https://github.com/SuperDBA/SuperDBA/commit/b9809a71972abafa508370043563eaee56f516c8))
+* **theme:** add resolveActiveThemeId helper ([e629803](https://github.com/SuperDBA/SuperDBA/commit/e629803468332300b2c19f1bac0e375a9497ff48))
+* **theme:** follow system appearance with per-mode themes ([fec0c97](https://github.com/SuperDBA/SuperDBA/commit/fec0c97381e67cd799c263eb3914b36ff4ec50d6))
+
+# [0.21.0](https://github.com/SuperDBA/SuperDBA/compare/v0.20.0...v0.21.0) (2026-08-25)
+
+
+### Bug Fixes
+
+* **editor:** complete database-qualified tables ([44b00f4](https://github.com/SuperDBA/SuperDBA/commit/44b00f4ee0026f5d49fbbbdcce1f63683bb2a039))
+* **editor:** handle qualified tables in grid editing ([e99be83](https://github.com/SuperDBA/SuperDBA/commit/e99be838dd66565df97b9b7426a59bcb91d55b0b))
+* guard the SSL-mode migration against a concurrent-write race ([44eeb5b](https://github.com/SuperDBA/SuperDBA/commit/44eeb5b756376179dd324ef83e5d97222c69bf1d))
+* **postgres:** add mTLS client certificate authentication support ([6bb4e9b](https://github.com/SuperDBA/SuperDBA/commit/6bb4e9b0b08c3e7c6525fad8bc20d47a4f5a52dd))
+* run the SSL-mode migration from the --mcp server process (closes [#639](https://github.com/SuperDBA/SuperDBA/issues/639)) ([c7058ae](https://github.com/SuperDBA/SuperDBA/commit/c7058ae87edeba01fbb39a2cd0e6afa6f60edbee))
+* show production banner only in editor ([8dbde6f](https://github.com/SuperDBA/SuperDBA/commit/8dbde6f302f068499f868bb188000138a16b6a8f))
+* skip postgres client auth when ssl_mode is disabled and use tempfile in tests ([07793f9](https://github.com/SuperDBA/SuperDBA/commit/07793f9bbfe57f53b1215fc128f712edb3a1f949))
+* **snap:** ship a desktop entry so the app appears in the launcher ([370f4d7](https://github.com/SuperDBA/SuperDBA/commit/370f4d7c85b606c0a200299a39ecce9097f77d3a)), closes [#669](https://github.com/SuperDBA/SuperDBA/issues/669)
+* unify safety confirmation guards ([42e9431](https://github.com/SuperDBA/SuperDBA/commit/42e9431949b742a62c287e8ef42a2a074eec3b69))
+
+
+### Features
+
+* **editor:** add SQL query folding previews ([a5545a9](https://github.com/SuperDBA/SuperDBA/commit/a5545a95cfc94fceb02e84ee90e1aab0ba5c3c08))
+* per-tab page size selector in the results pagination bar ([1c33a0e](https://github.com/SuperDBA/SuperDBA/commit/1c33a0ee61a7e495533cd122bfcc996d4362ddf8))
+* **plugins:** support cancelling installations ([2d5974f](https://github.com/SuperDBA/SuperDBA/commit/2d5974f3a80ffb6506ac70b6ace725f67d07b5b2))
+
+# [0.20.0](https://github.com/SuperDBA/SuperDBA/compare/v0.19.0...v0.20.0) (2026-08-18)
+
+
+### Bug Fixes
+
+* 4 useCallback deps missing activeCapabilities in Editor.tsx ([d626253](https://github.com/SuperDBA/SuperDBA/commit/d626253196e537114ea19abaaa51b8d6973ef8b6)), closes [#577](https://github.com/SuperDBA/SuperDBA/issues/577)
+* add missing BLOB wire-format decoding to binding cascade (regression) ([47bd5b2](https://github.com/SuperDBA/SuperDBA/commit/47bd5b24ee2b26b8570e938d4d1b0b74e4189d2f))
+* add missing enum-CAST binding to CRUD (regression) ([efaaaec](https://github.com/SuperDBA/SuperDBA/commit/efaaaec11e5f7ab7a053544fc3872b48380ad110)), closes [#4](https://github.com/SuperDBA/SuperDBA/issues/4)
+* address code review findings for CI reliability ([ce2d25f](https://github.com/SuperDBA/SuperDBA/commit/ce2d25f465c4eeb1c7795f14c92350dae7ad25d8))
+* assert_golden must fail on a missing golden file ([0f85952](https://github.com/SuperDBA/SuperDBA/commit/0f85952cf329c272e913e6234595e9c33f46db1e)), closes [#577](https://github.com/SuperDBA/SuperDBA/issues/577)
+* cache connection pools by identity instead of rebuilding per call ([7b277c9](https://github.com/SuperDBA/SuperDBA/commit/7b277c904e6b9881eda41980f6dae4c007a44fe3))
+* clear command execution state explicitly ([e0be0bd](https://github.com/SuperDBA/SuperDBA/commit/e0be0bd1c51673ad5938e90e51ebaae83e2bbc16))
+* connection-form host/port grid keys off dialect, not driver id ([#614](https://github.com/SuperDBA/SuperDBA/issues/614)) ([7f2e443](https://github.com/SuperDBA/SuperDBA/commit/7f2e4433244a1b57ba95c3ecad46b1cf99a45b15))
+* correct 7 test-authoring bugs in the 80-test parity suite ([40b5603](https://github.com/SuperDBA/SuperDBA/commit/40b5603e27e3c325a598e548d0678a6c533deea8))
+* correct API signatures in integration tests ([67ba130](https://github.com/SuperDBA/SuperDBA/commit/67ba1308874d8bcaa06587b531b0d501d8d4cc00))
+* correct field name in parity_get_foreign_keys test ([9b0143a](https://github.com/SuperDBA/SuperDBA/commit/9b0143ac9af8d45ace66c1991405cab7d32a0e44))
+* **datagrid:** address paste review feedback ([ef57700](https://github.com/SuperDBA/SuperDBA/commit/ef577004bf1a6296a93dc4b23ee30282340ffe91))
+* **editor:** apply pending-change updates functionally ([a1e4a5e](https://github.com/SuperDBA/SuperDBA/commit/a1e4a5e18269b33051948cb4eb8df3b722cb4e66))
+* **editor:** keep add row available for empty tables ([6f438ca](https://github.com/SuperDBA/SuperDBA/commit/6f438ca1c09456475ab8b3cdf7d9615fce4a27aa))
+* **editor:** keep query results when switching between connections ([cdeff36](https://github.com/SuperDBA/SuperDBA/commit/cdeff36b2fc3c3a7c03fecdad91153aaa2371d77)), closes [#292](https://github.com/SuperDBA/SuperDBA/issues/292) [#292](https://github.com/SuperDBA/SuperDBA/issues/292)
+* exclude execution_time_ms from execute_batch parity comparison ([3be48ee](https://github.com/SuperDBA/SuperDBA/commit/3be48ee2044dcfc4217b2e3b28d86e2763176a8f))
+* getDriverIcon never checked for a URL/data: manifest icon ([#632](https://github.com/SuperDBA/SuperDBA/issues/632)) ([ebd269c](https://github.com/SuperDBA/SuperDBA/commit/ebd269cd0b027797933a450eb9cce77a98b9ec86))
+* handle known MV definition error in golden capture test ([9c60f72](https://github.com/SuperDBA/SuperDBA/commit/9c60f72f84680bb97f3c2cf32780be1b7a921847))
+* identifier quoting keys off dialect, not driver id ([#614](https://github.com/SuperDBA/SuperDBA/issues/614)) ([c9a38fb](https://github.com/SuperDBA/SuperDBA/commit/c9a38fbdf2d4e9ccca41d8ec1db7ce9e138c7889))
+* implement Debug for BoundValue so unit tests compile ([3cfe752](https://github.com/SuperDBA/SuperDBA/commit/3cfe7520b4732ceac90e735cc0cea7fd5c0ee728))
+* implement missing type extractors and truncated field (regression) ([8dcaae9](https://github.com/SuperDBA/SuperDBA/commit/8dcaae9fd0fdbe33aeab37f3353f712963012ce2))
+* **inputs:** suppress macOS WKWebView text hints on all technical fields ([75d68e3](https://github.com/SuperDBA/SuperDBA/commit/75d68e3fb1408e5ee81696c995a8d96002773a6c))
+* keep palette keyboard handling at dialog scope ([f2bbdda](https://github.com/SuperDBA/SuperDBA/commit/f2bbdda29911ee9714b176f5604e0c1e4d18d866))
+* limit CI test parallelism to prevent pool exhaustion ([bc91e50](https://github.com/SuperDBA/SuperDBA/commit/bc91e5033aea99b6e163a59fb4bd3f4b6cb6a11c))
+* **lint:** avoid synchronous setState in effect in AlertModal ([32cc80c](https://github.com/SuperDBA/SuperDBA/commit/32cc80cbe8aece4388d5c796c8b5b9588461e12f))
+* make sql_dialect a true Option so absence isn't silently postgres ([839eb59](https://github.com/SuperDBA/SuperDBA/commit/839eb59e7437fab2280032ef49e65ce0222cf50e)), closes [pre-#614](https://github.com/pre-/issues/614)
+* match builtin driver's character_maximum_length extraction ([226cf2d](https://github.com/SuperDBA/SuperDBA/commit/226cf2d6c391e5b7c79fa7cce382cc21c7bfad02))
+* match URL/data: icon schemes case-insensitively via shared isUrlIcon ([21a30b3](https://github.com/SuperDBA/SuperDBA/commit/21a30b394602a20a733d0d7f1cdb7af3b47e9191))
+* MCP schema default keys off dialect, not driver id ([#614](https://github.com/SuperDBA/SuperDBA/issues/614)) ([72ed31b](https://github.com/SuperDBA/SuperDBA/commit/72ed31bf7d14167d9a6fe2884e770fa76abd513a))
+* migrate already-persisted stale ssl_mode values ([#614](https://github.com/SuperDBA/SuperDBA/issues/614)) ([29fc233](https://github.com/SuperDBA/SuperDBA/commit/29fc233fbf41d833f4a983ae499b955d4146c6ee))
+* **mysql:** delete rows with binary primary keys ([77b9a7a](https://github.com/SuperDBA/SuperDBA/commit/77b9a7af0fa848ca7fb0a0c40e2be76756106bd2))
+* **notebook:** support ${name} template syntax in addition to [@name](https://github.com/name) ([8370145](https://github.com/SuperDBA/SuperDBA/commit/837014559c60da0254da46f8b0a6c0e8b4144cd3)), closes [#550](https://github.com/SuperDBA/SuperDBA/issues/550)
+* **palette:** keep the selection off whatever the cursor rests on ([ffae683](https://github.com/SuperDBA/SuperDBA/commit/ffae683e507c7d1c8ed8fb28b3abc8133d318897))
+* **palette:** name the object dialog and render footer keys as caps ([976d6b7](https://github.com/SuperDBA/SuperDBA/commit/976d6b718af3cc94da3eb7b76866957bfa4645d7))
+* parity harness must fail loud on a bad POSTGRES_PLUGIN_BIN ([a2a6cfe](https://github.com/SuperDBA/SuperDBA/commit/a2a6cfedba39872d5fbefa8764c92a40fcf0982f)), closes [#577](https://github.com/SuperDBA/SuperDBA/issues/577)
+* **plugins:** unify plugin data directory under `superdba` ([ef9716e](https://github.com/SuperDBA/SuperDBA/commit/ef9716ed12b4834059dc09d302853370c0e39a7b))
+* **postgres:** coerce numeric and temporal strings in row-identity predicates ([21237a4](https://github.com/SuperDBA/SuperDBA/commit/21237a4271ae79c5356e1c884658aee8dd8daa84))
+* preserve object definition error details ([e2d0665](https://github.com/SuperDBA/SuperDBA/commit/e2d06654b8eec460288622ae5a0e9ec175eb189e))
+* preserve palette grouping and selection visibility ([a379297](https://github.com/SuperDBA/SuperDBA/commit/a3792976536bfc43dffd191d7c6283bea765272e))
+* preserve table context type narrowing ([40e762c](https://github.com/SuperDBA/SuperDBA/commit/40e762ce310b46462340057a096c3d9dd2dd5099))
+* resolve all 72 integration test failures ([33eca80](https://github.com/SuperDBA/SuperDBA/commit/33eca80265d9795c63fe33990ec65cdb768c809a))
+* resolve commands through active editor scope ([9e46367](https://github.com/SuperDBA/SuperDBA/commit/9e4636710b28cf4dfdf980bca937bc6ac25fa928))
+* resolve compilation errors in Sprint 5 ([604e448](https://github.com/SuperDBA/SuperDBA/commit/604e4488326a6fd0e72609afc80c586721e84ddd))
+* resolve compilation issues from Sprint 1 review ([655e090](https://github.com/SuperDBA/SuperDBA/commit/655e090327bf699451c9dfc9eeb36af3264cab48))
+* retry transient pool errors in flaky integration tests ([bbd6cda](https://github.com/SuperDBA/SuperDBA/commit/bbd6cda0541b4c8149f87e2c7ec0993eb6a5d700))
+* rewrite destructive-mutation parity tests to run per-target ([1f5bb58](https://github.com/SuperDBA/SuperDBA/commit/1f5bb58a6d1af80b74174b91ba915ec5baec705c))
+* run integration tests sequentially to eliminate pool flakiness ([702936a](https://github.com/SuperDBA/SuperDBA/commit/702936a507723cb1633d5eadf48caf303c341884))
+* satisfy command palette build types ([30d85eb](https://github.com/SuperDBA/SuperDBA/commit/30d85ebe706095b572c4c94b701fd12c4545dca1))
+* **sidebar:** handle routine metadata failures ([b7a0b9f](https://github.com/SuperDBA/SuperDBA/commit/b7a0b9fe99357271efa45dff1908026402afc10c))
+* SSL mode dropdown branches on capability, not driver id ([#614](https://github.com/SuperDBA/SuperDBA/issues/614)) ([77fcb63](https://github.com/SuperDBA/SuperDBA/commit/77fcb63fdc34fa682972872185ce5e45c540e2e7))
+* strip trailing blank line at EOF in mcp/tests.rs ([3ddc463](https://github.com/SuperDBA/SuperDBA/commit/3ddc46352babf9840654387e5ba335d7dae9e5ec)), closes [#577](https://github.com/SuperDBA/SuperDBA/issues/577)
+* strip user LIMIT/OFFSET before appending pagination clause ([9e87cf7](https://github.com/SuperDBA/SuperDBA/commit/9e87cf73e1062ee2c0537cfa180bd952af126e3e)), closes [4/#5](https://github.com/SuperDBA/SuperDBA/issues/5)
+* thread driver capabilities through remaining call chains ([#614](https://github.com/SuperDBA/SuperDBA/issues/614)) ([da0fd9f](https://github.com/SuperDBA/SuperDBA/commit/da0fd9fd1b7b728ab9c4743cd2d5f4eb3cf1545c))
+* thread driver capabilities through sidebar components ([#614](https://github.com/SuperDBA/SuperDBA/issues/614)) ([a82eff2](https://github.com/SuperDBA/SuperDBA/commit/a82eff25bbffff15b019a04711da480f2ed6c88c))
+* tighten test assertions to strict TDD (no lenient passing) ([42e1c54](https://github.com/SuperDBA/SuperDBA/commit/42e1c54a12d2831a96c1331e24430f0ea03ad14d))
+* trivial capability-driven quoting call-site swaps ([#614](https://github.com/SuperDBA/SuperDBA/issues/614)) ([0b46ece](https://github.com/SuperDBA/SuperDBA/commit/0b46ece9d887a7d07466a2f7038e84a91046901c))
+* Update `uriPassthroughEnabled` to be exported and accept ([7b22913](https://github.com/SuperDBA/SuperDBA/commit/7b22913e93f86542e5388583f1396ca532d72152))
+
+
+### Features
+
+* add contextual command registry provider ([850d026](https://github.com/SuperDBA/SuperDBA/commit/850d026e11f33374c9ec87047b3e23a9d20bf9e6))
+* add spotlight-style command palette UI ([c70a138](https://github.com/SuperDBA/SuperDBA/commit/c70a13816af1ee27977844af91da1755d29f9d7b))
+* **alerts:** add copy-to-clipboard button to alert modal ([9b63e3a](https://github.com/SuperDBA/SuperDBA/commit/9b63e3a85d8d729a7e8ee3c0fbf7f29e14e13e73))
+* **blob:** add inline hex preview and editing ([902520b](https://github.com/SuperDBA/SuperDBA/commit/902520b1228261f168f1a07018904288e3935d5d))
+* **datagrid:** paste cells from clipboard (Cmd/Ctrl+V) ([95448c6](https://github.com/SuperDBA/SuperDBA/commit/95448c605b7d93478a005966c863211a51b771bb))
+* define command palette contracts ([d0e44ef](https://github.com/SuperDBA/SuperDBA/commit/d0e44efe5fe746477d976cd38889187632804fd0))
+* **i18n:** translate command palette strings into pt-BR ([246f6c3](https://github.com/SuperDBA/SuperDBA/commit/246f6c3c6bf539e0e274dc2755007f545daa320f))
+* **layout:** resolve the rendered split layout for a route ([704d9b5](https://github.com/SuperDBA/SuperDBA/commit/704d9b5028c742f31d3a2bf2524b03f1eb26ad16))
+* **palette:** add connection and table commands to the action palette ([053e4c5](https://github.com/SuperDBA/SuperDBA/commit/053e4c5a155fd77a86246e18e46effb696c2fedf))
+* **palette:** scope palette actions to the connection that owns them ([a57390a](https://github.com/SuperDBA/SuperDBA/commit/a57390ae701c2980e94ac55b8355e2a9e0b51760))
+* **palette:** show which palette mode is open in the header ([eac86b0](https://github.com/SuperDBA/SuperDBA/commit/eac86b0e8d45d8516ccd21de8110e317276ec9f0))
+* **ui:** add opt-in backdrop close to Modal ([2c2a7bf](https://github.com/SuperDBA/SuperDBA/commit/2c2a7bf6afad5134134eca5cdbffde24b3e0cd84))
+* update package manager and add URI passthrough support in ([e7fbc0e](https://github.com/SuperDBA/SuperDBA/commit/e7fbc0eccc64783e43654fb151029ae1804f1758))
+* **updater:** support custom package manager builds ([0b1236f](https://github.com/SuperDBA/SuperDBA/commit/0b1236f96cfb7897bfe7790dacef4b1c6f4a5c69))
+* wire contextual action search shortcut ([57d4182](https://github.com/SuperDBA/SuperDBA/commit/57d4182e4780c7d1894df4248592ded7b872b3eb))
+
+
+### Reverts
+
+* restore AGENTS.md and .gitignore to main ([d6f050d](https://github.com/SuperDBA/SuperDBA/commit/d6f050d3b433597caa6126dedca9322af18eef1e)), closes [#545](https://github.com/SuperDBA/SuperDBA/issues/545)
+
+# [0.19.0](https://github.com/SuperDBA/SuperDBA/compare/v0.18.0...v0.19.0) (2026-08-10)
+
+
+### Bug Fixes
+
+* **connection-catalogue:** clean up engine card layout and naming ([f9df327](https://github.com/SuperDBA/SuperDBA/commit/f9df327b1876852d1129912e8306f03c4c1a7a98))
+* **create-plugin:** scaffolded .tabularium failed registry validation ([54874aa](https://github.com/SuperDBA/SuperDBA/commit/54874aa5d1b3cffbedb31253826809fda6abd3cf))
+* **datagrid:** enable editing tables without a primary key ([9e787b1](https://github.com/SuperDBA/SuperDBA/commit/9e787b155a63742bfd45340d88b1a890d536b983))
+* **datagrid:** harden keyless editing edge cases ([0a8c3bf](https://github.com/SuperDBA/SuperDBA/commit/0a8c3bfaa253aa79bc0d3ca3165bd1e117d84574))
+* expand SQLite home paths ([c03fc90](https://github.com/SuperDBA/SuperDBA/commit/c03fc908471346424ec5761fdc96b3febe48d375))
+* move session-field stripping to SettingsProvider ([02c21da](https://github.com/SuperDBA/SuperDBA/commit/02c21dab5f14cd7509a39e13e5f4f34c0103ebf3)), closes [#548](https://github.com/SuperDBA/SuperDBA/issues/548)
+* persist empty connection state after disconnect ([069de08](https://github.com/SuperDBA/SuperDBA/commit/069de08e290ca74eae41e2f2fa434d30911c583e)), closes [#548](https://github.com/SuperDBA/SuperDBA/issues/548)
+* **plugins:** validate archives before install and improve error recovery ([5532b72](https://github.com/SuperDBA/SuperDBA/commit/5532b72c1423a786eb16a19bf9d0b6ec9de6a4ff))
+* **registry:** use official MongoDB Atlas release ([#496](https://github.com/SuperDBA/SuperDBA/issues/496)) ([e1ef671](https://github.com/SuperDBA/SuperDBA/commit/e1ef6711224c2e80799716086c624b2cf165ea4a))
+* repair merge with main (build errors, failing tests, restore ProductionBanner) ([30817f4](https://github.com/SuperDBA/SuperDBA/commit/30817f4dfaef3fbfcc30fa4eb0bb8af3d774aec2))
+* support parameters in explain plan ([de7d0c2](https://github.com/SuperDBA/SuperDBA/commit/de7d0c21594640efb852f47a7b88f65af9521c06))
+* **tags:** address review feedback and lint errors ([c1f466e](https://github.com/SuperDBA/SuperDBA/commit/c1f466e102d784f3f5bda4f0d2e2883d2bcdccf6))
+* **tags:** tolerate orphaned tag ids, merge imported tags by name, cap name length ([d5072ec](https://github.com/SuperDBA/SuperDBA/commit/d5072ec187e362f01719b7f8a1f16cb21312eab9))
+* use existing i18n key for explain submit button ([1cc99b4](https://github.com/SuperDBA/SuperDBA/commit/1cc99b4de284b6a46e9c3ec5d2ed6229911ce561))
+
+
+### Features
+
+* **connections:** environment classification with production safety warning ([e0118e0](https://github.com/SuperDBA/SuperDBA/commit/e0118e09f5de1a397faf6a903ca7d160c4c7937d)), closes [#472](https://github.com/SuperDBA/SuperDBA/issues/472)
+* **connections:** free-form colored tags assignable to connections ([7848789](https://github.com/SuperDBA/SuperDBA/commit/78487892250be4f084a3fc8f7243edbec7bb1f82)), closes [#472](https://github.com/SuperDBA/SuperDBA/issues/472)
+* **connections:** opaque plugin-specific extra fields for ConnectionParams ([#596](https://github.com/SuperDBA/SuperDBA/issues/596)) ([27226c5](https://github.com/SuperDBA/SuperDBA/commit/27226c5c0f88acd023e89673f4ce63cdb27ee6dc))
+* **connections:** replace native dialogs with app-styled components in connection modal ([6d33bf7](https://github.com/SuperDBA/SuperDBA/commit/6d33bf721515c8b7fe0ddf0895f28f98e20476ab))
+* **datagrid:** mask sensitive columns in the results grid ([8d2362f](https://github.com/SuperDBA/SuperDBA/commit/8d2362fecb16622700bb438d4be7e59f9a1e32bf)), closes [#485](https://github.com/SuperDBA/SuperDBA/issues/485)
+* **plugins:** add locale-aware plugin README details modal ([bd9178e](https://github.com/SuperDBA/SuperDBA/commit/bd9178e7231740b6b8a75314290132f4a087232f))
+* **plugins:** extend RpcDriver for BLOB, materialized views, and type mappings ([#576](https://github.com/SuperDBA/SuperDBA/issues/576)) ([54d9eae](https://github.com/SuperDBA/SuperDBA/commit/54d9eae2122a197d76be79f337def3f2de52a5a2))
+
+# [0.18.0](https://github.com/SuperDBA/SuperDBA/compare/v0.17.0...v0.18.0) (2026-08-03)
+
+
+### Bug Fixes
+
+* **ai:** add MiniMax regional endpoint metadata ([#498](https://github.com/SuperDBA/SuperDBA/issues/498)) ([ed9094e](https://github.com/SuperDBA/SuperDBA/commit/ed9094e46749d75965dd4b872262a9ea0cd94d47))
+* **connections:** restore the stored URI when reconnecting ([5e13eee](https://github.com/SuperDBA/SuperDBA/commit/5e13eee17964440a65244ba08cc74ed1a97b27cf))
+* **connections:** switch to all-databases mode when pasted URI has no database ([aa9fcea](https://github.com/SuperDBA/SuperDBA/commit/aa9fcea64071644ef77c1f8a1de6d5c273d78690))
+* **data-grid:** open dedicated editor for array cells on double-click ([#489](https://github.com/SuperDBA/SuperDBA/issues/489)) ([cae497e](https://github.com/SuperDBA/SuperDBA/commit/cae497ee23cecb25c79dee542d826e90d01d5de9))
+* **datagrid:** address review — drop duplicate CopyFormat, toggle # tooltip ([1f6682d](https://github.com/SuperDBA/SuperDBA/commit/1f6682db675ea5ef225476968845560376d6c53f))
+* **datagrid:** Ctrl+click column toggle on macOS; 'Select All (N)' label ([87f7695](https://github.com/SuperDBA/SuperDBA/commit/87f76957d17cf7fddfdb6e92a37d6e08e569ce76))
+* **datagrid:** group context-menu copy actions; pair the two scopes ([6b86341](https://github.com/SuperDBA/SuperDBA/commit/6b8634124d9270d8ca9dfb81822d71a1a7aed4fd))
+* **datagrid:** offer copy-all when the row total is unknown ([d2f7d85](https://github.com/SuperDBA/SuperDBA/commit/d2f7d858061d99ca79cf4844e2ae74a285255970))
+* **editor:** render editor panes in stable order ([7488159](https://github.com/SuperDBA/SuperDBA/commit/7488159ef1ee0cd0e6858a85ce8c795728f49acc))
+* **editor:** resolve a caret above the first statement to that statement ([9ab4c38](https://github.com/SuperDBA/SuperDBA/commit/9ab4c38f5cfbc1cbec3f379c350a719e73efd937))
+* **er-diagram:** prevent node overlap and add node lock toggle ([#558](https://github.com/SuperDBA/SuperDBA/issues/558)) ([f5f9e34](https://github.com/SuperDBA/SuperDBA/commit/f5f9e34abfe417e8ec71ae7482a9c708ab8e0d0d))
+* **mcp:** parse preflight explain output in the approval modal ([1361192](https://github.com/SuperDBA/SuperDBA/commit/13611924c5204274c8890e1ae7b8ea4b67ff5c21)), closes [#566](https://github.com/SuperDBA/SuperDBA/issues/566)
+* **mysql:** include MariaDB SYSTEM VERSIONED tables in table list ([e707682](https://github.com/SuperDBA/SuperDBA/commit/e7076825bd85b6ad529d2b3cf6e4ea04e5988d52))
+* **nightly:** scope the prerelease counter to the version base ([525b938](https://github.com/SuperDBA/SuperDBA/commit/525b9380d5967a65c9eaac9d82cdb5ce6f09e855))
+* **notebook:** harden SQL generation for params and cell references ([#559](https://github.com/SuperDBA/SuperDBA/issues/559)) ([946f3db](https://github.com/SuperDBA/SuperDBA/commit/946f3dbf1bbbe50525aecd57ae3c89dc7dd8347c))
+* **review:** escape NUL byte in scopeKey, complete userManagement i18n ([9f88079](https://github.com/SuperDBA/SuperDBA/commit/9f880796b411d89e4c5071fb4df771d6234cc2ad))
+* **review:** include table in privilege log scope, add 'users' to CleanedTab type ([77c9235](https://github.com/SuperDBA/SuperDBA/commit/77c9235f344743295ce991ad2dac4afe3fa03d6c))
+
+
+### Features
+
+* **connections:** all-databases mode (empty selection = browse everything) ([4441615](https://github.com/SuperDBA/SuperDBA/commit/4441615b215447588998c7e5aaf701d7afcc4b80))
+* **connections:** forward raw connection URIs to plugin drivers ([93d59d3](https://github.com/SuperDBA/SuperDBA/commit/93d59d3c20a0b55f728aef8eabe30606c4df15cb)), closes [#494](https://github.com/SuperDBA/SuperDBA/issues/494)
+* **connections:** SSH test progress log, cancel, and diagnostics modal ([f422942](https://github.com/SuperDBA/SuperDBA/commit/f4229427a5bb64df49427c98ceaa87e881fb77a0))
+* **connections:** SSH tunnel test, classified errors, and test diagnostics ([04fbbe6](https://github.com/SuperDBA/SuperDBA/commit/04fbbe659f537450115c94131a19f95f1c04f93d))
+* **data-grid:** navigate cells with the arrow keys ([3f87b5a](https://github.com/SuperDBA/SuperDBA/commit/3f87b5ad5da9fa7b51d7679b290ab2fb41255be8))
+* **datagrid:** 'Copy All (N)' menu item; copy-all ignores tab LIMIT ([729a9d9](https://github.com/SuperDBA/SuperDBA/commit/729a9d9e227b3bbb9a8cc9ee495e6112632ef3d8))
+* **datagrid:** confirm before copying rows beyond the loaded page ([d1ef9ca](https://github.com/SuperDBA/SuperDBA/commit/d1ef9ca3577952df32f0e9dcf280d464b955f347))
+* **datagrid:** DBeaver-style cell range selection via Shift+click ([a0247b0](https://github.com/SuperDBA/SuperDBA/commit/a0247b0b5d23963af119aabd8cbaa55306245de3))
+* **datagrid:** DBeaver-style multi-column selection and copy ([4870441](https://github.com/SuperDBA/SuperDBA/commit/4870441aff8f1a3f7887555f500423b1c72b9e24))
+* **datagrid:** expose select-all via Cmd/Ctrl+A and context menu ([b02fc35](https://github.com/SuperDBA/SuperDBA/commit/b02fc35d0d3b11fd227ba30b3c3926fe856c6d24))
+* **datagrid:** toast with row count after copying rows ([198afb3](https://github.com/SuperDBA/SuperDBA/commit/198afb34942f2f05e4e6b70d5f83c131f468fcf9))
+* **editor:** allow reordering tabs via drag-and-drop ([53ea0fa](https://github.com/SuperDBA/SuperDBA/commit/53ea0fa8f91b0f5065b343de06d73f3297939d19))
+* **editor:** label the Run button with what it will actually run ([21ed928](https://github.com/SuperDBA/SuperDBA/commit/21ed9286bfb9d58630401e1091321fc0044b8a6c))
+* **er-diagram:** export the schema as Mermaid or DBML ([#521](https://github.com/SuperDBA/SuperDBA/issues/521)) ([9e91a7a](https://github.com/SuperDBA/SuperDBA/commit/9e91a7a20c14fefd9fe56271ba985f1de581f17e))
+* **indexes:** render functional/expression indexes across drivers ([#499](https://github.com/SuperDBA/SuperDBA/issues/499)) ([b66c737](https://github.com/SuperDBA/SuperDBA/commit/b66c737524d6486397ece1d8d24cf589b2337f1c))
+* **mcp:** compact plan summary and read-aware title in approval modal ([e044e1f](https://github.com/SuperDBA/SuperDBA/commit/e044e1f79f9ca5538e6f78ee9982f0e44ece699c))
+* **postgres:** support editing hstore columns ([#427](https://github.com/SuperDBA/SuperDBA/issues/427)) ([fcee3d5](https://github.com/SuperDBA/SuperDBA/commit/fcee3d540f6f29c4138d65aa68aadeb80561000b)), closes [#395](https://github.com/SuperDBA/SuperDBA/issues/395)
+* **sqlite:** add sqlite database creation workflows ([#523](https://github.com/SuperDBA/SuperDBA/issues/523)) ([9bba294](https://github.com/SuperDBA/SuperDBA/commit/9bba294d8378fb1178c061a91eba1587452d4608))
+* **users:** database user & privilege management (MySQL/MariaDB) ([d4813a1](https://github.com/SuperDBA/SuperDBA/commit/d4813a1b87ba086d0d3f312b0fc1ecd32ede9497))
+
+# [0.17.0](https://github.com/SuperDBA/SuperDBA/compare/v0.16.0...v0.17.0) (2026-07-27)
+
+
+### Bug Fixes
+
+* **connections:** do not gate Load Databases on username ([#528](https://github.com/SuperDBA/SuperDBA/issues/528)) ([#533](https://github.com/SuperDBA/SuperDBA/issues/533)) ([1ad3b8d](https://github.com/SuperDBA/SuperDBA/commit/1ad3b8da6dd4d674e76f39075b1d56534cbd2709))
+* contain scrolling and grid overflow ([#493](https://github.com/SuperDBA/SuperDBA/issues/493)) ([7f0b1c8](https://github.com/SuperDBA/SuperDBA/commit/7f0b1c816fd9a4d3621605c295d0c9c86c53f29d))
+* **editor:** skip string literals and comments in query param detection ([#519](https://github.com/SuperDBA/SuperDBA/issues/519)) ([f702aff](https://github.com/SuperDBA/SuperDBA/commit/f702affd9ebf02ad7b3b5a0836e3181906be11cd)), closes [#458](https://github.com/SuperDBA/SuperDBA/issues/458)
+* **editor:** use the Tauri clipboard API for Cut and Copy ([#520](https://github.com/SuperDBA/SuperDBA/issues/520)) ([e4d98fd](https://github.com/SuperDBA/SuperDBA/commit/e4d98fd0224a0bef8e3cb81c3450be89638426d8))
+* **import:** scope import to selected database and prevent double exe… ([#513](https://github.com/SuperDBA/SuperDBA/issues/513)) ([914208f](https://github.com/SuperDBA/SuperDBA/commit/914208f4a17fb88a07c6357de4e2800835c2cce8))
+* **postgres:** honor ssl_mode in build_connection_url ([#378](https://github.com/SuperDBA/SuperDBA/issues/378)) ([6288eea](https://github.com/SuperDBA/SuperDBA/commit/6288eeac1f90d5d8954a65b568ab576b5b9d7b88))
+* **sidebar:** prune dropped databases from the sidebar and saved selection ([#524](https://github.com/SuperDBA/SuperDBA/issues/524)) ([d6b1460](https://github.com/SuperDBA/SuperDBA/commit/d6b1460fd2a56e89fa296ddbf8639eead8dbdc64)), closes [#518](https://github.com/SuperDBA/SuperDBA/issues/518)
+* **ui:** make modal borders visible and clip rounded corners ([#509](https://github.com/SuperDBA/SuperDBA/issues/509)) ([1fb13f1](https://github.com/SuperDBA/SuperDBA/commit/1fb13f128c70852fa6613cf488e9d47f9273c70a)), closes [#475569](https://github.com/SuperDBA/SuperDBA/issues/475569) [#5b6b82](https://github.com/SuperDBA/SuperDBA/issues/5b6b82) [#508](https://github.com/SuperDBA/SuperDBA/issues/508)
+
+
+### Features
+
+* **525:** react to DROP DATABASE executed inside the app ([#535](https://github.com/SuperDBA/SuperDBA/issues/535)) ([715239b](https://github.com/SuperDBA/SuperDBA/commit/715239bb09803a8547e996df4171ae4a7b19ed4c)), closes [#530](https://github.com/SuperDBA/SuperDBA/issues/530)
+* add configurable SQL formatter settings ([#504](https://github.com/SuperDBA/SuperDBA/issues/504)) ([8e95bbb](https://github.com/SuperDBA/SuperDBA/commit/8e95bbb3f878bc99d007dccbd3df2abf97661715))
+* add SQL formatting to editor (Shift+Alt+F) ([#500](https://github.com/SuperDBA/SuperDBA/issues/500)) ([83050c7](https://github.com/SuperDBA/SuperDBA/commit/83050c770f0fd601918df5a9a7aba3216ebeec1a))
+* **editor:** clause-aware SQL autocomplete ([#505](https://github.com/SuperDBA/SuperDBA/issues/505)) ([38984c3](https://github.com/SuperDBA/SuperDBA/commit/38984c3afdd5aba476060ccf658d8086c57393e1))
+* **explain:** exclusive metrics, node findings, diagram and stats views ([#529](https://github.com/SuperDBA/SuperDBA/issues/529)) ([292825f](https://github.com/SuperDBA/SuperDBA/commit/292825f55522e42511ead6c4d6b7353dc5504bab))
+* **grid:** copy column values as list or SQL IN clause ([#482](https://github.com/SuperDBA/SuperDBA/issues/482)) ([7a975be](https://github.com/SuperDBA/SuperDBA/commit/7a975be041bd6aec8bc7dd85d0ec0a732841f764)), closes [#459](https://github.com/SuperDBA/SuperDBA/issues/459)
+* **i18n:** add Brazilian Portuguese (pt-BR) translation ([#537](https://github.com/SuperDBA/SuperDBA/issues/537)) ([b76d4ce](https://github.com/SuperDBA/SuperDBA/commit/b76d4cebd1ae6606cec06845dd72f5e5a458826c))
+* **postgres:** support pgvector columns (vector, halfvec, sparsevec) ([#450](https://github.com/SuperDBA/SuperDBA/issues/450)) ([ad5ae83](https://github.com/SuperDBA/SuperDBA/commit/ad5ae83a4ec3e43f2b3275ddc0bad0cde90004ec))
+* **settings:** searchable select for language picker ([4538fd0](https://github.com/SuperDBA/SuperDBA/commit/4538fd03dffeb71d4d8b7f99bc5abf81d427cd83))
+* **sidebar:** add a manual refresh for the database list ([#530](https://github.com/SuperDBA/SuperDBA/issues/530)) ([284a45b](https://github.com/SuperDBA/SuperDBA/commit/284a45b28767105ec1e64be789e08d5b00f4160c)), closes [#518](https://github.com/SuperDBA/SuperDBA/issues/518)
+* **updater:** in-app nightly release channel ([#497](https://github.com/SuperDBA/SuperDBA/issues/497)) ([1327328](https://github.com/SuperDBA/SuperDBA/commit/1327328a4adce12ca60bc340b99b17db27743460)), closes [tauri-apps/tauri#8038](https://github.com/tauri-apps/tauri/issues/8038) [#5286](https://github.com/SuperDBA/SuperDBA/issues/5286)
+
+# [0.16.0](https://github.com/SuperDBA/SuperDBA/compare/v0.15.0...v0.16.0) (2026-07-21)
+
+
+### Bug Fixes
+
+* **ai:** load schema context through database drivers ([#479](https://github.com/SuperDBA/SuperDBA/issues/479)) ([9eaec7a](https://github.com/SuperDBA/SuperDBA/commit/9eaec7ae3241b6d2caa148ad98cf7d363dd363df))
+* **ci:** build linux release in ubuntu:22.04 container to avoid glibc mismatch ([af7d0bc](https://github.com/SuperDBA/SuperDBA/commit/af7d0bca6e0ab9af75f110478eabcce043677046))
+* **create-plugin:** scaffold i18n locales with --with-ui ([f7fa5bc](https://github.com/SuperDBA/SuperDBA/commit/f7fa5bc7d07c0e2c6004c45d376d76b5d48a8f5a))
+* **editor:** normalize smart quotes in table filter and sort clauses ([#439](https://github.com/SuperDBA/SuperDBA/issues/439)) ([f1b9681](https://github.com/SuperDBA/SuperDBA/commit/f1b96815924fcdd4ea55da05eb062b9d52a3e7d5))
+* gate Windows-only constants behind cfg attribute ([4b4d14c](https://github.com/SuperDBA/SuperDBA/commit/4b4d14c7698cd4f5f695d21326c4c710ff2a0999))
+* handle null plugin config during uninstall ([#501](https://github.com/SuperDBA/SuperDBA/issues/501)) ([cd73846](https://github.com/SuperDBA/SuperDBA/commit/cd738463645d0dd6807020798f80df0ad1dd2af3))
+* **k8s:** align advanced settings styles ([7c3bf0b](https://github.com/SuperDBA/SuperDBA/commit/7c3bf0bcc3550da00d423f5ebea53959308b3aab))
+* **k8s:** cancel path validation on modal close ([79e2d56](https://github.com/SuperDBA/SuperDBA/commit/79e2d565a9039772c3b681895b2ea4997f79ba62))
+* **k8s:** clear superseded test state ([9217c77](https://github.com/SuperDBA/SuperDBA/commit/9217c7781928e596931496f188560a8ff7b1f152))
+* **k8s:** enforce inline selection state ([63454c3](https://github.com/SuperDBA/SuperDBA/commit/63454c3b9538ca1116c85bcfe2faaba3344137be))
+* **k8s:** guard actions across path preflight ([afa25a0](https://github.com/SuperDBA/SuperDBA/commit/afa25a007c75d8026f449c9c4318b0d19cf1c2c3))
+* **k8s:** harden saved connection edit state ([649c674](https://github.com/SuperDBA/SuperDBA/commit/649c67407e4811f4cf6ff50cd2cddc9494d784f7))
+* **k8s:** invalidate stale connection tests ([5744246](https://github.com/SuperDBA/SuperDBA/commit/5744246d32cf518f55157f6893d27a136b0a1438))
+* **k8s:** isolate modal action lifecycles ([b418eb9](https://github.com/SuperDBA/SuperDBA/commit/b418eb9ab8341d1f01b7716bea8d91e01f8ee825))
+* **k8s:** make tunnel cache keys collision safe ([d16e5c8](https://github.com/SuperDBA/SuperDBA/commit/d16e5c865a49fc6136182bd512b6237a76da99b6))
+* **k8s:** reset cancelled path validation state ([791e225](https://github.com/SuperDBA/SuperDBA/commit/791e225f5473911d7298fb9bb62dbfef96d39c3f))
+* **k8s:** resume port discovery after manual clear ([e7cc2be](https://github.com/SuperDBA/SuperDBA/commit/e7cc2be6712e5d97fdc9a06ccaeec3e3ab42b69e))
+* **k8s:** scope preflight feedback to active actions ([45d9c40](https://github.com/SuperDBA/SuperDBA/commit/45d9c40eb921466e858194d2d02527f2249017b6))
+* **k8s:** serialize path preflight application ([f8be780](https://github.com/SuperDBA/SuperDBA/commit/f8be780f82188a6dd13dd861caf035f15e68e41f))
+* **k8s:** validate complete path pairs before apply ([a137dc3](https://github.com/SuperDBA/SuperDBA/commit/a137dc37ec972109de1e4a29e35bea656df1c373))
+* **k8s:** validate persisted path overrides ([972c8f7](https://github.com/SuperDBA/SuperDBA/commit/972c8f7b0d8559bde63db84af40df367dfbee39f))
+* **lint:** drop unused import + remove synchronous setState in effect ([fb10aec](https://github.com/SuperDBA/SuperDBA/commit/fb10aecfd86f029c6eb2535f15e92da1d618b40e))
+* **mcp:** stop logging to stdout, it corrupts the JSON-RPC transport ([#488](https://github.com/SuperDBA/SuperDBA/issues/488)) ([a50070a](https://github.com/SuperDBA/SuperDBA/commit/a50070a121508eb24f858e950a7f8903d22630a5)), closes [#486](https://github.com/SuperDBA/SuperDBA/issues/486)
+* **mysql:** display all result sets from stored procedures returning multiple result sets ([#415](https://github.com/SuperDBA/SuperDBA/issues/415)) ([d98e6aa](https://github.com/SuperDBA/SuperDBA/commit/d98e6aa87835ac4e1e06d83bf02d1a5a83064d6a)), closes [#414](https://github.com/SuperDBA/SuperDBA/issues/414)
+* **plugins:** accept legacy manifest.json bundles on install and list ([e983551](https://github.com/SuperDBA/SuperDBA/commit/e9835515e11a98225a1b2b67c0f9e845233fac15))
+* **plugins:** add engine/paradigms to driver test manifest ([962f4fa](https://github.com/SuperDBA/SuperDBA/commit/962f4fae346d682fb2835ad50efcfad66eb83b5d))
+* **plugins:** drop the picked version once it's installed ([d7b9dbb](https://github.com/SuperDBA/SuperDBA/commit/d7b9dbbb2c4392ecd2298cd41c0d45321b5c8df6))
+* **registry:** address PR review (broken links, perf, prototype, empty version) ([4d4368c](https://github.com/SuperDBA/SuperDBA/commit/4d4368cfc9f96e2d1eef29598753311ffacc9da7))
+* **registry:** don't link legacy-only plugins to a 404 on the API ([df18056](https://github.com/SuperDBA/SuperDBA/commit/df180567bad4f8ce51f56a54fd2a1db158a44c0b))
+* **registry:** keep installed plugins updatable when 0.13 unlists them ([e1d90fc](https://github.com/SuperDBA/SuperDBA/commit/e1d90fcfdb4c2ea0e44f5043e4e9fdcf3ae8d4e6))
+* **registry:** keep legacy registry.json + builtins-first/other-last catalogue sort ([b705383](https://github.com/SuperDBA/SuperDBA/commit/b705383fec9e8fe048d1a92bb8b4d9f100f37030))
+* **row-editor:** render decoded JSON/JSONB objects instead of [object Object] ([#475](https://github.com/SuperDBA/SuperDBA/issues/475)) ([1ea7479](https://github.com/SuperDBA/SuperDBA/commit/1ea7479a04500ba39dd5fe2f5fe6930598985c11)), closes [#428](https://github.com/SuperDBA/SuperDBA/issues/428)
+* **settings:** show MiniMax API key status ([#454](https://github.com/SuperDBA/SuperDBA/issues/454)) ([0356ea3](https://github.com/SuperDBA/SuperDBA/commit/0356ea33a709d0458018288a03b9494d9aff187e))
+
+
+### Features
+
+* **backup:** automatic encrypted connection backups with local and Webdav targets ([#470](https://github.com/SuperDBA/SuperDBA/issues/470)) ([e6b79a5](https://github.com/SuperDBA/SuperDBA/commit/e6b79a5fd22553c5b1dda405c57dd8105dddf965))
+* **catalogue:** connection catalogue wizard for New Connection ([3cc1afc](https://github.com/SuperDBA/SuperDBA/commit/3cc1afcc6a4cab6113b41b96f00f2cd53a78e97e))
+* **create-plugin:** .tabularium manifests, migrate command, registry-ready CI ([2cbb015](https://github.com/SuperDBA/SuperDBA/commit/2cbb0154be7ff453428394d943b3603d6f182629))
+* **deeplink:** version-aware install/update/already-installed UI ([44b0e3a](https://github.com/SuperDBA/SuperDBA/commit/44b0e3acd033fb35b6a5069f05dcc5ed77d147c8))
+* **drivers:** add explain capability flag to hide Visual EXPLAIN when unsupported ([#491](https://github.com/SuperDBA/SuperDBA/issues/491)) ([c53a418](https://github.com/SuperDBA/SuperDBA/commit/c53a41834a3e7d1c2bdf92408ee0c976650eca40))
+* **frontend:** run statement at cursor on Cmd+Enter ([#464](https://github.com/SuperDBA/SuperDBA/issues/464)) ([05c373a](https://github.com/SuperDBA/SuperDBA/commit/05c373a8304a25c409cb5b4a0e89aacf77d18b33))
+* **hooks:** add latest-only async guard ([d2a3540](https://github.com/SuperDBA/SuperDBA/commit/d2a35400d69b244dfdeccf9c50f219e0e5066d32))
+* **i18n:** translations for catalogue + deep-link install ([0bc176e](https://github.com/SuperDBA/SuperDBA/commit/0bc176e1947811f4e743d1683fdb701893d34efe))
+* **k8s:** add configurable kubectl command runner ([4f39623](https://github.com/SuperDBA/SuperDBA/commit/4f39623d14bae0f221c1e4e3ae2c5d343dfa35b0))
+* **k8s:** add kubectl override fields ([c8415cc](https://github.com/SuperDBA/SuperDBA/commit/c8415ccd2bed1a3c17459ea2465486e8fe81b50a))
+* **k8s:** add shared advanced settings fields ([e1d4e15](https://github.com/SuperDBA/SuperDBA/commit/e1d4e15095fe3c2870a441e24601ecc59bf3d957))
+* **k8s:** centralize advanced path state ([4883b16](https://github.com/SuperDBA/SuperDBA/commit/4883b161335d5f3e560511bbe1d5b877ce88bbfa))
+* **k8s:** integrate advanced inline connection settings ([8c8fcd6](https://github.com/SuperDBA/SuperDBA/commit/8c8fcd6946f0851c27ea33b7abc530c5ae06651a))
+* **k8s:** integrate advanced saved connection settings ([e7eea3d](https://github.com/SuperDBA/SuperDBA/commit/e7eea3dc213e63cc7aaa3b2e5e978926f0b6a6e2))
+* **k8s:** pass command overrides through frontend utilities ([5231013](https://github.com/SuperDBA/SuperDBA/commit/5231013d31460bbac4cbbe0eab5c3b2d96111af9))
+* **k8s:** propagate kubectl overrides through MCP ([4a68d3e](https://github.com/SuperDBA/SuperDBA/commit/4a68d3e49a95771f11fe92b63895a3fb31378d19))
+* **k8s:** wire kubectl override commands ([c2ca059](https://github.com/SuperDBA/SuperDBA/commit/c2ca059a2d36d3ab7cfbac673c15d0a9835f4788))
+* **mysql:** support AWS RDS IAM authentication ([#404](https://github.com/SuperDBA/SuperDBA/issues/404)) ([247799f](https://github.com/SuperDBA/SuperDBA/commit/247799f029acb96414842b670a34d1bce03c5b4a))
+* **plugins:** add Elasticsearch plugin to registry ([#476](https://github.com/SuperDBA/SuperDBA/issues/476)) ([376b760](https://github.com/SuperDBA/SuperDBA/commit/376b760f13070f0ee9eed68c08e117c761600c31))
+* **plugins:** forward external batch query RPC ([#443](https://github.com/SuperDBA/SuperDBA/issues/443)) ([8ccc203](https://github.com/SuperDBA/SuperDBA/commit/8ccc203c572b8c428b5d13c51a199bbd891a4436))
+* **plugins:** offer the update in the Installed tab ([e1999fe](https://github.com/SuperDBA/SuperDBA/commit/e1999fe95919a848b8276c0bdf57742b40b56291))
+* **registry:** hosted Tabularium registry with deep-link install + BC layer ([de4322c](https://github.com/SuperDBA/SuperDBA/commit/de4322cc1c6c61ddce4ad53d0f9d6460eca18b8b))
+* **registry:** place local plugins in catalogue + single_database driver support ([d113fa4](https://github.com/SuperDBA/SuperDBA/commit/d113fa40446edcdd93ea9cc967d7f41163f20014))
+* **results:** copy and export rows as Markdown table ([#474](https://github.com/SuperDBA/SuperDBA/issues/474)) ([#481](https://github.com/SuperDBA/SuperDBA/issues/481)) ([cc53c92](https://github.com/SuperDBA/SuperDBA/commit/cc53c926765f204f8a86dee11c1442c5a587ccd4))
+
+# [0.15.0](https://github.com/SuperDBA/SuperDBA/compare/v0.14.0...v0.15.0) (2026-07-14)
+
+
+### Bug Fixes
+
+* **data-grid:** restrict Set Empty to textual columns ([#442](https://github.com/SuperDBA/SuperDBA/issues/442)) ([9117f1a](https://github.com/SuperDBA/SuperDBA/commit/9117f1ac467bc6e00683b4f2c93dcecf76171362)), closes [#438](https://github.com/SuperDBA/SuperDBA/issues/438)
+* fixes auto pagination color, dropdown menu font and save menu ([#461](https://github.com/SuperDBA/SuperDBA/issues/461)) ([6825e02](https://github.com/SuperDBA/SuperDBA/commit/6825e021c3ae5c98a826369041b89230e9795b43))
+* **frontend:** autocorrect in table filter input ([#437](https://github.com/SuperDBA/SuperDBA/issues/437)) ([52ae10b](https://github.com/SuperDBA/SuperDBA/commit/52ae10b81e4dbbc4e53b9d9b71fd798cb2d6579a))
+* **frontend:** autocorrect in table filter input ([#437](https://github.com/SuperDBA/SuperDBA/issues/437)) ([a2c5447](https://github.com/SuperDBA/SuperDBA/commit/a2c54475db7811c741028784af71b9a8863b3d2d))
+* **frontend:** quality-of-life consistency pass on modals and small UI components ([#440](https://github.com/SuperDBA/SuperDBA/issues/440)) ([c038e7e](https://github.com/SuperDBA/SuperDBA/commit/c038e7e179eaae33b2297005ca6caf4bc1c646c9))
+* **frontend:** turn off spellcheck in table toolbar ([#432](https://github.com/SuperDBA/SuperDBA/issues/432)) ([69da82a](https://github.com/SuperDBA/SuperDBA/commit/69da82a889de103bf689d0cd5e7a56072f598fd3))
+* **grid:** keep result column headers pinned while scrolling ([#433](https://github.com/SuperDBA/SuperDBA/issues/433)) ([db288be](https://github.com/SuperDBA/SuperDBA/commit/db288be0fa30eb5b60967977102f3cf4152a4982))
+* **mcp:** classify EXPLAIN ANALYZE as the statement it executes ([#456](https://github.com/SuperDBA/SuperDBA/issues/456)) ([6dab82f](https://github.com/SuperDBA/SuperDBA/commit/6dab82f5cf7fbaab6e3ed7b5248afe9b95b9f141))
+* **mcp:** serialize multiple databases in list_connections and add list_databases tool ([#426](https://github.com/SuperDBA/SuperDBA/issues/426)) ([d16878c](https://github.com/SuperDBA/SuperDBA/commit/d16878c10542e1e512aac6e230dbd385dcbf3c03))
+* **mysql:** display ENUM allowed values and add dropdown editing ([#452](https://github.com/SuperDBA/SuperDBA/issues/452)) ([#455](https://github.com/SuperDBA/SuperDBA/issues/455)) ([07f893e](https://github.com/SuperDBA/SuperDBA/commit/07f893e8ae16552872a474a8959320c6b2e9752e))
+* **plugin:** Avoid open new window for plugin process on windows ([#451](https://github.com/SuperDBA/SuperDBA/issues/451)) ([9e1e760](https://github.com/SuperDBA/SuperDBA/commit/9e1e760e2a0ee84ae32bd926cfc57fe565937de5))
+* **postgres:** cast enum values to their column type and add dropdown editing ([#465](https://github.com/SuperDBA/SuperDBA/issues/465)) ([#471](https://github.com/SuperDBA/SuperDBA/issues/471)) ([2dc67d3](https://github.com/SuperDBA/SuperDBA/commit/2dc67d34b288d7b928398ff68822429136af99ac)), closes [#455](https://github.com/SuperDBA/SuperDBA/issues/455)
+* prevent visible console window and clean up SSH tunnels on app exit ([#418](https://github.com/SuperDBA/SuperDBA/issues/418)) ([b656025](https://github.com/SuperDBA/SuperDBA/commit/b6560256d27030fa6fe664e35d560a4663ef41a8))
+* **session:** stop restoring tabs of a disconnected connection on launch ([#467](https://github.com/SuperDBA/SuperDBA/issues/467)) ([5683f09](https://github.com/SuperDBA/SuperDBA/commit/5683f09a0eefe058bf3a85087edaabaaca459a76))
+* **ui:** guard type before parsing enum/set values ([cdfaae3](https://github.com/SuperDBA/SuperDBA/commit/cdfaae36690a23d1ad93bf473f1939c7ef223188))
+* **ui:** keep dropdowns and submenus inside viewport ([bc4621c](https://github.com/SuperDBA/SuperDBA/commit/bc4621c747c7a32f791c6f7a1f59002de366a2cc))
+
+
+### Features
+
+* **connections:** add export modes with optional password encryption ([#447](https://github.com/SuperDBA/SuperDBA/issues/447)) ([fd077ff](https://github.com/SuperDBA/SuperDBA/commit/fd077ffb6e02c697679c00ad259d5f6537355e58))
+* **connections:** export only the selected connections ([#469](https://github.com/SuperDBA/SuperDBA/issues/469)) ([2fdd74f](https://github.com/SuperDBA/SuperDBA/commit/2fdd74f6b0aa2d4d780bb26df82d6e413216d8de)), closes [#468](https://github.com/SuperDBA/SuperDBA/issues/468)
+* **connections:** multi-select with bulk delete and move to group ([#468](https://github.com/SuperDBA/SuperDBA/issues/468)) ([b3af9e5](https://github.com/SuperDBA/SuperDBA/commit/b3af9e52d07bcd2c0f78ca6b0633870001223b30))
+* **connections:** typo-tolerant fuzzy matching for the connection search ([#444](https://github.com/SuperDBA/SuperDBA/issues/444)) ([361c88e](https://github.com/SuperDBA/SuperDBA/commit/361c88ed44e23d56f67ad802496fbb9acf1d2ce0))
+* **datagrid:** show column type in header hover tooltip ([#436](https://github.com/SuperDBA/SuperDBA/issues/436)) ([d1c13b0](https://github.com/SuperDBA/SuperDBA/commit/d1c13b0724478bca58156ab041c0686ea841b0ae)), closes [#435](https://github.com/SuperDBA/SuperDBA/issues/435)
+* **groups:** support nested connection groups with cascade delete ([#405](https://github.com/SuperDBA/SuperDBA/issues/405)) ([6f5a8af](https://github.com/SuperDBA/SuperDBA/commit/6f5a8af3e4d8f579e278051c04c217551a4eb6a6)), closes [1/#3](https://github.com/SuperDBA/SuperDBA/issues/3)
+* **i18n:** add Tagalog language support ([#457](https://github.com/SuperDBA/SuperDBA/issues/457)) ([51a78ea](https://github.com/SuperDBA/SuperDBA/commit/51a78ea7f8d5a775c0bb72e6b43d8b14a2b0364e))
+* **paths:** support dev connections file in debug builds ([0ad4263](https://github.com/SuperDBA/SuperDBA/commit/0ad4263e3a5da8a45c93eebc323486a28b6dfd3d))
+* **settings:** manage SSH connections from a dedicated settings tab ([#441](https://github.com/SuperDBA/SuperDBA/issues/441)) ([c2366fe](https://github.com/SuperDBA/SuperDBA/commit/c2366fe35ac0dcccf2404ff28e57efbb9d2e77d7))
+
+# [0.14.0](https://github.com/SuperDBA/SuperDBA/compare/v0.13.4...v0.14.0) (2026-07-07)
+
+
+### Bug Fixes
+
+* **mcp:** classify compound routines as ddl ([#385](https://github.com/SuperDBA/SuperDBA/issues/385)) ([11d4806](https://github.com/SuperDBA/SuperDBA/commit/11d48064fbdcbf3de8eb6dec0855c72da16e54d3))
+* **mysql:** remove duplicate test import and dead text-proto lookups ([c317f81](https://github.com/SuperDBA/SuperDBA/commit/c317f815dc172a1783e73d622eb67dfc1a1b7b7b))
+* **mysql:** route routine DDL through text protocol ([#348](https://github.com/SuperDBA/SuperDBA/issues/348)) ([04b22b0](https://github.com/SuperDBA/SuperDBA/commit/04b22b003233dcfffa737c487ef0f04e456ac622))
+* **mysql:** route view DDL through text protocol ([#390](https://github.com/SuperDBA/SuperDBA/issues/390)) ([99e3532](https://github.com/SuperDBA/SuperDBA/commit/99e35320207419d96705e2b0400102dbd0abfd6c))
+* **plugins:** keep ui_extensions driver filter when parsing plugin manifests ([#424](https://github.com/SuperDBA/SuperDBA/issues/424)) ([2d144d3](https://github.com/SuperDBA/SuperDBA/commit/2d144d334094e97c2e2d3e13d0a997dabda007c3))
+* **postgres:** bind temporal/uuid values via explicit wire types ([dc8ec17](https://github.com/SuperDBA/SuperDBA/commit/dc8ec17e8174871784327c9b58651420e7eed937)), closes [#392](https://github.com/SuperDBA/SuperDBA/issues/392)
+* **postgres:** cast view name through text before regclass for view definitions ([#400](https://github.com/SuperDBA/SuperDBA/issues/400)) ([f98b7a8](https://github.com/SuperDBA/SuperDBA/commit/f98b7a8e321011f5d4a440a137a8b3f71d991ae5))
+* preserve composite indexes in generated SQL ([#373](https://github.com/SuperDBA/SuperDBA/issues/373)) ([85f7c5b](https://github.com/SuperDBA/SuperDBA/commit/85f7c5b6e9d1d22507376ebb05f51b74fcd11dd3))
+* **sidebar:** prevent clear button (X) from overlapping scrollbar in table filter ([#403](https://github.com/SuperDBA/SuperDBA/issues/403)) ([d15d294](https://github.com/SuperDBA/SuperDBA/commit/d15d294a2117aad987ffd75859f02c5edeedf336))
+
+
+### Features
+
+* **connections:** open a connection in a dedicated window ([#409](https://github.com/SuperDBA/SuperDBA/issues/409)) ([1018b91](https://github.com/SuperDBA/SuperDBA/commit/1018b91b72b2c2177a60fe7071a00054e82410e3))
+* **editor:** show and correctly count the current query's total rows ([#410](https://github.com/SuperDBA/SuperDBA/issues/410)) ([ccb9652](https://github.com/SuperDBA/SuperDBA/commit/ccb965286c9c3ae70a2d5e4c34324f41bb9cc625))
+* **mysql:** support cleartext auth plugin for Warpgate bastions ([#336](https://github.com/SuperDBA/SuperDBA/issues/336)) ([#337](https://github.com/SuperDBA/SuperDBA/issues/337)) ([174091e](https://github.com/SuperDBA/SuperDBA/commit/174091eab4ae312b2f03b6cdda7ee74e87b8219c))
+* **navigator:** fuzzy search in the Quick Navigator ([#421](https://github.com/SuperDBA/SuperDBA/issues/421)) ([a1b3cfd](https://github.com/SuperDBA/SuperDBA/commit/a1b3cfdd5e9e88594eb94c935354d98558d7314b))
+* **routines:** stored routine management (run/create/edit/drop) with plugin support ([#416](https://github.com/SuperDBA/SuperDBA/issues/416)) ([cd7e774](https://github.com/SuperDBA/SuperDBA/commit/cd7e774a2e02e468e1d24b29ec31f083a99918a4))
+* **sidebar:** add keyboard shortcut to focus the table filter ([#412](https://github.com/SuperDBA/SuperDBA/issues/412)) ([feb3214](https://github.com/SuperDBA/SuperDBA/commit/feb32142be84cf8c9618247a8885c64b4a28963b))
+* **sidebar:** typo-tolerant fuzzy matching for the table/trigger filters ([#417](https://github.com/SuperDBA/SuperDBA/issues/417)) ([471b73e](https://github.com/SuperDBA/SuperDBA/commit/471b73e3f71e3129e1c80838520af820108209ad))
+* **views:** add PostgreSQL materialized views support ([#342](https://github.com/SuperDBA/SuperDBA/issues/342)) ([69a223c](https://github.com/SuperDBA/SuperDBA/commit/69a223c34a7444d05f1c7fd03b7fe1906de764de))
+* **whats-new:** render changelog items as markdown ([356586a](https://github.com/SuperDBA/SuperDBA/commit/356586a4d0fb6602236e2892f50966eb3a257b6e))
+
+## [0.13.4](https://github.com/SuperDBA/SuperDBA/compare/v0.13.3...v0.13.4) (2026-06-30)
+
+
+### Bug Fixes
+
+* **autocomplete:** avoid doubling quotes for quoted identifier completion ([2daa3ec](https://github.com/SuperDBA/SuperDBA/commit/2daa3ec32d9a074f09efe4f11ad2501699fa0a41))
+* **autocomplete:** resolve aliased PostgreSQL quoted table columns correctly ([970f8ce](https://github.com/SuperDBA/SuperDBA/commit/970f8ce605edd5f49cb7b690a8926b21c4c3c998))
+* **editor:** correct pkColumns field name in singleResultToEntry ([809dc55](https://github.com/SuperDBA/SuperDBA/commit/809dc5524e96f821804746419d8c42e0575d6b70))
+* **editor:** remove duplicate SQL autocomplete registration ([76d49f2](https://github.com/SuperDBA/SuperDBA/commit/76d49f25893d8b759bb82098b07ac38f71212d3b))
+* **editor:** update/delete use full composite PK in WHERE clause ([#324](https://github.com/SuperDBA/SuperDBA/issues/324)) ([d8d4935](https://github.com/SuperDBA/SuperDBA/commit/d8d4935245816b4ad3e84987c76c5838420369fb))
+* improve accessibility for screen reader users ([#355](https://github.com/SuperDBA/SuperDBA/issues/355)) ([3d7740a](https://github.com/SuperDBA/SuperDBA/commit/3d7740a4bbd9cf7def13fab1a61aa1a7c0547655)), closes [#86](https://github.com/SuperDBA/SuperDBA/issues/86)
+* **mysql:** avoid invalid pagination after semicolons ([#389](https://github.com/SuperDBA/SuperDBA/issues/389)) ([021271b](https://github.com/SuperDBA/SuperDBA/commit/021271b4d4138af99a27bd54aecd8c8c24fa4343))
+* **postgres:** bind uuid-shaped PK as text for varchar columns ([#392](https://github.com/SuperDBA/SuperDBA/issues/392)) ([#394](https://github.com/SuperDBA/SuperDBA/issues/394)) ([f2fed4d](https://github.com/SuperDBA/SuperDBA/commit/f2fed4d43da39014dddefa50ef680d6e6a3c1733))
+* **postgres:** support routine introspection on PostgreSQL < 11 ([#377](https://github.com/SuperDBA/SuperDBA/issues/377)) ([cbc7ba6](https://github.com/SuperDBA/SuperDBA/commit/cbc7ba6bc4180bf575da286fc5cbef683ebbcc1b)), closes [#375](https://github.com/SuperDBA/SuperDBA/issues/375)
+* **updater:** show available update on manual check after dismissal ([#398](https://github.com/SuperDBA/SuperDBA/issues/398)) ([548f04f](https://github.com/SuperDBA/SuperDBA/commit/548f04fbcbb18b80982c4e4b1ebd66a811e894e9))
+
+
+### Features
+
+* allow passing a startup script per connection ([#352](https://github.com/SuperDBA/SuperDBA/issues/352)) ([f885b31](https://github.com/SuperDBA/SuperDBA/commit/f885b31a11c762dff82ae92a754cd6d4cf3b4c4d)), closes [#350](https://github.com/SuperDBA/SuperDBA/issues/350) [#2](https://github.com/SuperDBA/SuperDBA/issues/2)
+* **autocomplete:** add disposeSqlAutocomplete mock for testing ([d04434d](https://github.com/SuperDBA/SuperDBA/commit/d04434d8fccbede167427bdf1c0c74bdc054fa13))
+* **backend:** add support for SSH password/PIN prompt ([475adfc](https://github.com/SuperDBA/SuperDBA/commit/475adfc4a292e082e5bd139fdaf90234bc6ffe07))
+* **backend:** implement SSH passphrase prompt support with forced askpass ([81164ee](https://github.com/SuperDBA/SuperDBA/commit/81164ee980641bf6efb14bc3f504926806d3b1fb))
+* **editor:** show success feedback for non-SELECT statements ([#391](https://github.com/SuperDBA/SuperDBA/issues/391)) ([33dd58b](https://github.com/SuperDBA/SuperDBA/commit/33dd58b41b96408c524b561cab2d6bed7c2fbe8f))
+* **editor:** window controls and detachable results panel ([#369](https://github.com/SuperDBA/SuperDBA/issues/369)) ([b4171a7](https://github.com/SuperDBA/SuperDBA/commit/b4171a7eeae88b049d617418a5e19564617ad3b9))
+* **frontend:** add SSH prompt toggle to connection modals ([bd64d8e](https://github.com/SuperDBA/SuperDBA/commit/bd64d8e6b219f7a3c4a9dc4c76e0e0307223c0f9))
+* **i18n:** add SSH prompt translations for all supported languages ([c23c2e8](https://github.com/SuperDBA/SuperDBA/commit/c23c2e8dfbdfb3df567b5dd13036651748eeb707))
+* **mysql:** auto-skip PIPES_AS_CONCAT sql_mode for Vitess/PlanetScale ([#387](https://github.com/SuperDBA/SuperDBA/issues/387)) ([53e3ab7](https://github.com/SuperDBA/SuperDBA/commit/53e3ab74ea362ca0225e090c05f692b2e28b8f7f)), closes [#383](https://github.com/SuperDBA/SuperDBA/issues/383)
+* **notebook:** collapse query, results and chart sections individually ([#399](https://github.com/SuperDBA/SuperDBA/issues/399)) ([54973a5](https://github.com/SuperDBA/SuperDBA/commit/54973a564bc0e422ff1cb56962ae2ba7b7569f19)), closes [#362](https://github.com/SuperDBA/SuperDBA/issues/362)
+* **plugins:** add DM plugin to registry ([#382](https://github.com/SuperDBA/SuperDBA/issues/382)) ([26d2839](https://github.com/SuperDBA/SuperDBA/commit/26d28399490287007b0e460691598d929ecb09ec))
+* **registry:** add Cloudflare D1 plugin v0.1.0 ([43d7d81](https://github.com/SuperDBA/SuperDBA/commit/43d7d819e143337bdaf91518ef8ed09ada4292db))
+* **sql-autocomplete:** integrate SQL autocomplete registration into NotebookView and Editor components ([c38bd3e](https://github.com/SuperDBA/SuperDBA/commit/c38bd3ea2092cc444c8572a97e2ce59ac27aaade))
+* **ssh:** serve askpass prompts with an in-app modal ([dacbdb7](https://github.com/SuperDBA/SuperDBA/commit/dacbdb7bbd0517e4478aca6a9c5afb2c48fdf9bd))
+* **views:** add SQL beautify button to view editor ([#372](https://github.com/SuperDBA/SuperDBA/issues/372)) ([2b7e34c](https://github.com/SuperDBA/SuperDBA/commit/2b7e34c289cb433fb03f46eef7caeb86a00a553a))
+
+## [0.13.3](https://github.com/SuperDBA/SuperDBA/compare/v0.13.2...v0.13.3) (2026-06-24)
+
+
+### Bug Fixes
+
+* address PR review warnings ([941629b](https://github.com/SuperDBA/SuperDBA/commit/941629b0bc72eb0535241bb5a1caba44c1df36b7))
+* **ai:** fetch Anthropic and MiniMax models from their APIs ([#359](https://github.com/SuperDBA/SuperDBA/issues/359)) ([ec72177](https://github.com/SuperDBA/SuperDBA/commit/ec72177a79d6f0abed1fcd2792e54e595fe78806)), closes [#358](https://github.com/SuperDBA/SuperDBA/issues/358)
+* **k8s:** avoid MySQL fallback in K8s connection modal ([f7e50fb](https://github.com/SuperDBA/SuperDBA/commit/f7e50fb71e2cd622a5a65a5f9221e48b56511535))
+* **k8s:** correct inline connection port defaults ([36d4d1f](https://github.com/SuperDBA/SuperDBA/commit/36d4d1fe115222fd06ba807f8d7ab6f80266a53b))
+* **k8s:** return localized validation results ([1506412](https://github.com/SuperDBA/SuperDBA/commit/15064126189e10e69e4d1363146d49a74afbbb2e))
+* **mcp:** play approval alert via OS notification sound on Linux ([ed9c12f](https://github.com/SuperDBA/SuperDBA/commit/ed9c12fcd41f56a8a2fdbbccde7bff4565d0f37b))
+* **mcp:** unblock approval gate during language settle ([8601478](https://github.com/SuperDBA/SuperDBA/commit/86014782594d0dec3fce641cd8ee2f27195a1225))
+* scope multi-database operations to the selected database ([#346](https://github.com/SuperDBA/SuperDBA/issues/346)) ([cf7c1eb](https://github.com/SuperDBA/SuperDBA/commit/cf7c1eb16cb07e8a9b0b55dde74ae7ff4a2b62f4))
+* **view-editor:** robustly extract the SELECT body from view definitions ([#320](https://github.com/SuperDBA/SuperDBA/issues/320)) ([f073d54](https://github.com/SuperDBA/SuperDBA/commit/f073d54a494896ec1d159a565c6019cb19d81c7b))
+
+
+### Features
+
+* **editor:** tint tab bar with active connection color ([#333](https://github.com/SuperDBA/SuperDBA/issues/333)) ([b328a97](https://github.com/SuperDBA/SuperDBA/commit/b328a979f605044e6870f1f680a954a371c14c32))
+* **k8s:** add resource port utility ([8dc81a1](https://github.com/SuperDBA/SuperDBA/commit/8dc81a134a616326c6de5407488a6fb405e9c83e))
+* **k8s:** add service port discovery command ([a721001](https://github.com/SuperDBA/SuperDBA/commit/a72100101389502e15aebdea81d257401ed5f312))
+* **k8s:** improve selection dialog defaults ([6c15048](https://github.com/SuperDBA/SuperDBA/commit/6c15048d087da38eb424628aad15eb095c870fdc))
+* **mcp:** add approval attention controls and localized notifications ([ae8637c](https://github.com/SuperDBA/SuperDBA/commit/ae8637cd16261e6df2c238da3c176776e5727022)), closes [#307](https://github.com/SuperDBA/SuperDBA/issues/307)
+* restore previous session connections and add start-maximized option ([#332](https://github.com/SuperDBA/SuperDBA/issues/332)) ([567a33c](https://github.com/SuperDBA/SuperDBA/commit/567a33cd7e62729f2a22dc404acde6b989a88365))
+* **ui:** show project social links across update, what's new and welcome modals ([#353](https://github.com/SuperDBA/SuperDBA/issues/353)) ([97576d1](https://github.com/SuperDBA/SuperDBA/commit/97576d11066a4b6194c689e063a470008f1ecd6b))
+
+## [0.13.2](https://github.com/SuperDBA/SuperDBA/compare/v0.13.1...v0.13.2) (2026-06-16)
+
+
+### Bug Fixes
+
+* **autocomplete:** suggest clause keywords and correct columns after … ([#295](https://github.com/SuperDBA/SuperDBA/issues/295)) ([35952f3](https://github.com/SuperDBA/SuperDBA/commit/35952f310d0b7ff23e99c3602d5579854c12e056))
+* **mysql:** multiply per-loop time by loops in EXPLAIN ANALYZE ([#303](https://github.com/SuperDBA/SuperDBA/issues/303)) ([6ed133f](https://github.com/SuperDBA/SuperDBA/commit/6ed133ff27fc45f4231005617b2e6407bfda561f)), closes [#300](https://github.com/SuperDBA/SuperDBA/issues/300)
+
+
+### Features
+
+* **connection:** show SSL tab for plugin drivers via supports_ssl capability ([#309](https://github.com/SuperDBA/SuperDBA/issues/309)) ([5a2e929](https://github.com/SuperDBA/SuperDBA/commit/5a2e929cb9efb7a279b71ae94a3435dd5e47d8a6)), closes [SuperDBA/superdba-clickhouse-plugin#1](https://github.com/SuperDBA/superdba-clickhouse-plugin/issues/1)
+* **explain:** show Actual Rows column in Visual EXPLAIN table view ([#302](https://github.com/SuperDBA/SuperDBA/issues/302)) ([c6048ce](https://github.com/SuperDBA/SuperDBA/commit/c6048ce481d4688b2f1f616f915ccf7489e28729)), closes [#298](https://github.com/SuperDBA/SuperDBA/issues/298)
+* **notebook:** manage saved notebooks per connection ([#304](https://github.com/SuperDBA/SuperDBA/issues/304)) ([4b5e7f2](https://github.com/SuperDBA/SuperDBA/commit/4b5e7f22e15f919a698cc7a2bce67315e4c73a01))
+* **plugins:** add Redis (Go) plugin v0.4.1 ([#314](https://github.com/SuperDBA/SuperDBA/issues/314)) ([31805eb](https://github.com/SuperDBA/SuperDBA/commit/31805eb0b1ec43e626e7886a5b9aa88375b400a2))
+* show sql progress in realtime ([#296](https://github.com/SuperDBA/SuperDBA/issues/296)) ([80613c3](https://github.com/SuperDBA/SuperDBA/commit/80613c36cda8ab9cb39fc6d6198b81f36c69c601))
+
+
+### Performance Improvements
+
+* **grid:** memoize DataGrid rows for fluid scroll with many rows/columns ([61794dc](https://github.com/SuperDBA/SuperDBA/commit/61794dc21f6618f9e8a1fa9687f445423ba38a00))
+
+## [0.13.1](https://github.com/SuperDBA/SuperDBA/compare/v0.13.0...v0.13.1) (2026-06-05)
+
+
+### Bug Fixes
+
+* **ai:** route AI key reads through credential cache to stop repeated keychain prompts ([#269](https://github.com/SuperDBA/SuperDBA/issues/269)) ([4d40c69](https://github.com/SuperDBA/SuperDBA/commit/4d40c697d07aad389cc80397ca4d2f6f9bd2e389))
+* **connections:** accept postgresql:// and mariadb:// scheme aliases in connection strings ([#277](https://github.com/SuperDBA/SuperDBA/issues/277)) ([a155b6a](https://github.com/SuperDBA/SuperDBA/commit/a155b6a83ec581b9325f5b73827d934f5c88aabe)), closes [#260](https://github.com/SuperDBA/SuperDBA/issues/260)
+* **editor:** focus editor when opening a new console tab ([#280](https://github.com/SuperDBA/SuperDBA/issues/280)) ([4bd6e1d](https://github.com/SuperDBA/SuperDBA/commit/4bd6e1dd4a7e7d5d5a3ebc24a930c19c3cfca4b3))
+* **editor:** stop Monaco theme leaking across editor instances ([#282](https://github.com/SuperDBA/SuperDBA/issues/282)) ([f7bbef7](https://github.com/SuperDBA/SuperDBA/commit/f7bbef791f361325469ed198ab6475238b4c704b)), closes [#281](https://github.com/SuperDBA/SuperDBA/issues/281)
+* **grid:** truncate large JSON/text cell previews to avoid UI freeze ([#285](https://github.com/SuperDBA/SuperDBA/issues/285)) ([a283938](https://github.com/SuperDBA/SuperDBA/commit/a283938ccb4b0e35d33fe57efbca3c3e46f17f30)), closes [#283](https://github.com/SuperDBA/SuperDBA/issues/283)
+* **mcp:** classify parenthesized SELECT/UNION as read-only ([#272](https://github.com/SuperDBA/SuperDBA/issues/272)) ([35bc043](https://github.com/SuperDBA/SuperDBA/commit/35bc0431d6b1f7cecaf76c42f3fbd2912f1e18f9))
+* **new-connection-modal:** stop auto-activating databases tab ([afcb4f6](https://github.com/SuperDBA/SuperDBA/commit/afcb4f6ebe7cfc09cfb84c41b68691b602ce50c8))
+* **postgres:** read EXPLAIN JSON output as json column ([#279](https://github.com/SuperDBA/SuperDBA/issues/279)) ([6abe185](https://github.com/SuperDBA/SuperDBA/commit/6abe185ede7864eec973354105d4d83e604a6460)), closes [#276](https://github.com/SuperDBA/SuperDBA/issues/276)
+* preserve user OFFSET in paginated queries ([#273](https://github.com/SuperDBA/SuperDBA/issues/273)) ([#275](https://github.com/SuperDBA/SuperDBA/issues/275)) ([6db171b](https://github.com/SuperDBA/SuperDBA/commit/6db171b9c4032ef49b9c2cf39af45a9b035bd678))
+
+
+### Features
+
+* upgrade MiniMax default model to M3 ([#270](https://github.com/SuperDBA/SuperDBA/issues/270)) ([99c902c](https://github.com/SuperDBA/SuperDBA/commit/99c902c1f55f53aa662b6235fb2c3c3f272a10b7))
+
+# [0.13.0](https://github.com/SuperDBA/SuperDBA/compare/v0.12.0...v0.13.0) (2026-06-03)
+
+
+### Bug Fixes
+
+* **ai-activity:** render timestamps in local time + add display timezone setting ([#251](https://github.com/SuperDBA/SuperDBA/issues/251)) ([44899f3](https://github.com/SuperDBA/SuperDBA/commit/44899f3d19610337d47204622a8ec9cc5a780d43))
+* **k8s:** add k8s fields to SavedConnection params type ([f54843f](https://github.com/SuperDBA/SuperDBA/commit/f54843f338c143726e5c296beb43ceb5002a8079)), closes [#246](https://github.com/SuperDBA/SuperDBA/issues/246)
+* **mcp:** close approval/read-only bypass in run_query ([#261](https://github.com/SuperDBA/SuperDBA/issues/261)) ([1b1bb03](https://github.com/SuperDBA/SuperDBA/commit/1b1bb033e2d9474edb372eba60f29244cab33339))
+* **mcp:** dispatch plugin drivers via the registry + harden the subprocess ([#256](https://github.com/SuperDBA/SuperDBA/issues/256)) ([259f089](https://github.com/SuperDBA/SuperDBA/commit/259f08958087a798672f4359fd06ff07abb70f74))
+* **plugins:** correct plugin data folder paths ([358514e](https://github.com/SuperDBA/SuperDBA/commit/358514ed1c951eaae7a2cc00d480065c764768b6))
+* prevent selectedIndex rerender on mouse scroll ([12f4586](https://github.com/SuperDBA/SuperDBA/commit/12f45865a3680ff4e1527d511b0b5ce6f049f633))
+* **query-history:** recover from corruption + atomic writes ([#253](https://github.com/SuperDBA/SuperDBA/issues/253)) ([c2b5598](https://github.com/SuperDBA/SuperDBA/commit/c2b5598f81c4a2e466305647e0193b6f17af16b3))
+* **schemas:** surface get_schemas failure with error + retry ([#242](https://github.com/SuperDBA/SuperDBA/issues/242)) ([8fc0f3a](https://github.com/SuperDBA/SuperDBA/commit/8fc0f3ac173be64651166e878ab61c955e50da56))
+
+
+### Features
+
+* **discord-release:** add superdba-discord-release agent skill ([cb599ed](https://github.com/SuperDBA/SuperDBA/commit/cb599edcb213d7b662bd7397e3f41128295aaafc))
+* integrate Quick Navigator search overlay ([#252](https://github.com/SuperDBA/SuperDBA/issues/252)) ([1802165](https://github.com/SuperDBA/SuperDBA/commit/1802165c402c2463faf0c19fed7544e2b3976641))
+* Kubernetes port-forward tunnel support ([#246](https://github.com/SuperDBA/SuperDBA/issues/246)) ([66a0aec](https://github.com/SuperDBA/SuperDBA/commit/66a0aec1e6406cd5f724c804c3ec69679a644900))
+* **quick-navigator:** add inspect, new console, count & copy actions ([ca3b599](https://github.com/SuperDBA/SuperDBA/commit/ca3b5995213ff2cb308f10d9a8498de824c7dc70))
+
+# [0.12.0](https://github.com/SuperDBA/SuperDBA/compare/v0.11.0...v0.12.0) (2026-05-25)
+
+
+### Bug Fixes
+
+* Ctrl+Enter always runs query in the last opened console tab ([#240](https://github.com/SuperDBA/SuperDBA/issues/240)) ([d8f9feb](https://github.com/SuperDBA/SuperDBA/commit/d8f9febd334d88909877683ca6307b7d380eee98))
+* **drivers:** preserve i64/u64 precision past Number.MAX_SAFE_INTEGER ([b1a6d9d](https://github.com/SuperDBA/SuperDBA/commit/b1a6d9d0154fb3e58b70625a4fe7b2130f0ce5a2)), closes [#210](https://github.com/SuperDBA/SuperDBA/issues/210)
+* **drivers:** show pagination for SELECTs with leading SQL comments ([a0a52f4](https://github.com/SuperDBA/SuperDBA/commit/a0a52f498712fdea2e1134898a4a02e66eb8fa29))
+* **pg:** correct handling of TLS/SSL modes in PostgreSQL connection ([e836109](https://github.com/SuperDBA/SuperDBA/commit/e836109a2abb5bb75377c0a28d21d5b07f0dd96c))
+* refresh table list after creating table ([#239](https://github.com/SuperDBA/SuperDBA/issues/239)) ([63ebeaf](https://github.com/SuperDBA/SuperDBA/commit/63ebeaf63f41e1d7ac6eccc103cf1b6af421130d))
+* Save Query modal no longer overrides editor theme globally ([#248](https://github.com/SuperDBA/SuperDBA/issues/248)) ([d1d93d3](https://github.com/SuperDBA/SuperDBA/commit/d1d93d3d0dbe15154f2ba67cfe1b1d83d971efcc)), closes [#247](https://github.com/SuperDBA/SuperDBA/issues/247)
+* **settings:** center SettingToggle knob ([d9febbe](https://github.com/SuperDBA/SuperDBA/commit/d9febbefcc314a7fcd45919806150b1b98e0ebf5))
+
+
+### Features
+
+* Delete selected rows with keyboard shortcut ([5190443](https://github.com/SuperDBA/SuperDBA/commit/51904436dc3411996b85d28455713497232a96e9))
+* **demo:** add MySQL triggers demo and bump version to 0.11.0 ([02a23ef](https://github.com/SuperDBA/SuperDBA/commit/02a23ef9aa662555bd0c20a9de8a218ef1dbc72e))
+* **demo:** seed bigint_demo table for issue [#210](https://github.com/SuperDBA/SuperDBA/issues/210) manual testing ([245f6b6](https://github.com/SuperDBA/SuperDBA/commit/245f6b645fa02281238260c3b0daee7c9cb0d591))
+* **i18n:** add Russian locale and count-based tab pluralization ([78bf343](https://github.com/SuperDBA/SuperDBA/commit/78bf3437039a9841cfb2b473bd175e181f345d25))
+* per-connection icon & accent color override ([#189](https://github.com/SuperDBA/SuperDBA/issues/189)) ([#241](https://github.com/SuperDBA/SuperDBA/issues/241)) ([287c2b6](https://github.com/SuperDBA/SuperDBA/commit/287c2b6cdc882b3e6466e4d8888784389d33a43a))
+* **sql:** first-party splitter + per-driver dialect ([#225](https://github.com/SuperDBA/SuperDBA/issues/225)) ([b4f225a](https://github.com/SuperDBA/SuperDBA/commit/b4f225ab53b3cb633f0549662de4341f8cea3dcb))
+
+
+### Performance Improvements
+
+* eliminate per-query disk I/O and unblock result display from metadata fetch ([788a068](https://github.com/SuperDBA/SuperDBA/commit/788a068f72a502e6c2883490c03be1c0dbbd339c))
+
+
+### Reverts
+
+* remove unintended CHANGELOG changes ([2ddfb58](https://github.com/SuperDBA/SuperDBA/commit/2ddfb5859af01d44a9a9a2976d4354dc49e69516))
+
+# [0.11.0](https://github.com/SuperDBA/SuperDBA/compare/v0.10.3...v0.11.0) (2026-05-18)
+
+
+* feat(editor)!: enable Enter-accepts-suggestion by default ([67a008d](https://github.com/SuperDBA/SuperDBA/commit/67a008d06193be743a4a8c0893020601db7b74db)), closes [#186](https://github.com/SuperDBA/SuperDBA/issues/186)
+
+
+### Bug Fixes
+
+* **commands:** preserve all in-flight abort handles per connection ([4521335](https://github.com/SuperDBA/SuperDBA/commit/452133565fdd098223aa93fdbb8281a5254eb4ae)), closes [#201](https://github.com/SuperDBA/SuperDBA/issues/201)
+* **demo:** set utf8mb4 client charset on MySQL seeds ([e4cd824](https://github.com/SuperDBA/SuperDBA/commit/e4cd824c5d89eecbc67bc147fea27cb0cb4c5093))
+* **diff:** word-wrap the original pane in side-by-side mode ([a666586](https://github.com/SuperDBA/SuperDBA/commit/a666586c7f5fab74cd2154a1ac89f2c97c81766c)), closes [#4454](https://github.com/SuperDBA/SuperDBA/issues/4454) [#4701](https://github.com/SuperDBA/SuperDBA/issues/4701) [#3346](https://github.com/SuperDBA/SuperDBA/issues/3346)
+* **drivers:** share a single connection across multi-statement scripts ([8eed14b](https://github.com/SuperDBA/SuperDBA/commit/8eed14b20135a7e6a091f3ce404d484d16635a6e)), closes [#199](https://github.com/SuperDBA/SuperDBA/issues/199)
+* **editor:** restore correct SQL string color across all themes ([c3f21c4](https://github.com/SuperDBA/SuperDBA/commit/c3f21c4f1165361541208360bbacc1e05e87e48c))
+* **export,dump:** apply same per-slot abort-handle fix to export/dump/import ([975d943](https://github.com/SuperDBA/SuperDBA/commit/975d9431de5e8ff1a587d8710ea4035ac3c2e3c2)), closes [#201](https://github.com/SuperDBA/SuperDBA/issues/201)
+* **export:** expand SSH params and refactor into testable utilities ([888a6be](https://github.com/SuperDBA/SuperDBA/commit/888a6be92395b2b11fd669306aaae13db2983345)), closes [#184](https://github.com/SuperDBA/SuperDBA/issues/184)
+* incorrect get_app_config_dir when running in mpc mode in windows ([cc57d0a](https://github.com/SuperDBA/SuperDBA/commit/cc57d0a6fde55e0b468cfa0b07977b2e06d438e7))
+* **json:** bound the sidebar tree view so long strings stop overlapping ([506f0fc](https://github.com/SuperDBA/SuperDBA/commit/506f0fc37ff39308c090c01015da5d815d4efab1))
+* **json:** cast JsonTreeView container style spread to satisfy tsc -b ([715a030](https://github.com/SuperDBA/SuperDBA/commit/715a030700cf2af3a1adbb8810acf8afa27c0124))
+* **json:** compute missing-session-id error during render, not in effect ([1751421](https://github.com/SuperDBA/SuperDBA/commit/17514211f64d7a9625ce89d48b27e895c9a89871))
+* **postgres:** bind JSON/JSONB columns natively + JSON-encode scalars ([05def65](https://github.com/SuperDBA/SuperDBA/commit/05def657c35dcb1f5452f280f27cbd0bc6ff9707))
+* **test:** repair test suite after main merge ([01b5568](https://github.com/SuperDBA/SuperDBA/commit/01b55688502b00299e613345aac5f9b073a53e37))
+
+
+### Features
+
+* **branding:** add logo SVG files to public ([f562cd6](https://github.com/SuperDBA/SuperDBA/commit/f562cd619d3aba986756088c159589397e85d764))
+* database trigger management (PostgreSQL, MySQL, SQLite) ([fd66558](https://github.com/SuperDBA/SuperDBA/commit/fd66558298ea08e5e55e10806352a13416de5020))
+* **demo:** add Docker Compose demo with seeded databases ([55b4db8](https://github.com/SuperDBA/SuperDBA/commit/55b4db82857875c39072940293c0084fd688d4c3))
+* **demo:** seed json_demo table in postgres + mysql init ([38dbaca](https://github.com/SuperDBA/SuperDBA/commit/38dbaca299df7cec1e0e4238a8c5c10edff2227e))
+* **demo:** seed text_demo table for issue [#207](https://github.com/SuperDBA/SuperDBA/issues/207) manual testing ([626cc76](https://github.com/SuperDBA/SuperDBA/commit/626cc766d164cea6df675eea840f6053061320ac))
+* **editor:** foreign key click-to-navigate in result grid ([a7a12ad](https://github.com/SuperDBA/SuperDBA/commit/a7a12ad4301d956ee9fae0feb836ffa7064d143c))
+* **editor:** make Enter accept autocomplete suggestion configurable ([4e07b82](https://github.com/SuperDBA/SuperDBA/commit/4e07b825b0a59e101938798d01708555e3d3a5b1))
+* **i18n:** add export/import translations and export warning in locales ([a75a065](https://github.com/SuperDBA/SuperDBA/commit/a75a06504a9a8fd300d08e50b2d3a320db211448))
+* **i18n:** add Japanese (ja) translation ([b81bcb1](https://github.com/SuperDBA/SuperDBA/commit/b81bcb19775bd2039c1d43d8320e66e5b15d9246))
+* **json:** in-cell JSON highlighting (JsonCell) + inline expansion editor ([7132b70](https://github.com/SuperDBA/SuperDBA/commit/7132b70c867da571d86d52fa0844c544d5565b96))
+* **json:** inline diff for pending changes + fix JSON cell highlight ([e136112](https://github.com/SuperDBA/SuperDBA/commit/e13611288abab7f182a7259d1eeafffb5ddca030))
+* **json:** multi-mode JsonInput (Code / Tree / Raw editors) ([2a482c2](https://github.com/SuperDBA/SuperDBA/commit/2a482c28de725dbbccfe92404eca6a8a93313505))
+* **json:** native Tauri JSON viewer window with bounds memory + per-cell dedup ([b9809b6](https://github.com/SuperDBA/SuperDBA/commit/b9809b6c17151d4be087098992d9bbb3d4c746be))
+* **json:** per-connection "detect JSON in text columns" setting ([1fbd460](https://github.com/SuperDBA/SuperDBA/commit/1fbd4603c0eae372ac04d9de2d062bb4a452140c))
+* **json:** sidebar gets diff toggle + detect-JSON-in-text support ([d2facd1](https://github.com/SuperDBA/SuperDBA/commit/d2facd18a5bb6ad64a0bb9bc9107aac647ac7c43))
+* **plugins:** add firestore plugin to registry ([24e36c8](https://github.com/SuperDBA/SuperDBA/commit/24e36c892f06b366a9e97645019e049ac95df38f))
+* **sidebar:** drag-resizable row editor ([04269bf](https://github.com/SuperDBA/SuperDBA/commit/04269bfc049acdf1cbb3274684ec584ea4c60062))
+* **superdba-discord-release:** add superdba-discord-release skill and ([f41cfdf](https://github.com/SuperDBA/SuperDBA/commit/f41cfdff17ab120db5abb8aa2179d3178825cb81))
+* **text:** chevron expand + Monaco diff for long text/longtext cells ([d9212c7](https://github.com/SuperDBA/SuperDBA/commit/d9212c7c0f245e5dbad641fc458f564986a60df2)), closes [#181](https://github.com/SuperDBA/SuperDBA/issues/181)
+* **utils:** add newConsole helper, tests, and wire to sidebar ([f7e6b0b](https://github.com/SuperDBA/SuperDBA/commit/f7e6b0b16f4bf248d4bc203d9867c7b869e0743a))
+
+
+### BREAKING CHANGES
+
+* Pressing Enter while an autocomplete suggestion is
+highlighted now accepts it instead of inserting a newline. Users who
+preferred the previous behaviour can turn it off under
+Appearance -> Editor -> "Accept Suggestion with Enter".
+
+This matches what most code editors do out of the box and is the
+
+## [0.10.3](https://github.com/SuperDBA/SuperDBA/compare/v0.10.2...v0.10.3) (2026-05-11)
+
+
+### Bug Fixes
+
+* **DataGrid:** handle empty column names from drivers ([b015b35](https://github.com/SuperDBA/SuperDBA/commit/b015b3507a92516a365c772f09731c4fedfdcbfa))
+* **notebook:** render db selector dropdown via portal to avoid clipping ([b0f51ed](https://github.com/SuperDBA/SuperDBA/commit/b0f51ed6a48a6a1b3ea3bb69e5c9acfdc85de354))
+
+### Features
+
+* Add connection export and import functionality ([aee7df1](https://github.com/SuperDBA/SuperDBA/commit/aee7df1718542a5b3ad6ff9e6e5d5f9bfe41fc6e))
+* **connections:** add import button to empty state ([b1f9844](https://github.com/SuperDBA/SuperDBA/commit/b1f9844f9bf38644de8ddb03bc9447f25a9a294d))
+* **editor:** add editor error boundary and tests ([3001409](https://github.com/SuperDBA/SuperDBA/commit/30014098d03f5b129ad3f9314de4d07d89e161c1))
+* **sidebar:** add Discord community callout and update links ([26643cf](https://github.com/SuperDBA/SuperDBA/commit/26643cfb7df7c4ef941e7d3ba9e28806e7c1b43b))
+
+## [0.10.2](https://github.com/SuperDBA/SuperDBA/compare/v0.10.1...v0.10.2) (2026-05-08)
+
+
+### Bug Fixes
+
+* **db:** omit empty password in connection URLs ([6164f49](https://github.com/SuperDBA/SuperDBA/commit/6164f49e4644d2842bb6706930133bfc0a523ff3))
+* **postgres:** switch deadpool TLS to rustls + honor ssl_ca ([8dd0d3b](https://github.com/SuperDBA/SuperDBA/commit/8dd0d3b47a6d66fe4fcffd858fb68652b8bf9f64)), closes [#166](https://github.com/SuperDBA/SuperDBA/issues/166)
+
+
+### Features
+
+* **data-grid:** add SQL INSERT as a copy format option ([088aa90](https://github.com/SuperDBA/SuperDBA/commit/088aa905d23cc0cca1f7ba7b2f2a28975428b438))
+* **data-grid:** cell-level selection and copy ([2b31e6f](https://github.com/SuperDBA/SuperDBA/commit/2b31e6f8f390a3d58983a6122c236a8903229607))
+* **postgres:** coerce boolean strings to bool for boolean columns ([71aea59](https://github.com/SuperDBA/SuperDBA/commit/71aea59589bf0444a5fa76ad1067e6ec814b00db)), closes [#155](https://github.com/SuperDBA/SuperDBA/issues/155)
+
+## [0.10.1](https://github.com/SuperDBA/SuperDBA/compare/v0.10.0...v0.10.1) (2026-05-04)
+
+
+### Bug Fixes
+
+* resolve LIMIT keyword misidentification in SQL pagination ([c4d2298](https://github.com/SuperDBA/SuperDBA/commit/c4d22986cd2119817b0bb90b0f446854a90fd380))
+
+
+### Features
+
+* **app:** use semantic version compare for whats-new and changelog ([dc474df](https://github.com/SuperDBA/SuperDBA/commit/dc474df5f3f3d6ddd81db01eb30c7da103ae5995))
+* Make database selector dropdowns scrollable after 10 entries ([390a811](https://github.com/SuperDBA/SuperDBA/commit/390a81156f0df382cb47ba8d6454e19ee4c3b8ee))
+* **postgres:** add binding module for parameterized values ([f15a268](https://github.com/SuperDBA/SuperDBA/commit/f15a2687fb27dc3a705c7cdbc2d645a420293562))
+* **query-builder:** add mini result grid, schema hook, and layout util ([8c79525](https://github.com/SuperDBA/SuperDBA/commit/8c79525caaa9138ddc2a43dfba95001f1d7688a7))
+
+# [0.10.0](https://github.com/SuperDBA/SuperDBA/compare/v0.9.21...v0.10.0) (2026-04-27)
+
+
+### Bug Fixes
+
+* **hooks:** preserve session events while loading and stabilize filter ([86b243b](https://github.com/SuperDBA/SuperDBA/commit/86b243b74f5f1768e1850f26a570e26cfbb7a54d))
+* **plugins:** unregister running driver and verify installed manifest ([d045eea](https://github.com/SuperDBA/SuperDBA/commit/d045eea46f66846cc4c5b413b7b76bc245c488db))
+
+
+### Features
+
+* **ai:** add AI audit log, approval gate, notebook export and UI ([2399370](https://github.com/SuperDBA/SuperDBA/commit/2399370deeec493dfda01c01e620d25225fb31c2))
+* **gitnexus:** add GitNexus skills and MCP UI page ([f3e0214](https://github.com/SuperDBA/SuperDBA/commit/f3e021485f969505e36964760236481e192d4015))
+* **heartbeat:** add GUI heartbeat and liveness-aware approval polling ([93f6765](https://github.com/SuperDBA/SuperDBA/commit/93f67655fbc13cdaad2a735a97f83340d8fb755a))
+* **ui:** add session search, sorting and plan expand ([cbd5d91](https://github.com/SuperDBA/SuperDBA/commit/cbd5d91269e938605b1a4c3e20954b0e162fd3fa))
+
+## [0.9.21](https://github.com/SuperDBA/SuperDBA/compare/v0.9.20...v0.9.21) (2026-04-22)
+
+
+### Bug Fixes
+
+* **ci:** correct release packaging to zip staging contents ([8f2849d](https://github.com/SuperDBA/SuperDBA/commit/8f2849da5310e86bcd9cffd03fe4ee43644009f3))
+
+
+### Features
+
+* **create-superdba-plugin:** add plugin scaffolder package with CLI, ([2cdff1b](https://github.com/SuperDBA/SuperDBA/commit/2cdff1b7bed72ebf4a1b2d1bf6c2708fa6c7a885))
+* **plugin-api:** add @superdba/plugin-api package ([e3b228b](https://github.com/SuperDBA/SuperDBA/commit/e3b228b43b50c69c1d10d854636b4ffe8fe9d096))
+* **plugin-api:** add defineSlot helper and remove google sheets plugin ([28e9758](https://github.com/SuperDBA/SuperDBA/commit/28e9758f2affc88f8d94671a10476640e0a82403))
+* **plugins:** add google-sheets plugin to registry ([e81a68b](https://github.com/SuperDBA/SuperDBA/commit/e81a68b3c96cb837cb1cf05b06869b307e1cb071))
+* **plugins:** add google-sheets plugin to registry ([0ec0d7b](https://github.com/SuperDBA/SuperDBA/commit/0ec0d7b93649112db1d332f336524b483509677a))
+* **plugins:** add plugin center UI, search/filter, and cleanup on ([67a41ad](https://github.com/SuperDBA/SuperDBA/commit/67a41ad20fa3b8c925249093502f61a3d72a0dc5))
+* **rust-driver:** add optional UI build and cross-platform dev-install ([278b2f4](https://github.com/SuperDBA/SuperDBA/commit/278b2f40048d34758ceb1c8e2b8168831639f1b4))
+* **settings:** persist and respect activeExternalDrivers in settings UI ([efabf6e](https://github.com/SuperDBA/SuperDBA/commit/efabf6e997f74445f9408c9e6b5c4b3f2ff08bb8))
+
+## [0.9.20](https://github.com/SuperDBA/SuperDBA/compare/v0.9.19...v0.9.20) (2026-04-21)
+
+
+### Bug Fixes
+
+* **react:** correct hook deps and tooltip wrapper for low confidence ([eb26a63](https://github.com/SuperDBA/SuperDBA/commit/eb26a6306a1c6321db1a297991559bbe71e74d6d))
+
+
+### Features
+
+* add demo videos ([8610ead](https://github.com/SuperDBA/SuperDBA/commit/8610eadf2ed520880f057eaedf29701dd2ffeb44))
+* **clipboard-import:** add clipboard data import flow ([f10e332](https://github.com/SuperDBA/SuperDBA/commit/f10e33219eea98e6d51c3ced256f51dff820e306))
+* **compare:** add comparison builder, tables, and assets ([7afffb7](https://github.com/SuperDBA/SuperDBA/commit/7afffb741dfe68de73d1ea4fedcbd8bf1b76e726))
+* **visual-explain:** add Visual Explain page and import support ([b75dc3c](https://github.com/SuperDBA/SuperDBA/commit/b75dc3c9dd273fb3de9c09461adee297927aab59))
+* **website:** switch logos to PNG and update compare styles ([6d6c2ad](https://github.com/SuperDBA/SuperDBA/commit/6d6c2ad68b42a008fbe08238ab6e623a329f1bae))
+
+## [0.9.19](https://github.com/SuperDBA/SuperDBA/compare/v0.9.18...v0.9.19) (2026-04-16)
+
+
+### Features
+
+* **connections:** backfill database on single to multi-db transition ([bbaf3d9](https://github.com/SuperDBA/SuperDBA/commit/bbaf3d98b054467fa0a69b1e68585cca93a28d0c))
+* **explorer-sidebar:** add single-click selection highlighting for ([4502e04](https://github.com/SuperDBA/SuperDBA/commit/4502e045c21eb4d43977fb945a9a448e0807b03f))
+* **i18n:** add fr and de locales, language helper and READMEs ([c5fab4a](https://github.com/SuperDBA/SuperDBA/commit/c5fab4aa9b04beeb4c540a445443086e9ac9f5b9))
+* **query-history:** include database in query history and re-run ([7144184](https://github.com/SuperDBA/SuperDBA/commit/7144184a6bf32c18f1331a5ed9619d7880337b0a))
+* **saved-queries:** persist and show database for saved queries ([36eb69c](https://github.com/SuperDBA/SuperDBA/commit/36eb69c536c2f1ffb08be6dffaf4e328b3079a9e))
+* **sidebar:** add SQL preview highlighting and grouped favorites in ([90ae3aa](https://github.com/SuperDBA/SuperDBA/commit/90ae3aa26a8f2e7afc45bab289e0d745b0ab90e2))
+
+## [0.9.18](https://github.com/SuperDBA/SuperDBA/compare/v0.9.17...v0.9.18) (2026-04-16)
+
+
+### Bug Fixes
+
+* **app:** seed whats-new version for users who completed welcome ([1ab42e6](https://github.com/SuperDBA/SuperDBA/commit/1ab42e6827d59702bbbd64259a3d86135f0f26db))
+* custom OpenAI provider URL path duplication and hardcoded /v1 prefix ([ba0dd6e](https://github.com/SuperDBA/SuperDBA/commit/ba0dd6e101dcb88e99d4748bcc0884fd675370e9)), closes [#XXX](https://github.com/SuperDBA/SuperDBA/issues/XXX)
+* **resize:** add overlay during pane drag to block editor mouse events ([682de0c](https://github.com/SuperDBA/SuperDBA/commit/682de0c39fc284d9a41dcc8a2f677712429c3199))
+* **ui:** fix runQuery arg, context menu deps, and sidebar resize ref ([3e8a5a3](https://github.com/SuperDBA/SuperDBA/commit/3e8a5a383abc041f0d6423a5157f75af9a8afd6e))
+
+
+### Features
+
+* add table search filter for PostgreSQL schema mode ([fa21e6b](https://github.com/SuperDBA/SuperDBA/commit/fa21e6b3db0c02203d6554dfe7a622ecc9277698))
+* **drivers:** add explain parsers and split mysql/postgres/sqlite logic ([5b6052b](https://github.com/SuperDBA/SuperDBA/commit/5b6052bd7645cb7dc4f3d4295ce27ecb1f33b913))
+* **editor:** add explain selection modal and explainable query util ([191e993](https://github.com/SuperDBA/SuperDBA/commit/191e993ad50e8f3f07e09775a0c4fe11922b34ab))
+* **editor:** scroll active tab into view when activated ([3ff7f25](https://github.com/SuperDBA/SuperDBA/commit/3ff7f25476339c4c2865f846840ad3ac3fe15021))
+* **mysql:** add SSL configuration options to ConnectionParams and update MySQL connection handling ([78af860](https://github.com/SuperDBA/SuperDBA/commit/78af8606fa935b621e58fa570829b13060c54605))
+* **mysql:** add SSL configuration options to ConnectionParams and update MySQL connection handling ([d5fe36d](https://github.com/SuperDBA/SuperDBA/commit/d5fe36d891b21cb6c088bca78989c9f4f687fbe2))
+* **plugins:** add IBM Db2 driver plugin to registry ([4c507ec](https://github.com/SuperDBA/SuperDBA/commit/4c507ec32f56d9da3a00ae3623136470cc1abb1b))
+* **plugins:** add MySQL plugin settings and config caching ([d469333](https://github.com/SuperDBA/SuperDBA/commit/d469333a7e9a11b3cf2d649472ceacf022004d5d))
+* **query-history:** add per-connection query history storage and UI ([679d1d8](https://github.com/SuperDBA/SuperDBA/commit/679d1d8fd4046ea3260e969b1ab9d2e74155e954))
+* **query-history:** UX polish — dedup, error styling, search, animations ([76013aa](https://github.com/SuperDBA/SuperDBA/commit/76013aacc3d3faa0b4ca4e437c963c2e3345c48d))
+* **settings:** add open source libraries modal and utilities ([94ab987](https://github.com/SuperDBA/SuperDBA/commit/94ab987e735d58b2a2cfd8a2d038358f9fef48ee))
+* **settings:** add plugin settings page and integrate into settings UI ([7f79fa3](https://github.com/SuperDBA/SuperDBA/commit/7f79fa3ee34e8749d585fcdbda7ef6992091a337))
+* **settings:** add showWelcome setting and welcome screen toggle ([02e9380](https://github.com/SuperDBA/SuperDBA/commit/02e93804a564eafafc9daca53d4c1f57eaf459a3))
+* **sidebar:** show grouped connections flat with labels ([72cb694](https://github.com/SuperDBA/SuperDBA/commit/72cb694a642d34a13481a20519c7509224f626c3))
+* **sql-editor:** support paste into multiple cursors and update docs ([1d8db06](https://github.com/SuperDBA/SuperDBA/commit/1d8db065c81618fea431af7013dba3ebded671ea))
+* **visual-explain:** add Visual EXPLAIN docs and homepage feature card ([9072a2c](https://github.com/SuperDBA/SuperDBA/commit/9072a2c47ce842ff78a282686ff116873633ee9d))
+
+## [0.9.17](https://github.com/SuperDBA/SuperDBA/compare/v0.9.16...v0.9.17) (2026-04-14)
+
+
+### Bug Fixes
+
+* **editor:** pass undefined for missing schema prop ([8c4b9f6](https://github.com/SuperDBA/SuperDBA/commit/8c4b9f635c052db8f8c3bb09b2e7173b441619ad))
+* mobile layout for compare pages ([ab877b5](https://github.com/SuperDBA/SuperDBA/commit/ab877b5f5fd234a840fa1973ca11bec9ed67595b))
+* **modals:** include 't' in VisualExplainModal hook deps ([9eb814e](https://github.com/SuperDBA/SuperDBA/commit/9eb814e75518071a556cc0daf843be9f71fd1360))
+* **visual-explain:** narrow tone literals with as const in explain ([b936e93](https://github.com/SuperDBA/SuperDBA/commit/b936e93983462f2ab1a7123005c22d7f2e1d0fd9))
+
+
+### Features
+
+* **ai:** add explain plan analysis command and table view ([9cb46eb](https://github.com/SuperDBA/SuperDBA/commit/9cb46eb473541db0bae71897229fc33a0bfbbb2f))
+* **explain:** add AI analysis view and tabular EXPLAIN fallback ([d160ce5](https://github.com/SuperDBA/SuperDBA/commit/d160ce549d4a7aff0ae5fed5bdf9b00a7800e928))
+* **explain:** add AI analysis view and tabular EXPLAIN fallback ([fd27727](https://github.com/SuperDBA/SuperDBA/commit/fd277270beb8ccc7de97092be0d3a13b62e502fd))
+* **explain:** add visual explain plan and driver support ([c60982a](https://github.com/SuperDBA/SuperDBA/commit/c60982a40e8772767633381b8d3be80c964a2507))
+* **modals:** auto-load databases when editing multi-db connection ([3a4f96b](https://github.com/SuperDBA/SuperDBA/commit/3a4f96b44651dd6f3eeb1fa6a7b0a985d14ee470))
+* **mysql:** add MariaDB JSON explain parsing for filesort and wrappers ([5232a7f](https://github.com/SuperDBA/SuperDBA/commit/5232a7f742e425e1d7e361c950f6e6141119cb0e))
+* **mysql:** add server version detection and enhanced EXPLAIN ([d8d850e](https://github.com/SuperDBA/SuperDBA/commit/d8d850ebf5524c407c3ccbb41da89da803923f24))
+* **mysql:** enhance MariaDB explain parsing with subquery cache and ([fd8c83b](https://github.com/SuperDBA/SuperDBA/commit/fd8c83baa98b71f94eccb0b1f59b6147fca87de8))
+* **sql:** add explainable query check and comment stripping ([fa2e46a](https://github.com/SuperDBA/SuperDBA/commit/fa2e46a8e34f770667be4f2cc789a488e6512b79))
+* **ui:** add AI dropdown button and replace inline AI buttons ([7ccc324](https://github.com/SuperDBA/SuperDBA/commit/7ccc324accbe1a56aaf2251043a2baff9c6a2f3c))
+* **visual-explain:** add overview and node details UI ([dd1c1a7](https://github.com/SuperDBA/SuperDBA/commit/dd1c1a7caf4f5ff931114e0dab0cb1057084ff10))
+* **website:** add subscription UI, pages, and markdown slot ([e14b5d4](https://github.com/SuperDBA/SuperDBA/commit/e14b5d431e6c9a8ecd913028c450f0f26c8ce920))
+
+## [0.9.16](https://github.com/SuperDBA/SuperDBA/compare/v0.9.15...v0.9.16) (2026-04-12)
+
+
+### Features
+
+* **scripts:** add snap preview banner generator HTML tool ([fffb27f](https://github.com/SuperDBA/SuperDBA/commit/fffb27fd30d37599ba2c8d6cca01051ad8f456c7))
+* **seo:** add comparison pages and preview components ([36acd1b](https://github.com/SuperDBA/SuperDBA/commit/36acd1ba38ac682ba1b042cf2624781f5d713e4f))
+* **seo:** add JSON-LD structured data and related links ([9292f88](https://github.com/SuperDBA/SuperDBA/commit/9292f88f829cc5de24df9b3b6b6936a5c5566daf))
+* **seo:** add metaTitle support and expand related links ([9c2dc4f](https://github.com/SuperDBA/SuperDBA/commit/9c2dc4fc795d1ad2f9e5b03897c6f96d6dd17093))
+* **seo:** add solution pages and update related links ([548cad9](https://github.com/SuperDBA/SuperDBA/commit/548cad9d1d820146c17c53dc8a1ea277e966ee5b))
+* **seo:** add solutions and compare pages with routing ([99911a0](https://github.com/SuperDBA/SuperDBA/commit/99911a0900558143dc344a578fa2475d10fba6a2))
+* **ui:** add drag and drop functionality for connection groups ([21ebf4a](https://github.com/SuperDBA/SuperDBA/commit/21ebf4ace2233cd4ebb0c4de374fa6a9bf5ecd6d))
+* **ui:** corrected useDatabase destructure ([bbf2998](https://github.com/SuperDBA/SuperDBA/commit/bbf29984962b3df14ce01e0d9fb594b4e0a2b45b))
+* **website:** add solution links and workflow exploration content ([2a1aeb1](https://github.com/SuperDBA/SuperDBA/commit/2a1aeb14c924839990bab058ed3b5b6e135fdbd2))
+
+## [0.9.15](https://github.com/SuperDBA/SuperDBA/compare/v0.9.14...v0.9.15) (2026-04-08)
+
+
+### Bug Fixes
+
+* **notebook:** ensure unique keys for rendered cells using id and index ([8d6e1ea](https://github.com/SuperDBA/SuperDBA/commit/8d6e1ea81947f7f5c64c896fac51dc6d46349020))
+* **notebook:** prevent stale runCell, add typings and guards ([be1731e](https://github.com/SuperDBA/SuperDBA/commit/be1731eed97154126abfc7bfc52fe6c35d3f60b9))
+* **notebook:** render cell history panel outside collapsed check for sql ([cb58710](https://github.com/SuperDBA/SuperDBA/commit/cb58710a83efaaa57972024fcc06778c4605d1bf))
+* **notebook:** sync cells ref and improve export with error handling ([aa6ba5a](https://github.com/SuperDBA/SuperDBA/commit/aa6ba5abea5ceec935bbddd6fbec77a534c82203))
+* **ui:** render modal into portal and adjust tooltip z-index ([5a60282](https://github.com/SuperDBA/SuperDBA/commit/5a60282934c0e7fd3c4d6bb0841bade25523ae71))
+* **ui:** replace useEffect setState with initialEditing prop pattern ([85262f3](https://github.com/SuperDBA/SuperDBA/commit/85262f38dd39d34a3569ccff65ad29387aeacc9f))
+
+
+### Features
+
+* **ai:** add AI tab rename feature ([c5cfb57](https://github.com/SuperDBA/SuperDBA/commit/c5cfb57ec98f236fe5875d7979a40723788b823f))
+* **editor:** add multi-query run and selection UI ([63e5aa8](https://github.com/SuperDBA/SuperDBA/commit/63e5aa872767ca48060bb6b908e177996daa656c))
+* **editor:** add tab rename, close and multi-query run support ([808e0cb](https://github.com/SuperDBA/SuperDBA/commit/808e0cbabd6641572962bc6e91a7555f2381f5f5))
+* **editor:** prompt for params when running multi queries ([c741411](https://github.com/SuperDBA/SuperDBA/commit/c7414115a94db1c366ee3e5218f72ab4eb161f69))
+* **health-check:** add periodic connection ping health checks ([17398dd](https://github.com/SuperDBA/SuperDBA/commit/17398dd001cede8c71692d8cd4c42e738b60320f))
+* **multi-result-panel:** add collapsible query preview to result panel ([be8e541](https://github.com/SuperDBA/SuperDBA/commit/be8e541349e57a328253c4e885a0d51d501362bc))
+* **notebook:** add AI buttons, outline, collapse and export ([d0ccee9](https://github.com/SuperDBA/SuperDBA/commit/d0ccee9e2684e6727aa2f5fbc3486fbcb9a5e215))
+* **notebook:** add AI naming for outline and collapse/expand all ([a15b056](https://github.com/SuperDBA/SuperDBA/commit/a15b056c6e24e5ce3b0acccfa8520d26f1f2758a))
+* **notebook:** add AI-generated cell names and outline support ([8499bdb](https://github.com/SuperDBA/SuperDBA/commit/8499bdb6470ebbf265529956bca52c5b0a3eb60c))
+* **notebook:** add charts, params, sections, history ([da915f2](https://github.com/SuperDBA/SuperDBA/commit/da915f247969d9f71ac6157001de6cf1f46c5750))
+* **notebook:** add fallback markdown outline and add-cell button ([09887df](https://github.com/SuperDBA/SuperDBA/commit/09887df411b42b17b8e218d87978a72827b63c74))
+* **notebook:** add notebook UI with SQL and markdown cells, add run ([f4b4983](https://github.com/SuperDBA/SuperDBA/commit/f4b49838dbfb74ac23ce4f479bcfde1d10d4b40a))
+* **notebook:** add per-cell schema selection and multi-db support ([6047199](https://github.com/SuperDBA/SuperDBA/commit/6047199151ff56a979eaa756705438435b3e8ad6))
+* **notebook:** auto-run unresolved cell dependencies before query ([1757639](https://github.com/SuperDBA/SuperDBA/commit/17576395034d036a4261a35c2af0102f6189fa29))
+* **notebooks:** add file-based persistence and debounced store ([98ebf4c](https://github.com/SuperDBA/SuperDBA/commit/98ebf4c19d3f214fdc350ea032ebfb938ab225da))
+* **query-selection:** revamp modal UI and add run-single action ([8f7052b](https://github.com/SuperDBA/SuperDBA/commit/8f7052bea4166f4212d048c2c2ab195fea56bfa2))
+* **ui:** add scrolling and inline rename to multi-result tabs ([871d7be](https://github.com/SuperDBA/SuperDBA/commit/871d7be81fc64b38b3d0b4437826ddc0bb4314ed))
+* **ui:** add tab context menu to multi-result panel ([c291f0c](https://github.com/SuperDBA/SuperDBA/commit/c291f0c5e18ca892e68da52060104355a68f20a4))
+* **ui:** add WhatsNew modal and stacked multi-result UI components ([f1ef252](https://github.com/SuperDBA/SuperDBA/commit/f1ef252fcaf488a4c8ba268b77581af5513e5901))
+
+
+### BREAKING CHANGES
+
+* **notebook:** clearHistory no longer accepts a cell argument
+
+## [0.9.14](https://github.com/SuperDBA/SuperDBA/compare/v0.9.13...v0.9.14) (2026-04-07)
+
+
+### Bug Fixes
+
+* **driver:** fallback to test_connection when ping not implemented ([3b99ed2](https://github.com/SuperDBA/SuperDBA/commit/3b99ed24c1b127761d4d79e316cf7fb9229acead))
+* **drivers:** handle ORDER BY without swallowing LIMIT/OFFSET ([094fca3](https://github.com/SuperDBA/SuperDBA/commit/094fca39bb868d95f2e086f5163e96d7850e2874))
+* **modals:** improve modal UI and fix column type parsing ([39671f2](https://github.com/SuperDBA/SuperDBA/commit/39671f210cb357c97c3f06ae1f64ead6b2e097d7))
+* **website:** correct video path and move asset to videos/posts ([c1841e8](https://github.com/SuperDBA/SuperDBA/commit/c1841e894c28c305ccbb9b5f9c7d224b552fe900))
+
+
+### Features
+
+* **blog:** add notebooks post and image lightbox ([1b4302a](https://github.com/SuperDBA/SuperDBA/commit/1b4302ac2079025111bef2f7f47dd0847508d71e))
+* **column-types:** add column type parsing and extension support ([aeb146c](https://github.com/SuperDBA/SuperDBA/commit/aeb146c61864554d5363a9adf7b15a4a848302b3))
+* **health-check:** add periodic connection ping and auto-disconnect ([a815da1](https://github.com/SuperDBA/SuperDBA/commit/a815da199eca39ed202ddedda47c7112787059e6))
+* **modals:** add keyboard navigation and i18n to query selection modal ([ae4220f](https://github.com/SuperDBA/SuperDBA/commit/ae4220f91253176c2934eb17e0c98b5a1dfaba8b))
+* **modals:** replace native selects with Select component ([d68ca23](https://github.com/SuperDBA/SuperDBA/commit/d68ca23b20809d62743652fe650156b5b7fa99bd))
+* **postgres:** support SMALLSERIAL auto increment and sync UI behavior ([7fe6c03](https://github.com/SuperDBA/SuperDBA/commit/7fe6c038fdf46cbaa1446a572c26289413606ffc))
+
+## [0.9.13](https://github.com/SuperDBA/SuperDBA/compare/v0.9.12...v0.9.13) (2026-04-02)
+
+
+### Bug Fixes
+
+* add check to prevent panic if buf len is less than 4 ([f43af04](https://github.com/SuperDBA/SuperDBA/commit/f43af04b273e3472b73457dda8e5b98abd8069d9))
+* **editor:** register paste action per instance and improve scrollbar UI ([32020d1](https://github.com/SuperDBA/SuperDBA/commit/32020d1072833ae543146b7189faf46d58e4cd20))
+* handle `Option` returned by `split_at_value_len` to return `Null` if `None` ([26cc2ab](https://github.com/SuperDBA/SuperDBA/commit/26cc2ab4d118a484630d16b11cba23df817d5d0a))
+* make `fill_nulls` fill only the remaining fields ([d45cce7](https://github.com/SuperDBA/SuperDBA/commit/d45cce7d5fcbbf67f00a69ec2901418bf96652e9))
+* return empty array in zero dimensions instead of `null` ([60c420a](https://github.com/SuperDBA/SuperDBA/commit/60c420a9149217bdcefc34b5507907c754df60fb))
+* return None if `len < 0` which means the value is null ([e45a67d](https://github.com/SuperDBA/SuperDBA/commit/e45a67d7bf7c89cde358efe8ed6657b6a7464027))
+* skip the length of each range ([c2e1844](https://github.com/SuperDBA/SuperDBA/commit/c2e18444f80c594da86807af1036e002babe8f63))
+* **sql-editor:** preserve cursor and improve autocomplete behavior ([92c0fe3](https://github.com/SuperDBA/SuperDBA/commit/92c0fe3a3eb8723131a33cd1606fb27b1552082a))
+
+
+### Features
+
+* add support for `multirange` postgres type ([a56d9f2](https://github.com/SuperDBA/SuperDBA/commit/a56d9f290f458bc42ec66b28d2c61b6ba6661d09))
+* add support for `range` postgres type ([14fe823](https://github.com/SuperDBA/SuperDBA/commit/14fe8236ee705283059c5b4bb2f80d6837ecab3a))
+* **drivers:** add readonly capability to disable data writes ([2846a2c](https://github.com/SuperDBA/SuperDBA/commit/2846a2c0bf97330b786680e2b2e70ae99955d491))
+* **hooks:** add setSettings to usePluginSetting hook ([e0ce6a5](https://github.com/SuperDBA/SuperDBA/commit/e0ce6a538701e8fa702cf3e0a5352a4077a70078))
+* **modals:** add error modal and use it for async errors ([4373b9f](https://github.com/SuperDBA/SuperDBA/commit/4373b9f2042616af41fddc51f9d5af01c52b04cd))
+* **plugin-modal:** add plugin modal context and provider ([57b89fc](https://github.com/SuperDBA/SuperDBA/commit/57b89fc6f5a1ef668672ab583cae4df2f77149c7))
+* **plugins:** add JSON Viewer example plugin for UI Extensions ([53485ec](https://github.com/SuperDBA/SuperDBA/commit/53485ec7eeff845db1e7cdcd18700a54b5b5e20f))
+* **plugins:** add manage_tables capability and UI gating ([df07072](https://github.com/SuperDBA/SuperDBA/commit/df070723a2642eaac95c4dedf0a35820ed718e7d))
+* **plugins:** add plugin slots and external opener support ([6725a6c](https://github.com/SuperDBA/SuperDBA/commit/6725a6ca4b677eb1da89eada6e2a9171d6c16a64))
+* **plugins:** default manage_tables to true and use helper ([6a2a0c5](https://github.com/SuperDBA/SuperDBA/commit/6a2a0c5760af79c2edcbd0b7f3655ff0369d82d7))
+* **plugins:** implement Plugin UI Extensions system (Phase 2) ([5e464f3](https://github.com/SuperDBA/SuperDBA/commit/5e464f3a3d196a2bfbd3add8260432d30b7e8601))
+* **plugins:** support UI-only plugins and external UI bundles ([065307c](https://github.com/SuperDBA/SuperDBA/commit/065307cf712dcdfa5598978cbf9fa04cd48a007b))
+* **settings:** split settings UI into modular tabs and add editor prefs ([4d71583](https://github.com/SuperDBA/SuperDBA/commit/4d715839ea7ce0db84a1be2d2b49a9c955c76e93))
+
+## [0.9.12](https://github.com/SuperDBA/SuperDBA/compare/v0.9.11...v0.9.12) (2026-03-29)
+
+
+### Bug Fixes
+
+* add missing extracting logic ([6c1bcc2](https://github.com/SuperDBA/SuperDBA/commit/6c1bcc27eed1bf793265083704bb6e47533d7310))
+* add missing extracting logic ([743b655](https://github.com/SuperDBA/SuperDBA/commit/743b655787f5d8678577c730ee98dcd3b2ce82cc))
+* handle misreported text/blob types using known_type hint ([805d495](https://github.com/SuperDBA/SuperDBA/commit/805d49574562d92c163f91483b96a324c95ea2f2))
+* **json-input:** sync text state with value using ref instead of effect ([4ff8b4f](https://github.com/SuperDBA/SuperDBA/commit/4ff8b4ff1bc928255da1f82790884933bfb53164))
+* MySQL JSON column values shown as NULL in data grid ([493f125](https://github.com/SuperDBA/SuperDBA/commit/493f1252d7966cb33a1a76b658b62387a55a93e4))
+* **react:** add missing hook deps and stabilize callbacks ([c74a2bb](https://github.com/SuperDBA/SuperDBA/commit/c74a2bb946f02f06d98893965f8dc4b90d1c4fff))
+* skip the field type bytes ([3d4401c](https://github.com/SuperDBA/SuperDBA/commit/3d4401cd63339083a43904b5a6e2daa44a6608a7))
+
+
+### Features
+
+* add JSON editor with validation for sidebar editing ([41ab6d1](https://github.com/SuperDBA/SuperDBA/commit/41ab6d119c695cb64c81fa2a22e81b142bf8695c))
+* add MiniMax as first-class AI provider ([ffc0e50](https://github.com/SuperDBA/SuperDBA/commit/ffc0e50893d46c4091997d5c80dea1b0fc612c9c))
+* **alert:** add global alert modal and replace dialog notifications ([27c843d](https://github.com/SuperDBA/SuperDBA/commit/27c843db1ff32b5e2a50efb5b8f5fafecd181412))
+* **editor:** show active database and update window title ([6ddc629](https://github.com/SuperDBA/SuperDBA/commit/6ddc62925919ca4068d08b8152313683600eb853))
+* **error:** improve pg errors and add toggleable details UI ([f83025b](https://github.com/SuperDBA/SuperDBA/commit/f83025b6ae028b95a5e30626132257cb72ecc1e8))
+* **posts:** include PR contributors between releases in contributor ([945823d](https://github.com/SuperDBA/SuperDBA/commit/945823d4d2d0a3fbec7c9fd14eda9828f7064b81))
+* **settings:** add provider icons and change key label ([5ffad1a](https://github.com/SuperDBA/SuperDBA/commit/5ffad1a2b2fc2a276059ed29172898b3cd8cbe49))
+* **website:** add ZH to language badge ([6037e00](https://github.com/SuperDBA/SuperDBA/commit/6037e000b182613a4e43a5480f282f58b109d8b6))
+
+## [0.9.11](https://github.com/SuperDBA/SuperDBA/compare/v0.9.10...v0.9.11) (2026-03-25)
+
+
+### Features
+
+* add Chinese (Simplified) language support ([fc8c6b9](https://github.com/SuperDBA/SuperDBA/commit/fc8c6b923bb06112c3b90aea8465ab435ed4597c))
+* **console:** enable inline editing for single-table query results ([a9ceb74](https://github.com/SuperDBA/SuperDBA/commit/a9ceb74e2c9c5e243e7a34eb6ab1ed2e4bcd2bb1))
+* **copy:** add JSON copy format and selectable default ([594cb8c](https://github.com/SuperDBA/SuperDBA/commit/594cb8c5e6e17bc312f975ce404109d3e62245f9))
+* **export:** add configurable CSV delimiter for copy and export ([5e20c6a](https://github.com/SuperDBA/SuperDBA/commit/5e20c6a479721f831d9a7f4798eaf3cbb91235fb))
+* **postgres:** support array types and JSON-to-ARRAY literals ([9ab2c37](https://github.com/SuperDBA/SuperDBA/commit/9ab2c37f78ce4afea3555ceb9e7cf52d81f387a0))
+
+## [0.9.10](https://github.com/SuperDBA/SuperDBA/compare/v0.9.9...v0.9.10) (2026-03-18)
+
+
+### Bug Fixes
+
+* **blog:** make tag filter dropdown inline instead of overlay ([96dbf96](https://github.com/SuperDBA/SuperDBA/commit/96dbf961924bcc39a59e0b23369a28e1a4decc09))
+* **database-provider:** reflect multi-db selection in window title ([85548f8](https://github.com/SuperDBA/SuperDBA/commit/85548f8d4ce2ddd098de7caa4f7d0c3a3c5cb7c0))
+* **index:** update gitnexus version in AGENTS.md ([d3c3130](https://github.com/SuperDBA/SuperDBA/commit/d3c3130dedb4ed062ed76cf4f1f75367aa4b8ae3))
+* **modals:** focus name input on validation and update placeholder ([eac063f](https://github.com/SuperDBA/SuperDBA/commit/eac063f43fb761ab98ac5aa090aef907edebc577))
+* normalize blog post dates to ISO 8601 format (YYYY-MM-DDTHH:MM:SS) ([5510dba](https://github.com/SuperDBA/SuperDBA/commit/5510dbac65825c8dd1e7a26439deed718f292b03))
+
+
+### Features
+
+* **blog:** replace tag cloud with collapsible "Filter by tag" dropdown ([6926bd4](https://github.com/SuperDBA/SuperDBA/commit/6926bd49197e70cf66102c2275396c529bfdf122))
+* **commands:** allow selecting database for record operations ([e12efdd](https://github.com/SuperDBA/SuperDBA/commit/e12efddd6d57ac217d00234eb0fa7e25c2a931f7))
+* Display platform detection badge ([7b55b58](https://github.com/SuperDBA/SuperDBA/commit/7b55b58479f4bf50e20c634437a9ce71863e7974))
+* **docs:** add changelog page and rename screenshots ([fe78037](https://github.com/SuperDBA/SuperDBA/commit/fe78037a504442e8982d5f0ce14f7f3ff2617e3a))
+* **download:** add download thank you page with auto-trigger and ([b1e78c3](https://github.com/SuperDBA/SuperDBA/commit/b1e78c36c5059ebbbc7798ebfaf9c5109974b624))
+* **mcp:** add multi-client support and connection improvements ([d9655e6](https://github.com/SuperDBA/SuperDBA/commit/d9655e68de33ab83e6b124a3e4e2cf4fd50705cc))
+* **search:** add client-side search functionality ([652b3e4](https://github.com/SuperDBA/SuperDBA/commit/652b3e4ef74dc484ddcd7019a9155d55a76f1b47))
+* website - add reading time to PostCard ([d08cc02](https://github.com/SuperDBA/SuperDBA/commit/d08cc0277d55eca545476533c07d83df20708e69))
+
+
+
+## [0.9.9](https://github.com/SuperDBA/SuperDBA/compare/v0.9.8...v0.9.9) (2026-03-14)
+
+
+### Bug Fixes
+
+* **connections:** show menu only when groups exist or connection grouped ([0e71482](https://github.com/SuperDBA/SuperDBA/commit/0e71482a83fd4553b210c8bbf6e7dedf299a6c0a))
+* **sponsors:** set dynamic to force-static for OG image ([862b49d](https://github.com/SuperDBA/SuperDBA/commit/862b49db50e33594aed0c87e5f95329068d5ff0f))
+* **ui:** improve connection card styling ([29d1bcc](https://github.com/SuperDBA/SuperDBA/commit/29d1bccc7998c5f20ecbb4619145faafcf3bd7bd))
+* **website:** constrain sponsor modal height and enable scrolling ([a8a8025](https://github.com/SuperDBA/SuperDBA/commit/a8a802545a7f2d4e049c7d3717c39d13b01ff1b1))
+
+
+### Features
+
+* **auth:** add validation for connection name and databases selection ([3fffa04](https://github.com/SuperDBA/SuperDBA/commit/3fffa047bc04db6afc599f1170167fdc00bf0683))
+* **mcp:** add MCP server docs, client icons, and UI integration ([78c22e5](https://github.com/SuperDBA/SuperDBA/commit/78c22e55348c6eb7f8575313c50e5dc7202f0fff))
+* **plugins:** add connection_string and connection_string_example flags ([2de0297](https://github.com/SuperDBA/SuperDBA/commit/2de0297cffb7f5feffd319f513445e93f34cfc29))
+* **sponsors:** add Open Graph image and page metadata ([5c5c124](https://github.com/SuperDBA/SuperDBA/commit/5c5c124bc51873b0adf5d76f7e746e55bd622193))
+* **sponsors:** add optional highlightColor for sponsor accents ([2139848](https://github.com/SuperDBA/SuperDBA/commit/2139848128a6939f03d067251cb2761ff34ee6e8))
+* **sponsors:** add sponsor sync script and generated docs ([9e82f9a](https://github.com/SuperDBA/SuperDBA/commit/9e82f9a943dc7d35ad30c5938dca2a71f1c6126f))
+* **sponsors:** add sponsors page, contact form, grid, and confirm page ([6b592b6](https://github.com/SuperDBA/SuperDBA/commit/6b592b668bf64ef22931df5d91bb1f7de97eb09e))
+* **sponsors:** add sponsors section and assets to website ([cc802fd](https://github.com/SuperDBA/SuperDBA/commit/cc802fded81a59920bad008d2c8c80daf259ebb6))
+
+## [0.9.8](https://github.com/SuperDBA/SuperDBA/compare/v0.9.7...v0.9.8) (2026-03-11)
+
+
+### Bug Fixes
+
+* **new-connection-modal:** avoid returning promise from onClick ([14f644e](https://github.com/SuperDBA/SuperDBA/commit/14f644e7878249b471a2cb1c48a1c25bedbb747b))
+* **new-connection-modal:** reset tab on close and UI tweaks ([7a1f2fb](https://github.com/SuperDBA/SuperDBA/commit/7a1f2fbeb6301c89b588a59cdeb0a8f4f739a285))
+* **sqlite:** resolve SQLITE_CANTOPEN (error code 14) on Windows ([c8e5734](https://github.com/SuperDBA/SuperDBA/commit/c8e5734dbdf5920294bfdf24e76c8c8ef249e163))
+* **visual-query:** replace HTML5 drag-and-drop with pointer events for ([3afee6b](https://github.com/SuperDBA/SuperDBA/commit/3afee6ba61188f4bdb70096927c2311c45b1c8e8))
+
+
+### Features
+
+* **download-buttons:** add split download button with platform dropdown ([542961c](https://github.com/SuperDBA/SuperDBA/commit/542961cf34e3b8d0723af752f6ef96242b59818e))
+* **download:** add download modal and wire up download buttons ([f2cc6ab](https://github.com/SuperDBA/SuperDBA/commit/f2cc6ab146ea6d3313e1e175784fce0f04667ed3))
+* **drivers:** add connection string parser and import UI ([2258ba3](https://github.com/SuperDBA/SuperDBA/commit/2258ba39a4c84bdf0567bd12dd3716bccd2cf096))
+* **plugins:** add hackernews plugin to registry ([6635124](https://github.com/SuperDBA/SuperDBA/commit/663512496c25f88c5e03c413f34e30fb8db1fc1f))
+* use ubuntu 25.04 for building linux ([5f80a89](https://github.com/SuperDBA/SuperDBA/commit/5f80a89d4d31564af0f9da82b189917dcab02c09))
+
+
+
+## [0.9.7](https://github.com/SuperDBA/SuperDBA/compare/v0.9.6...v0.9.7) (2026-03-09)
+
+
+### Bug Fixes
+
+* build alerts ([c5cf57a](https://github.com/SuperDBA/SuperDBA/commit/c5cf57a16efc41e4b3644372fa779794c2b2cf6d))
+* merged code ([c430a5b](https://github.com/SuperDBA/SuperDBA/commit/c430a5b00a24b733dec3b35b6c312391459cebd9))
+* **tabs:** prefer loaded activeTabId or null, avoid implicit fallback ([297138b](https://github.com/SuperDBA/SuperDBA/commit/297138b702b51134d91f9f0b487f867a6c667546))
+* use SqliteConnectOptions for reliable WAL mode database opening ([b0d0a4f](https://github.com/SuperDBA/SuperDBA/commit/b0d0a4f44ed8ec929daa5745bbb0e701e8c2201e))
+
+
+### Features
+
+* add connections group ([1e91768](https://github.com/SuperDBA/SuperDBA/commit/1e91768d3171f1a08b8b80e81fc269e2684510bc))
+* **credential-cache:** add credential cache to reduce keychain calls, ([ca2e668](https://github.com/SuperDBA/SuperDBA/commit/ca2e668763491032d5b109105889b76ad49e5de5))
+* **credentials:** fetch connection credentials when editing connections ([e580ccf](https://github.com/SuperDBA/SuperDBA/commit/e580ccfd5f62466679fbcd288d6d8acd5db16071))
+* **modals:** add ConfirmModal and replace inline confirm dialogs ([0ceddda](https://github.com/SuperDBA/SuperDBA/commit/0cedddad723105ffb16e08a02f17570754e83bda))
+* **new-connection-modal:** preselect databases from initial connection ([53d10c9](https://github.com/SuperDBA/SuperDBA/commit/53d10c91ec2260023b564a66ac635e0f68f55875))
+* **plugins:** add per-plugin interpreter settings with error modal ([64ed30c](https://github.com/SuperDBA/SuperDBA/commit/64ed30cab6e980f78ad4c29c3e67841451857d74))
+* **plugins:** add plugin remove modal and integrate into Settings ([e2d38f5](https://github.com/SuperDBA/SuperDBA/commit/e2d38f5292c61dd7ce14dfd8fb912846692ef7f7))
+* **plugins:** add plugin settings and no_connection_required flag ([7097190](https://github.com/SuperDBA/SuperDBA/commit/70971909c34fc73b3c59ab743cb183654e54e63f))
+* **select:** add Select component and replace SearchableSelect ([3be733a](https://github.com/SuperDBA/SuperDBA/commit/3be733a176b3265a7d2bd06a7dc2f4cd271556fa))
+* **settings:** add portal-based plugin version dropdown ([9f4f82c](https://github.com/SuperDBA/SuperDBA/commit/9f4f82c2ce90bada6d091fe08e1042ead58f98b9))
+
+## [0.9.6](https://github.com/SuperDBA/SuperDBA/compare/v0.9.5...v0.9.6) (2026-03-07)
+
+
+### Bug Fixes
+
+* add autoComplete="off" to all connection dialog inputs ([573380b](https://github.com/SuperDBA/SuperDBA/commit/573380b6f01888e4ddadc3b5a597de454b2e413a)), closes [#64](https://github.com/SuperDBA/SuperDBA/issues/64)
+* disable macOS autocorrect on connection dialog inputs ([481f7fe](https://github.com/SuperDBA/SuperDBA/commit/481f7fe4bb081c8424fe2ab3050986d547ea26f7)), closes [#64](https://github.com/SuperDBA/SuperDBA/issues/64)
+* **website:** scope badge image rule to shields.io only ([af7dfb7](https://github.com/SuperDBA/SuperDBA/commit/af7dfb7cf1bfa6933be1617af11a2b8fea2b89fd))
+
+
+### Features
+
+* **editor:** add close tab keyboard shortcut ([167de6e](https://github.com/SuperDBA/SuperDBA/commit/167de6e9409f121b58622556954d8f17e9c9db10))
+* **filters:** add structured filter utils and toolbar UI ([150e08f](https://github.com/SuperDBA/SuperDBA/commit/150e08f323bcedc477ba605a89eec6d513ce9130))
+* **plugins:** add clickhouse plugin to registry ([1a78418](https://github.com/SuperDBA/SuperDBA/commit/1a78418c41b509195d3e8672582f8892f660c008))
+* **plugins:** add install error modal and improve installer logging ([db2d0de](https://github.com/SuperDBA/SuperDBA/commit/db2d0ded454b5f2be9110d0279dc6b3ec8cdccd0))
+* **plugins:** add Redis plugin to registry with version 0.1.0 and download links ([848b530](https://github.com/SuperDBA/SuperDBA/commit/848b530010306b3087fe1604dc20cf5ca24375b0))
+* **plugins:** update redis plugin assets and add download logging ([204175f](https://github.com/SuperDBA/SuperDBA/commit/204175f4a2370df23bc81a6a1b7fc0b7014ed7de))
+* **table-toolbar:** add ORDER BY autocomplete ([ed58068](https://github.com/SuperDBA/SuperDBA/commit/ed58068e127842a9784c3d3788df283049411f71))
+
+## [0.9.5](https://github.com/SuperDBA/SuperDBA/compare/v0.9.4...v0.9.5) (2026-03-04)
+
+
+### Bug Fixes
+
+* **mysql:** use per-db pools and include database in pool key ([9abda3b](https://github.com/SuperDBA/SuperDBA/commit/9abda3bf8c2e4e7b5237233e1a61a725e409a6b8))
+* **postgres:** bind UUID strings as uuid type for queries ([380c494](https://github.com/SuperDBA/SuperDBA/commit/380c494559f0febf6958943cecedaae0dabe7071))
+* remove runtime monaco-editor import to bundle only SQL ([cc8d960](https://github.com/SuperDBA/SuperDBA/commit/cc8d96076f0c8cd2d090303bfbff2e64d2b59fcb))
+* **updater:** avoid stale cache and restart app after update ([38ec23a](https://github.com/SuperDBA/SuperDBA/commit/38ec23abb854c767ec15819a520c4975a97f4621))
+
+
+### Features
+
+* Apply Tauri recommended compiler options ([63de45f](https://github.com/SuperDBA/SuperDBA/commit/63de45f62edee65e136e37bec3e32e0221cb0c0c))
+* **cookie-consent:** add cookie consent component and policy page ([37211d5](https://github.com/SuperDBA/SuperDBA/commit/37211d5db372fd651b2a49b6457690e64f3d8997))
+* **cookie-consent:** enable cookieless Matomo and consent flow ([be1bffd](https://github.com/SuperDBA/SuperDBA/commit/be1bffd01e737e0a0eb8262fff499889b686862a))
+* **cookies:** add manage cookies button and matomo consent handling ([adeedb6](https://github.com/SuperDBA/SuperDBA/commit/adeedb6e660fac5777d2d467c82a0b2118007702))
+* **data-grid:** add header context menu to data grid ([85a6efc](https://github.com/SuperDBA/SuperDBA/commit/85a6efcb3b8905910d65dae3d7bc1f0b419ac150))
+* **dump:** add schema-aware dump/import utilities and UI integration ([f964fb7](https://github.com/SuperDBA/SuperDBA/commit/f964fb7e5d2891a36e94884ef37e79df4d14813e))
+
+
+
+## [0.9.4](https://github.com/SuperDBA/SuperDBA/compare/v0.9.3...v0.9.4) (2026-03-02)
+
+
+### Bug Fixes
+
+* **blob:** treat small UTF-8 varbinary values as plain text ([c6f5c75](https://github.com/SuperDBA/SuperDBA/commit/c6f5c7594989a6f457f284702da038e7c6df12ef))
+* **datagrid:** include pending changes in sidebar row data ([ec08534](https://github.com/SuperDBA/SuperDBA/commit/ec08534dc2f814c2b1d8a92ae61eb0f2e9edd292))
+* **react:** include missing hook deps in Connections and Settings ([540e69c](https://github.com/SuperDBA/SuperDBA/commit/540e69cffd14c48996f02b4168c159a841abf9ae))
+
+
+### Features
+
+* **connections:** redesign connections UI and add i18n keys ([3e06b75](https://github.com/SuperDBA/SuperDBA/commit/3e06b75208c7e6c188873799bbc0100d3f95befd))
+* **database:** support multi-database selection and driver UI metadata ([02efa39](https://github.com/SuperDBA/SuperDBA/commit/02efa3917736eeaea8969816b83272f6eb8437ff))
+* **db-panel:** scope database APIs per panel and display conn name ([c7ce603](https://github.com/SuperDBA/SuperDBA/commit/c7ce603a3c3f32ff307e6d7229d66782187d4320))
+* **db:** add multi-database sidebar and utilities ([5851da9](https://github.com/SuperDBA/SuperDBA/commit/5851da983f15e64a1659262fb6586bfeeee1d7b7))
+* **drivers:** use branded icons and colors for built-in drivers ([621d765](https://github.com/SuperDBA/SuperDBA/commit/621d76571ff081291ddb3c791fac65c1a59691a2))
+* **explorer:** add database manager and get_available_databases command ([d4ad168](https://github.com/SuperDBA/SuperDBA/commit/d4ad1681bb1fbf357fe546b4864947912dc69c93))
+* **keybindings:** add keyboard shortcuts system and persistence ([45df357](https://github.com/SuperDBA/SuperDBA/commit/45df357bab8c3cb1b4edae7d93ea752ceba54fd8))
+* **keybindings:** show shortcut hints and map display keys ([e608b5f](https://github.com/SuperDBA/SuperDBA/commit/e608b5f54533573eec06b78ee13e161132215aae))
+
+
+
+## [0.9.3](https://github.com/SuperDBA/SuperDBA/compare/v0.9.2...v0.9.3) (2026-03-01)
+
+
+### Bug Fixes
+
+* open graph image ([12696a0](https://github.com/SuperDBA/SuperDBA/commit/12696a0db8ce00f227b2bc02b38d701601d69f2e))
+* **plugins:** resolve plugin executable lookup on Windows ([f766141](https://github.com/SuperDBA/SuperDBA/commit/f766141a48673d2bb816d7d462232e929b4ba5bd))
+
+
+### Features
+
+* **settings:** add downgrade flow and translations for older versions ([77ebbb3](https://github.com/SuperDBA/SuperDBA/commit/77ebbb3ee5b856f1b0d73030484e6a5ed753790d))
+* **site-header:** smooth scroll to top when clicking logo on home ([a83b765](https://github.com/SuperDBA/SuperDBA/commit/a83b76555967677f63812229e24200b6e259cf0d))
+* website - create latests-post.json ([081c7e5](https://github.com/SuperDBA/SuperDBA/commit/081c7e5a47349d2672cdead08504288f6b290616))
+* **website:** add blog post for plugins evolved and plugin card ([d12b24f](https://github.com/SuperDBA/SuperDBA/commit/d12b24fd2fdca282dda449f843758860271f1ed4))
+* **website:** add install links and update installation docs ([ee0c597](https://github.com/SuperDBA/SuperDBA/commit/ee0c597eebf37325927bb76b831947bed6a6c19a))
+
+
+
+## [0.9.2](https://github.com/SuperDBA/SuperDBA/compare/v0.9.1...v0.9.2) (2026-02-26)
+
+
+### Features
+
+* **drivers:** add driver capability metadata and helper utilities ([3b0a2a3](https://github.com/SuperDBA/SuperDBA/commit/3b0a2a3ff8b68b4ffa9073bd4b512ea4c632a63f))
+* **drivers:** add is_builtin and default_username to plugin manifests ([60ac211](https://github.com/SuperDBA/SuperDBA/commit/60ac211bf494ab52e46ae8383c3dbfc3469dfc74))
+* **lightbox:** add mobile slider, touch and keyboard navigation ([ab00d29](https://github.com/SuperDBA/SuperDBA/commit/ab00d29c66a37f613385a4740d5a5735b3d76768))
+* **plugin:** add enable/disable functionality with proper shutdown ([6a4272a](https://github.com/SuperDBA/SuperDBA/commit/6a4272a84fa53d4510ad6b61e6f1aed0a88fbd23))
+* **plugins:** add custom registry URL support ([7f17e46](https://github.com/SuperDBA/SuperDBA/commit/7f17e46986e121f0dabdfba9b06c0356c70e8ae6))
+* **plugins:** manage disabled external plugins ([99968d8](https://github.com/SuperDBA/SuperDBA/commit/99968d8c58d7404195613f5aada4b7d83aa66e06))
+* **query:** use LIMIT+1 for pagination and add count query ([7473e63](https://github.com/SuperDBA/SuperDBA/commit/7473e6338a1f563c4549745b5a5f2e08726a98bf))
+* **registry:** add plugin releases metadata and GitNexus skills ([49e5480](https://github.com/SuperDBA/SuperDBA/commit/49e54803aad975cc14025a2e398231ea64d63a19))
+* **task-manager:** add child process details to task manager ([a24b2cb](https://github.com/SuperDBA/SuperDBA/commit/a24b2cb4bc212ac779146bd534c2b44aaccfe509))
+* **task-manager:** add process monitoring and management system ([c899ee5](https://github.com/SuperDBA/SuperDBA/commit/c899ee517c4da26466ee6981115a9f94f8a0f87f))
+* **task-manager:** optimize child process loading ([4d8e8bc](https://github.com/SuperDBA/SuperDBA/commit/4d8e8bc90b5dcf6109c59ee141e7db5baedba34f))
+* **ui:** add Task Manager feature article and gallery item ([c9f2fd4](https://github.com/SuperDBA/SuperDBA/commit/c9f2fd4833fb84b2c400c790b06b2131390ade38))
+* **website:** add homepage intro and update global styles ([a024a74](https://github.com/SuperDBA/SuperDBA/commit/a024a74fb730e68555cd5342e52cb401c5b82a9f))
+* **website:** include min_superdba_version in plugin display ([17f0aab](https://github.com/SuperDBA/SuperDBA/commit/17f0aab3eae5d510e50aa23ae29acda56f157cbc))
+* **website:** make plugin author link clickable and tidy layout ([83ed834](https://github.com/SuperDBA/SuperDBA/commit/83ed83495ae0ca79db432312d9e75f2b0ff07a5b))
+
+
+### Performance Improvements
+
+* **postgres:** run count query concurrently for paginated selects ([f96152c](https://github.com/SuperDBA/SuperDBA/commit/f96152c1edc29d3839d40db4b491135c006dc6cf))
+
+
+### BREAKING CHANGES
+
+* **task-manager:** removes children field from SuperDBASelfStats, now
+fetched on-demand
+* **query:** Pagination.total_rows is now Option<u64> and has_more
+added
+
+
+
+## [0.9.1](https://github.com/SuperDBA/SuperDBA/compare/v0.9.0...v0.9.1) (2026-02-25)
+
+
+### Bug Fixes
+
+* **app:** remove localhost debug override ([7cbbacd](https://github.com/SuperDBA/SuperDBA/commit/7cbbacdfda3f3231da15c859a2698c95eda5c58f))
+* **ci:** resolve pnpm store path from website directory ([6badec3](https://github.com/SuperDBA/SuperDBA/commit/6badec36b5524ab3014b431a87751e1d5197f301))
+* **ci:** resolve pnpm store path from website directory ([f0c4620](https://github.com/SuperDBA/SuperDBA/commit/f0c4620cb1683cb8f7dd50e490b00ceac7c5d5ad))
+* **plugins:** accept 'universal' asset as fallback for platform ([45b638d](https://github.com/SuperDBA/SuperDBA/commit/45b638d9d7ecbcf20cc48ee329adf4c5ec3b50f6))
+* **website:** correct next-env import path ([4f04254](https://github.com/SuperDBA/SuperDBA/commit/4f04254030709e108436b0973423cee291f17124))
+
+
+### Features
+
+* **blog:** add blog section with posts and styling ([cc4cab7](https://github.com/SuperDBA/SuperDBA/commit/cc4cab747bab9d718b16c19aef276f5d4f9ca48a))
+* **blog:** add post meta bar and syntax highlighting ([f6a3dc8](https://github.com/SuperDBA/SuperDBA/commit/f6a3dc8e3ca4fe9e532b921f95154add51307349))
+* **blog:** add search modal, post navigation, and author card ([01c16c7](https://github.com/SuperDBA/SuperDBA/commit/01c16c7e03ef00f3b937f79fc87479e0425ed0a2))
+* **data-grid:** support multiline cell editing with autosized textarea ([fa9df84](https://github.com/SuperDBA/SuperDBA/commit/fa9df8401528ad86697eaafc28eca889f3d5a287))
+* **drivers:** add folder_based capability for directory plugins ([0919ccc](https://github.com/SuperDBA/SuperDBA/commit/0919ccc4d977a9900222aa874a1bb3d1f600108b))
+* **drivers:** add folder_based capability to fallback drivers ([3ac2a90](https://github.com/SuperDBA/SuperDBA/commit/3ac2a903395eb0bf994ea164f22787fd162c4b0b))
+* **editor:** add tab switcher modal and tab scrolling utils ([f50627f](https://github.com/SuperDBA/SuperDBA/commit/f50627f349ab3e66261fdcaa2ebc7cf0fe371d11))
+* **flathub:** add publishing workflow and flatpak support ([a7b10d5](https://github.com/SuperDBA/SuperDBA/commit/a7b10d5e7c7878b511fa279114ba8780a8d46f0a))
+* **home:** add edit-on-github links to home page ([fe1af9e](https://github.com/SuperDBA/SuperDBA/commit/fe1af9e028dde7a8cd3b22f821cae43439acbed9))
+* **layout:** set metadataBase to https://superdba.dev ([82ba795](https://github.com/SuperDBA/SuperDBA/commit/82ba7952b3fbde82034d7636337bfdb888eced4b))
+* **plugins:** add csv plugin entry to registry ([602b3c6](https://github.com/SuperDBA/SuperDBA/commit/602b3c6f7c4a2681f2e0ecfbb57c5abdf2d461e0))
+* **plugins:** add plugin manifest JSON schema and guide note ([11d9854](https://github.com/SuperDBA/SuperDBA/commit/11d9854dbeac9128da743fbd19a9fa2faf14fa5e))
+* **plugins:** require length and precision in manifests ([adc5254](https://github.com/SuperDBA/SuperDBA/commit/adc5254d0f870c9ac5ed2a1e107b1f9f787c178f))
+* **site-header:** add logo and restructure header with crumbs ([d9517e8](https://github.com/SuperDBA/SuperDBA/commit/d9517e8f9cc111ebe27c0406a08751f7aa5c997c))
+* **site:** add Matomo tracking and dynamic post list loading ([bb80f04](https://github.com/SuperDBA/SuperDBA/commit/bb80f0452fff87a782c652f3cf3de3a0994c8956))
+* **ui:** add DateInput component and dateInput utils with tests ([9b3f52b](https://github.com/SuperDBA/SuperDBA/commit/9b3f52ba70a304caf9dfd9272e40fe57ca2840c2))
+* **ui:** redesign theme cards and enhance search modal ([87481c7](https://github.com/SuperDBA/SuperDBA/commit/87481c700c118b493e9dad00a80d38fe01725419))
+* **updater:** detect installation source and skip updates for packages ([d5e4b10](https://github.com/SuperDBA/SuperDBA/commit/d5e4b10967acf381f6a4e03eeeced79321a86169))
+* **website:** add 404 page, sitemap and header crumbs styles ([db5fb3f](https://github.com/SuperDBA/SuperDBA/commit/db5fb3f29dd0631e7d61d9cbb1708e513d8fd5ae))
+* **website:** add blog pagination, tags, and og images ([4aa9352](https://github.com/SuperDBA/SuperDBA/commit/4aa935291314f58fcb7b1c1353423a9510890c2b))
+* **website:** add plugins registry and unified site header ([3c3d93c](https://github.com/SuperDBA/SuperDBA/commit/3c3d93cd2076c177d7cb2367e1612046fb2c6d41))
+* **website:** add post styles and wiki open graph metadata ([6ef5705](https://github.com/SuperDBA/SuperDBA/commit/6ef5705c30f7f7c9bef34905f8b59f70f2ed8aa7))
+* **website:** add screenshot 9 and OG page ([0001546](https://github.com/SuperDBA/SuperDBA/commit/0001546b6464493cda5a7f9765207460c1ed94c4))
+* **website:** convert static HTML site to Next.js with static export ([60201c3](https://github.com/SuperDBA/SuperDBA/commit/60201c31b0eb85bae17ddc6317f716aed237ac42))
+* **website:** use APP_VERSION and add platform install docs ([18ffc35](https://github.com/SuperDBA/SuperDBA/commit/18ffc358651f396a6ffa2009de080d6ea9350767))
+* **wiki:** add wiki content, pages, and UI integration ([cfee3fd](https://github.com/SuperDBA/SuperDBA/commit/cfee3fdf41ff0b5ab4b57daab5dfc004b63eae37))
+
+
+### BREAKING CHANGES
+
+* **plugins:** manifest.schema.json replaces has_length with
+requires_length and requires_precision and adds default_length
+
+
+
+# [0.9.0](https://github.com/SuperDBA/SuperDBA/compare/v0.8.15...v0.9.0) (2026-02-23)
+
+
+### Bug Fixes
+
+* **connection:** handle test failures, check DB file, parse port ([09600f2](https://github.com/SuperDBA/SuperDBA/commit/09600f2db7a83f873a681af776f9cba78cfd519f))
+* database dropdown selection on click ([631eccc](https://github.com/SuperDBA/SuperDBA/commit/631ecccb1e5390b1dfdfd955988c87d7994eb07f))
+* **duckdb:** improve query type detection in execute_query function ([9ec6acc](https://github.com/SuperDBA/SuperDBA/commit/9ec6acccc9a3de2cdb21cc6f98db5a9f3412d3f4))
+* **editor:** use per-tab editor ref and fallback to saved query ([b3de58b](https://github.com/SuperDBA/SuperDBA/commit/b3de58b0cde2ab5651ad9f7e7f33d855c30140c5))
+* **ui:** hide keychain option for file-based drivers ([f76c0ec](https://github.com/SuperDBA/SuperDBA/commit/f76c0ec1af1fca9c1e657ff16f2d239de0edb106))
+
+
+### Features
+
+* **drivers:** add alter_primary_key and update duckdb pk logic ([c9b3e9c](https://github.com/SuperDBA/SuperDBA/commit/c9b3e9c2df8261253643bd36aed3d376ac06c23a))
+* **duckdb:** add base64 dependency and extend data types list ([4c1c494](https://github.com/SuperDBA/SuperDBA/commit/4c1c4941c4bb26028e3d91d301964a6c7e1301f6))
+* **duckdb:** add duckdb plugin with manifest and CLI bridge (as ([5b10c38](https://github.com/SuperDBA/SuperDBA/commit/5b10c38935a5267f9f188097465a37da9111db85))
+* **duckdb:** inject rowid for tables without primary key in SELECT * ([2efa700](https://github.com/SuperDBA/SuperDBA/commit/2efa700e1afdc94317117fcc569bf4ef48fc9b2e))
+* **plugins:** add external JSON-RPC plugin system and manager ([ebd23fa](https://github.com/SuperDBA/SuperDBA/commit/ebd23fab7705010392c66f9ecf958003f809d745))
+* **plugins:** add plugin registry and installer ([195f154](https://github.com/SuperDBA/SuperDBA/commit/195f15472c17c859a288d0924226b8110a5a32aa))
+* **plugins:** implement dynamic database driver plugin ecosystem ([609290b](https://github.com/SuperDBA/SuperDBA/commit/609290bc781bbadadd2a208a1856041de30de078))
+* **website:** add plugin registry section to website ([36ac05c](https://github.com/SuperDBA/SuperDBA/commit/36ac05cb7ea59541c0078e22acd8d0c19c6ccd8d))
+
+
+
+## [0.8.15](https://github.com/SuperDBA/SuperDBA/compare/v0.8.14...v0.8.15) (2026-02-21)
+
+
+### Bug Fixes
+
+* **ui:** hide set-empty button for blob fields ([989e5f9](https://github.com/SuperDBA/SuperDBA/commit/989e5f9dbda5497bad3949712b3811f36f18b714))
+
+
+### Features
+
+* **blob:** add blob parsing and payload helpers ([e5e6e66](https://github.com/SuperDBA/SuperDBA/commit/e5e6e66e69873bcda2e6499f04c4567718222ea8))
+* **blob:** add image preview and fetch blob as data URL ([8e0d677](https://github.com/SuperDBA/SuperDBA/commit/8e0d677ecb2ef5fb91bea116390d43634fce065e))
+* **blob:** enforce configurable max blob size and show errors ([86039cc](https://github.com/SuperDBA/SuperDBA/commit/86039ccb9caa725a4b3109ec8f519f1f10cdf3d1))
+* **blob:** handle large BLOBs with backend truncation and UI support ([68848d5](https://github.com/SuperDBA/SuperDBA/commit/68848d5a722a9384bc7a0f5818ee499425ae9c0e)), closes [#36](https://github.com/SuperDBA/SuperDBA/issues/36)
+* **blob:** improve large BLOB handling with preview wire format ([9de0a4e](https://github.com/SuperDBA/SuperDBA/commit/9de0a4ecc2d6cf49020698bb4fffc2f4de7bc9da))
+* **pool-manager:** add default MySQL connection params ([f2fc644](https://github.com/SuperDBA/SuperDBA/commit/f2fc64413ec6754e838109cda425503b1aacce32))
+
+
+
+## [0.8.14](https://github.com/SuperDBA/SuperDBA/compare/v0.8.13...v0.8.14) (2026-02-17)
+
+
+### Bug Fixes
+
+* **commands:** clear connection_id for temporary information_schema pool ([30f870e](https://github.com/SuperDBA/SuperDBA/commit/30f870e05263d57721f1c6dda01c243a70facc68))
+* **connections:** disconnect active connection before deleting ([461b027](https://github.com/SuperDBA/SuperDBA/commit/461b0276a094ff56146e52286904626b2b0e6175))
+* **mysql:** exclude views from get_tables query ([146f4af](https://github.com/SuperDBA/SuperDBA/commit/146f4afbc3fcd46d109edb2c79c594d31616a828))
+* **ssh:** verify host keys, use accept-new, secure logging ([d8ab538](https://github.com/SuperDBA/SuperDBA/commit/d8ab538ee684c8fb1146e98d81f810aad88287ae))
+
+
+### Features
+
+* add split view, open editor, AI overlay; improve connection state ([bd98bea](https://github.com/SuperDBA/SuperDBA/commit/bd98beaea6db749a182c97b6465164198a296223))
+* **connection:** add connection manager utils, hook, and UI components ([e58456b](https://github.com/SuperDBA/SuperDBA/commit/e58456bdcff0006fd0e7170c521012357e7f9bba))
+* **editor:** relocate AI assist buttons to overlay and adjust padding ([0f346d8](https://github.com/SuperDBA/SuperDBA/commit/0f346d8af690f680b212f549342773e9b496c2af))
+* **layout:** add split view layout with connection grouping ([903286f](https://github.com/SuperDBA/SuperDBA/commit/903286fbbee36862eaf26a42355fbf731fc99c5d))
+* **layout:** add split view visibility control and panel close button ([b35e059](https://github.com/SuperDBA/SuperDBA/commit/b35e059163acbf32dfe8b2c12f50ab80fdcc8461))
+* **layout:** replace connections icon and remove editor link ([23a7d8d](https://github.com/SuperDBA/SuperDBA/commit/23a7d8da1d1a489af3dfa20a9ea2189e4b72b629))
+* **searchable-select:** render dropdown via portal with positioning ([396f384](https://github.com/SuperDBA/SuperDBA/commit/396f3844640d9e8741aaf9b72e628402fd3c634c))
+* **sidebar:** add context menu to open connection in editor ([72614b7](https://github.com/SuperDBA/SuperDBA/commit/72614b791b48a21852f893cba2f44faf2ae2bb0e))
+
+
+
+## [0.8.13](https://github.com/SuperDBA/SuperDBA/compare/v0.8.12...v0.8.13) (2026-02-15)
+
+
+### Features
+
+* **connections:** add disconnect command and provider handling ([622ab6c](https://github.com/SuperDBA/SuperDBA/commit/622ab6ca53f8b2b566c3fb0fdcadd096923dde9d))
+* **database:** test connection before loading schemas ([001ea15](https://github.com/SuperDBA/SuperDBA/commit/001ea158670b9b882efcde980106e103d40aaabe))
+* **drivers:** add data type registry and extraction modules ([c6e0d25](https://github.com/SuperDBA/SuperDBA/commit/c6e0d25adf66dc864fcb1b60631b8545090e6c79))
+* **geometry:** add geometry parsing and WKB->WKT formatting ([6c4aaa5](https://github.com/SuperDBA/SuperDBA/commit/6c4aaa57f857e1ca550a1a763912ebf944956eac))
+* **icons:** add Discord icon component and replace MessageSquare usages ([f453e1c](https://github.com/SuperDBA/SuperDBA/commit/f453e1cd4d6577033f56dfdd3d1a95c70c82048b))
+* **mysql,postgres:** support raw SQL function inputs for spatial data ([dbcb5f2](https://github.com/SuperDBA/SuperDBA/commit/dbcb5f2e1e21da0d21cdbb293bda17675ad37cb3))
+* **postgres,i18n:** add pg schema selection and Spanish locale ([d278718](https://github.com/SuperDBA/SuperDBA/commit/d27871806dcaa2ff3a70a387b055b91607bb6cbe))
+
+
+
+## [0.8.12](https://github.com/SuperDBA/SuperDBA/compare/v0.8.11...v0.8.12) (2026-02-11)
+
+
+### Bug Fixes
+
+* **drivers-mysql:** use column indices for Windows/MySQL 8 ([8e30b8f](https://github.com/SuperDBA/SuperDBA/commit/8e30b8f6a2af61ef25e8dbc5c574705c2baa910e))
+
+
+### Features
+
+* **tauri:** integrate clipboard-manager plugin and editor paste ([0bc7a68](https://github.com/SuperDBA/SuperDBA/commit/0bc7a6891114a398ca5a07ba9e34b016c1a9daee))
+
+
+
+## [0.8.11](https://github.com/SuperDBA/SuperDBA/compare/v0.8.10...v0.8.11) (2026-02-10)
+
+
+### Bug Fixes
+
+* **db:** allow empty inserts for auto-generated fields in insert_record ([5c34144](https://github.com/SuperDBA/SuperDBA/commit/5c3414424d38a742140bef4cce94ff6c4ea70fa8))
+* **postgres:** read is_pk as bool instead of i64 ([90a95da](https://github.com/SuperDBA/SuperDBA/commit/90a95da42a76ffe2923db5a52e0a6e82d9edff3d))
+* **ui-data-grid:** handle insertion row metadata and cleanup comments ([d54c3cb](https://github.com/SuperDBA/SuperDBA/commit/d54c3cb2cc4b0c8ff85587047e5ed2ebc8547ddd))
+* **ui:** show database load error below database select ([fe6d7eb](https://github.com/SuperDBA/SuperDBA/commit/fe6d7eb929b70d8a206d770f2fbd21fe00b9e31f))
+
+
+### Features
+
+* **community:** add community modal and Discord link ([d031009](https://github.com/SuperDBA/SuperDBA/commit/d031009eacb7ebf9895172b5e4dc2430d6ac5a8d))
+* **data-grid:** add cell display utils and styling helpers ([759b80c](https://github.com/SuperDBA/SuperDBA/commit/759b80c46e6a8870a6fb82884f5409978b851b2e))
+* **data-grid:** add DEFAULT sentinel handling and cell value actions ([b89eed5](https://github.com/SuperDBA/SuperDBA/commit/b89eed5cbb4c93a4087d764d99dd40259768b0c4))
+* **data-grid:** add edit and mark-for-deletion actions in context menu ([7e7426c](https://github.com/SuperDBA/SuperDBA/commit/7e7426ced0e90359b60e7f4d490db34d88305990))
+* **db:** implement default value retrieval for MySQL and PostgreSQL ([ac7ecd5](https://github.com/SuperDBA/SuperDBA/commit/ac7ecd59593f8addf6f02e52c1c8a8d7d0fad8cd))
+* **drivers-postgres:** add extended PostgreSQL metadata functions and ([4f91dbb](https://github.com/SuperDBA/SuperDBA/commit/4f91dbb7ecc5b4f1ab25b43c7407980d2908c0a5))
+* **editor:** add global Ctrl+F5 shortcut to run queries ([895bfb6](https://github.com/SuperDBA/SuperDBA/commit/895bfb669ea2d82d4e0422988c90ff53c9a10bc5))
+* **editor:** add pending insertions support ([c4c6ad9](https://github.com/SuperDBA/SuperDBA/commit/c4c6ad95c75e582860e16d842c2f142765baf2d2))
+* **editor:** add table run prompt and fallback query handling ([483fdd4](https://github.com/SuperDBA/SuperDBA/commit/483fdd4fbd7622d9ac41bf8447018d7f25f133dc))
+* **editor:** display discard option and handle auto-increment defaults ([bb60012](https://github.com/SuperDBA/SuperDBA/commit/bb600123a1e936bd3085333cdf3d8f6936e4c9a1))
+* **prefs:** add editor preferences persistence via tauri backend ([9b481d9](https://github.com/SuperDBA/SuperDBA/commit/9b481d918feba2ce4c8aa8f2b1ed5dcc59c72580))
+* **roadmap:** add links to roadmap and make items openable ([77f7995](https://github.com/SuperDBA/SuperDBA/commit/77f7995ba4b26d017f467cc74ab0647c76815bd5))
+* **roadmap:** add roadmap sync workflow and update scripts ([2a8c48d](https://github.com/SuperDBA/SuperDBA/commit/2a8c48d3bf02f9e6124b9526a3d899a7eddf051d))
+* **ui-datagrid:** add tab key navigation between cells ([e101191](https://github.com/SuperDBA/SuperDBA/commit/e1011918488319af50a479f957ba11bf8c0ade49))
+
+
+
+## [0.8.10](https://github.com/SuperDBA/SuperDBA/compare/v0.8.8...v0.8.10) (2026-02-08)
+
+
+### Bug Fixes
+
+* **keychain:** log errors to stderr in get_ai_key ([a4ad95a](https://github.com/SuperDBA/SuperDBA/commit/a4ad95ae20ccd9a57d59ca4ca00ba55ab674c6b8))
+* **mcp:** update cross-platform directory handling for project paths ([3ae677c](https://github.com/SuperDBA/SuperDBA/commit/3ae677c513591723688398fbc19ed76314bc6fee))
+* **modals:** update ModifyColumnModal SQL generation and submission ([e8c9e15](https://github.com/SuperDBA/SuperDBA/commit/e8c9e1506c465d303a5acbb53f8a0542f436c228))
+
+
+### Features
+
+* **ai:** add delete AI key command and status API ([ce295bd](https://github.com/SuperDBA/SuperDBA/commit/ce295bdae780c9a4f1b6f69837b567de3f13672a))
+* **cli:** add debug mode logging flag to enable verbose logging ([5b24e74](https://github.com/SuperDBA/SuperDBA/commit/5b24e7408b8c48879c80bba0503fa09454e6dc92))
+* **connection:** add list databases feature for MySQL, PostgreSQL, ([64816a8](https://github.com/SuperDBA/SuperDBA/commit/64816a84640e6bebbe3b79247f3cf2e7b40369a9))
+* **custom-openai:** add support for custom OpenAI-compatible API configuration ([3e80a07](https://github.com/SuperDBA/SuperDBA/commit/3e80a07d9bf8324cb3bd659342555fb593c39672))
+* **er-diagram:** add configurable default layout setting in schema ([f45ad8f](https://github.com/SuperDBA/SuperDBA/commit/f45ad8f195e9314b6a85426e14113a7abb78c2d5))
+* **er-diagram:** add table focus, layout toggle, and context menu ([6f0b997](https://github.com/SuperDBA/SuperDBA/commit/6f0b9971b3ba96c5a49e2916e108add952a6eed6))
+* **logger:** add in-memory log capture and log commands for management ([e551749](https://github.com/SuperDBA/SuperDBA/commit/e5517499a27dc6173ae8adcb63702baad446321d))
+* **modal:** update driver reset logic in connection form ([0e47969](https://github.com/SuperDBA/SuperDBA/commit/0e4796906775c2756f3b7f0aa9da094ca70ba0e6))
+* **pool:** add stable pooling with connection_id for SSH tunnels ([2faf727](https://github.com/SuperDBA/SuperDBA/commit/2faf727431c9b74672a21b33a6747c1096d29e7f))
+* **readme:** add OpenAI-compatible APIs section and sync roadmap ([651de87](https://github.com/SuperDBA/SuperDBA/commit/651de87eb44c1b09bd3600b63ea6e235288fc944))
+* **routines:** add commands to fetch routines and their details ([a1ab2d2](https://github.com/SuperDBA/SuperDBA/commit/a1ab2d2b1e5f7a35c03e0231976bccbf384fb61f))
+* **sidebar:** add refresh tables button ([21c6c6f](https://github.com/SuperDBA/SuperDBA/commit/21c6c6ffa7912456e545410b578eb54200eee0f5))
+* **sql:** add identifier escaping helpers for MySQL, Postgres, and ([79f1ac4](https://github.com/SuperDBA/SuperDBA/commit/79f1ac473a7f31997266f776ac010cd92a8484da))
+* **tauri:** add debug mode flag with is_debug_mode command ([c814a66](https://github.com/SuperDBA/SuperDBA/commit/c814a66569ab527d7b6d2d16c531e2ec84534f16))
+* **tauri:** add devtools commands and auto-open in debug mode ([af698bf](https://github.com/SuperDBA/SuperDBA/commit/af698bf1363b6001554db4ae18f535dcdadfcc42))
+* **updater:** add automatic update checking and install support ([0bd16ad](https://github.com/SuperDBA/SuperDBA/commit/0bd16ad719073925dc4663fe839ed5cd0f4145de))
+* **view:** add database view management commands and UI components ([48b558d](https://github.com/SuperDBA/SuperDBA/commit/48b558dba1ccc9813a111013f4b123b571c50d60))
+
+
+
+## [0.8.9](https://github.com/SuperDBA/SuperDBA/compare/v0.8.8...v0.8.9) (2026-02-06)
+
+
+### Bug Fixes
+
+* **keychain:** log errors to stderr in get_ai_key ([a4ad95a](https://github.com/SuperDBA/SuperDBA/commit/a4ad95ae20ccd9a57d59ca4ca00ba55ab674c6b8))
+* **mcp:** update cross-platform directory handling for project paths ([3ae677c](https://github.com/SuperDBA/SuperDBA/commit/3ae677c513591723688398fbc19ed76314bc6fee))
+
+
+### Features
+
+* **ai:** add delete AI key command and status API ([ce295bd](https://github.com/SuperDBA/SuperDBA/commit/ce295bdae780c9a4f1b6f69837b567de3f13672a))
+* **connection:** add list databases feature for MySQL, PostgreSQL, ([64816a8](https://github.com/SuperDBA/SuperDBA/commit/64816a84640e6bebbe3b79247f3cf2e7b40369a9))
+* **custom-openai:** add support for custom OpenAI-compatible API configuration ([3e80a07](https://github.com/SuperDBA/SuperDBA/commit/3e80a07d9bf8324cb3bd659342555fb593c39672))
+* **logger:** add in-memory log capture and log commands for management ([e551749](https://github.com/SuperDBA/SuperDBA/commit/e5517499a27dc6173ae8adcb63702baad446321d))
+* **modal:** update driver reset logic in connection form ([0e47969](https://github.com/SuperDBA/SuperDBA/commit/0e4796906775c2756f3b7f0aa9da094ca70ba0e6))
+* **readme:** add OpenAI-compatible APIs section and sync roadmap ([651de87](https://github.com/SuperDBA/SuperDBA/commit/651de87eb44c1b09bd3600b63ea6e235288fc944))
+* **sidebar:** add refresh tables button ([21c6c6f](https://github.com/SuperDBA/SuperDBA/commit/21c6c6ffa7912456e545410b578eb54200eee0f5))
+* **tauri:** add debug mode flag with is_debug_mode command ([c814a66](https://github.com/SuperDBA/SuperDBA/commit/c814a66569ab527d7b6d2d16c531e2ec84534f16))
+* **updater:** add automatic update checking and install support ([0bd16ad](https://github.com/SuperDBA/SuperDBA/commit/0bd16ad719073925dc4663fe839ed5cd0f4145de))
+
+
+
+## [0.8.8](https://github.com/SuperDBA/SuperDBA/compare/v0.8.7...v0.8.8) (2026-02-04)
+
+
+### Features
+
+* **components:** refactor SSH connections modal logic ([732af14](https://github.com/SuperDBA/SuperDBA/commit/732af14edd7b473ce90452b8a85c6cefd34ab418))
+* **database:** add dump and import utilities ([5927e04](https://github.com/SuperDBA/SuperDBA/commit/5927e049248314e8cdd8c79618606c47fb0acca1))
+* **datagrid:** add copy row and selected cells functionality ([1159299](https://github.com/SuperDBA/SuperDBA/commit/1159299126a2fb506b55e45028046dfeb29119ed))
+* **editor:** add middle-click tab close functionality ([8a08abc](https://github.com/SuperDBA/SuperDBA/commit/8a08abc08881be6b37c9b28932b01e7fa4d89ac3))
+* **sidebar:** add accordion, nav item, table item, resize hook, types ([173aa12](https://github.com/SuperDBA/SuperDBA/commit/173aa12a6093eea615f03c67586d1ed6d2a78c65))
+* **sidebar:** add responsive actions dropdown for narrow sidebars ([65f166d](https://github.com/SuperDBA/SuperDBA/commit/65f166d8132e6d9025a4c0ed229856d9ac966715))
+* **ssh:** add SSH connections management support ([9f0f8be](https://github.com/SuperDBA/SuperDBA/commit/9f0f8be7d1d6c74f2a0bad9ae7092e63fa83a6c1))
+* **ssh:** enhance SSH connection credential handling ([6c4f277](https://github.com/SuperDBA/SuperDBA/commit/6c4f277c348c4ec4bb2c0c196f1cfbc6e41578fe))
+* **ssh:** improve SSH connection management and validation ([ec12241](https://github.com/SuperDBA/SuperDBA/commit/ec12241e7a97c83b2b150f80bc0f41c41f88921d))
+* **ui:** enhance connection modal status feedback ([fc02ce6](https://github.com/SuperDBA/SuperDBA/commit/fc02ce6a2e76f0bde6b97384b2d229085a1d380e))
+
+
+
+## [0.8.7](https://github.com/SuperDBA/SuperDBA/compare/v0.8.6...v0.8.7) (2026-02-03)
+
+
+### Features
+
+* **ai:** add new model entries and centralize API key retrieval ([c0fdeeb](https://github.com/SuperDBA/SuperDBA/commit/c0fdeeba71bdacb1907a174dbe992d8956eb5d88))
+* **ai:** add Ollama provider with dynamic model fetching and caching ([fd30ab5](https://github.com/SuperDBA/SuperDBA/commit/fd30ab5a9a32efd5617b2773ab9b1ba4e9872cc0))
+
+
+
+## [0.8.6](https://github.com/SuperDBA/SuperDBA/compare/v0.8.5...v0.8.6) (2026-02-02)
+
+
+### Features
+
+* **ui:** add context menu positioning utils and SQL generator utilities ([9d63a37](https://github.com/SuperDBA/SuperDBA/commit/9d63a371d4ad7c8707801efd620d607cf206a53d))
+* **utils:** add settings and theme management utilities ([952d651](https://github.com/SuperDBA/SuperDBA/commit/952d651e74bfb920550210f1f1cea690466387bf))
+* **utils:** add visual query SQL generator and table toolbar helpers ([ca44962](https://github.com/SuperDBA/SuperDBA/commit/ca4496219173dd028f54242d8e8d28a71c2b886d))
+* **utils:** extract and add testable utility modules with unit tests ([369a9af](https://github.com/SuperDBA/SuperDBA/commit/369a9afad461ae8d456213c2ea6de05c4ee73a47))
+
+
+
+## [0.8.5](https://github.com/SuperDBA/SuperDBA/compare/v0.8.4...v0.8.5) (2026-02-01)
+
+
+### Bug Fixes
+
+* **backend:** prepend app name to ER diagram window title ([c3c652c](https://github.com/SuperDBA/SuperDBA/commit/c3c652cf164042b08fef95dc466be88826406304))
+* **sidebar:** add error handling for index deletion and i18n messages ([346adc8](https://github.com/SuperDBA/SuperDBA/commit/346adc8f43479e9767925910f72e220ca6893cd0))
+
+
+### Features
+
+* **editor:** add apply-to-all toggle for batch updates ([e5e5aa8](https://github.com/SuperDBA/SuperDBA/commit/e5e5aa8bd20ac30e42ef32ebe90b52933416eebb))
+* **sidebar:** add Generate SQL modal for tables ([0c077ca](https://github.com/SuperDBA/SuperDBA/commit/0c077caabefe2f0983f29eb829a9456227e65c53))
+
+
+
+## [0.8.4](https://github.com/SuperDBA/SuperDBA/compare/v0.8.3...v0.8.4) (2026-02-01)
+
+
+### Features
+
+* **i18n:** add themeSelection translation key ([43daa61](https://github.com/SuperDBA/SuperDBA/commit/43daa613fa6e64349373a770e715234e0a024fc6))
+* **settings:** add configurable font family and size ([7daf6ef](https://github.com/SuperDBA/SuperDBA/commit/7daf6efa792fd44f54d1c42bfc8214c6f8150826))
+* **settings:** add font family selection and lazy-loaded fonts ([8a0e61a](https://github.com/SuperDBA/SuperDBA/commit/8a0e61a23b4bb2815eacc25d8f82f25ecf7144b8))
+* **settings:** add localization tab and gallery images ([bb00a26](https://github.com/SuperDBA/SuperDBA/commit/bb00a26932f30c92a6d05f7791d7417f5131555e))
+* **settings:** improve AI config handling and detection ([b9d0831](https://github.com/SuperDBA/SuperDBA/commit/b9d08315b432550b7f48e16c0d1a3cbd743d1556))
+* **theme:** add font settings and ai custom models to app config ([8e849e2](https://github.com/SuperDBA/SuperDBA/commit/8e849e2fa8fe1b56f985c44f4317d0468be18cda))
+* **theme:** apply dynamic theme colors to sidebar and settings logos ([cc23fab](https://github.com/SuperDBA/SuperDBA/commit/cc23fabfa3c151b85beacd826ffde13e6e0209d6))
+* **theme:** implement theme system with CSS variables and provider ([55f8905](https://github.com/SuperDBA/SuperDBA/commit/55f89058e635dbaefc112ccb39f449a496dc962f))
+* **theme:** integrate monaco-themes and add new preset themes ([9154510](https://github.com/SuperDBA/SuperDBA/commit/9154510b627deafb0d9f2f903e90c39e36818920))
+* **ui:** add modal styling rules, SqlPreview component and splash ([f74f063](https://github.com/SuperDBA/SuperDBA/commit/f74f063ea49fc84a6bff4c8b648caa26fab736f4))
+
+
+
+## [0.8.3](https://github.com/SuperDBA/SuperDBA/compare/v0.8.2...v0.8.3) (2026-01-31)
+
+
+
+## [0.8.2](https://github.com/SuperDBA/SuperDBA/compare/v0.8.1...v0.8.2) (2026-01-31)
+
+
+### Features
+
+* **er-diagram:** add window command and page for schema diagrams ([676b41f](https://github.com/SuperDBA/SuperDBA/commit/676b41f62c1a92f46dcd09905f6a0f8d78a95d4e))
+* **schema-diagram:** add refresh UI and encode ER diagram parameters ([61b8b00](https://github.com/SuperDBA/SuperDBA/commit/61b8b00490453c27b277a6e32298b4dfb6320776))
+* **schema:** add schema diagram UI with backend snapshot ([72849e8](https://github.com/SuperDBA/SuperDBA/commit/72849e8303f5c0e64517e78380941b16b2f46de4))
+
+
+### BREAKING CHANGES
+
+* **er-diagram:** remove `schema_diagram` tab type from editor tabs
+
+
+
+## [0.8.1](https://github.com/SuperDBA/SuperDBA/compare/v0.8.0...v0.8.1) (2026-01-30)
+
+
+### Features
+
+* **connections:** add connection loading state ([36a72d2](https://github.com/SuperDBA/SuperDBA/commit/36a72d2cef2cc2596bd9cab9db327c07b1cf0697))
+* **editor:** add convert to console action and translations ([c3ad2b2](https://github.com/SuperDBA/SuperDBA/commit/c3ad2b2907cc0438b6df5c5e13545fe00e12bb6c))
+* **modal:** add run mode to query params modal ([a8af1c3](https://github.com/SuperDBA/SuperDBA/commit/a8af1c36645edb1a4f80da874dd3858e3de2bd9a))
+* **query:** add parameterized query support ([9fd2fbc](https://github.com/SuperDBA/SuperDBA/commit/9fd2fbccc847b7b85cd604880526718eaf97744d))
+* **sql:** preserve ORDER BY clause during pagination ([a963c28](https://github.com/SuperDBA/SuperDBA/commit/a963c28b89a3ae68b194e26bddedfb873eade2e1))
+* **ui:** add column sorting in DataGrid ([896658c](https://github.com/SuperDBA/SuperDBA/commit/896658c76f13a21769a5574ae990097aac17f9db))
+* **ui:** add virtualized data grid and SQL editor wrapper ([30a9099](https://github.com/SuperDBA/SuperDBA/commit/30a9099dbe48d608972c33b2c9c7ea7a4bbc2814))
+* **ui:** enhance table interaction with click and double-click actions ([eccc881](https://github.com/SuperDBA/SuperDBA/commit/eccc881cd5425b1acf22a38aaa4d483d40b325da))
+
+
+
+# [0.8.0](https://github.com/SuperDBA/SuperDBA/compare/v0.7.1...v0.8.0) (2026-01-29)
+
+
+### Features
+
+* **ai:** add AI integration with backend, settings UI, and docs ([0ff1899](https://github.com/SuperDBA/SuperDBA/commit/0ff1899ab502327faaf279f511d824aaa4d8f7b6))
+* **ai:** add AI query generation and explanation support ([370f1e8](https://github.com/SuperDBA/SuperDBA/commit/370f1e846c5a98ed2b49c7b963761ce440ce3d46))
+* **ai:** add dynamic model loading with fallback and experimental flag ([702103e](https://github.com/SuperDBA/SuperDBA/commit/702103efd253b0f5f851fed2054a885f1fb0cf80))
+* **drivers:** add table sorting for all database types ([beb8abc](https://github.com/SuperDBA/SuperDBA/commit/beb8abc095d9729eedd7da24d6235657ab78874d))
+* **editor:** add DataGrip‑style SQL autocomplete and enable word wrap ([fb1d252](https://github.com/SuperDBA/SuperDBA/commit/fb1d252adec6a36e2abd1c3a9ec756820a5382fd))
+* **export:** add query result export to CSV and JSON ([e283aa1](https://github.com/SuperDBA/SuperDBA/commit/e283aa14fc310343fe6f8aae5320dfd83e787bc8))
+* **mcp:** add MCP server integration with UI and config handling ([8d61571](https://github.com/SuperDBA/SuperDBA/commit/8d615714966801d39d3e074c0ee831d2ca6e525a))
+* **mcp:** add name support for connection resolution ([f01d685](https://github.com/SuperDBA/SuperDBA/commit/f01d68512c8227c06a1de97bb928c2532e87b8af))
+
+
+
+## [0.7.1](https://github.com/SuperDBA/SuperDBA/compare/v0.7.0...v0.7.1) (2026-01-29)
+
+
+### Bug Fixes
+
+* **editor:** clear pending state when running query ([fe3354b](https://github.com/SuperDBA/SuperDBA/commit/fe3354b98d70475e776c7ea201fc3576dec17b68))
+
+
+### Features
+
+* **database:** implement connection pool manager ([8ea4278](https://github.com/SuperDBA/SuperDBA/commit/8ea4278bebfd4b3fcc83da014fa48651c06c0145))
+* **table-view:** enhance filtering with dynamic placeholders and limit ([cfc5f53](https://github.com/SuperDBA/SuperDBA/commit/cfc5f531aca00a7b699e9f4c7e6d5eaee58bd7a0))
+* **ui:** enhance table view with full-screen mode and filters ([b528821](https://github.com/SuperDBA/SuperDBA/commit/b528821b6806802178c4c1faff076936977b7ec3))
+
+
+
+# [0.7.0](https://github.com/SuperDBA/SuperDBA/compare/v0.6.1...v0.7.0) (2026-01-29)
+
+
+### Features
+
+* **data-grid:** improve table extraction and cell rendering ([fd21915](https://github.com/SuperDBA/SuperDBA/commit/fd21915983ddfb85b40a4d432c4cccea8c551ee0))
+* **drivers:** enhance multi-database decimal and null value handling ([4d49f66](https://github.com/SuperDBA/SuperDBA/commit/4d49f66eb407f8b9b59d11efc645655d16bf7a95))
+* **drivers:** improve datetime parsing and formatting ([74c394b](https://github.com/SuperDBA/SuperDBA/commit/74c394b8ae1852bba70f60bbdee7665d1b066b99))
+* **editor:** improve query execution loading state ([d1decc1](https://github.com/SuperDBA/SuperDBA/commit/d1decc1f46d79bc4b557c8b80d10191890e2610a))
+* **settings:** fix external links by using opener plugin ([11acdb5](https://github.com/SuperDBA/SuperDBA/commit/11acdb520aa7e93f9eb04f8f824e6c0e3a87ceeb))
+* **ui:** implement batch editing with pending changes and deletions ([cb6aecb](https://github.com/SuperDBA/SuperDBA/commit/cb6aecb319a857d7e300bd50f378ffa2bdd9472d))
+* **website:** add landing page and sync version handling ([471bf68](https://github.com/SuperDBA/SuperDBA/commit/471bf682ac06a0882a26f296b2e4101bf45c1b18))
+
+
+
+## [0.6.1](https://github.com/debba/debba.sql/compare/v0.6.0...v0.6.1) (2026-01-28)
+
+
+### Features
+
+* **version:** add APP_VERSION export and sync script ([54aeaa6](https://github.com/debba/debba.sql/commit/54aeaa6274cc9e906b016b24ffd91ef38881e129))
+
+
+
+# [0.6.0](https://github.com/debba/debba.sql/compare/v0.5.0...v0.6.0) (2026-01-28)
+
+
+### Features
+
+* **i18n:** add internationalization support and bump version to 0.6.0 ([e1cab12](https://github.com/debba/debba.sql/commit/e1cab1255165c8133d929cc075c08900fc7a3067))
+* **security:** integrate system keychain for connection passwords ([ab284b5](https://github.com/debba/debba.sql/commit/ab284b52d7fc204c4551ec66c5cd8c34c404ca81))
+* **window:** add Wayland window title workaround for Linux ([c09ae72](https://github.com/debba/debba.sql/commit/c09ae7261ed88f3924a84e3e8b00f470176f07af))
+
+
+
+# [0.5.0](https://github.com/debba/debba.sql/compare/v0.4.0...v0.5.0) (2026-01-27)
+
+
+### Bug Fixes
+
+* restore pagination controls and fix truncated flag scope ([1bdf104](https://github.com/debba/debba.sql/commit/1bdf104c37c057f183ed9f37f97abd40b31fbd66))
+
+
+### Features
+
+* release v0.5.0 - Advanced Schema Management & UX Improvements ([f2d7d1c](https://github.com/debba/debba.sql/commit/f2d7d1c841ef6a0d62b22e8ec27bef8ef845113e))
+* **schema:** add foreign key, index structs and: column edit UI ([c20c550](https://github.com/debba/debba.sql/commit/c20c550c3661bcc8dd0dbb09e02149fdf92ccaef))
+* **sidebar:** add column explorer with delete action ([b25cd50](https://github.com/debba/debba.sql/commit/b25cd508aef8d58f0894976068d9ee5621f69e9a))
+* **ui:** add multi-row selection and select-all column to DataGrid ([66ddfaa](https://github.com/debba/debba.sql/commit/66ddfaa86c01dc73c452bb04d2608cfdc640c07a))
+
+
+
+# [0.4.0](https://github.com/debba/debba.sql/compare/v0.3.0...v0.4.0) (2026-01-27)
+
+
+### Features
+
+* **ci:** add readme downloads workflow ([d48ef6b](https://github.com/debba/debba.sql/commit/d48ef6bb77e9a654b8081080eb0f40756dcef280))
+* **editor:** add DataGrip-style multiple query tabs with isolation ([688739a](https://github.com/debba/debba.sql/commit/688739aac8eb995e1329943ef43e290d8b503f8d))
+* **visual-query-builder:** add delete table node UI and auto GROUP BY ([0f1f9be](https://github.com/debba/debba.sql/commit/0f1f9bebd9143f9d155c0790628acf199cd79e24))
+* **visual-query-builder:** add visual query builder UI ([f97b67a](https://github.com/debba/debba.sql/commit/f97b67a459dd3d7e4465622c2702bbfdd1439e99))
+
+
+
+# [0.3.0](https://github.com/debba/debba.sql/compare/v0.2.0...v0.3.0) (2026-01-27)
+
+
+### Features
+
+* **connection:** add duplicate connection command and clone button ([4e00382](https://github.com/debba/debba.sql/commit/4e003828a491c18a2d348a6efcc86ccfffcadcc2))
+
+
+
+# [0.2.0](https://github.com/debba/debba.sql/compare/3a9fc495d44cdd907d5f561a73d5734d0ccb0590...v0.2.0) (2026-01-27)
+
+
+### Bug Fixes
+
+* **drivers:** support additional numeric types and correct row mapping ([0769f3b](https://github.com/debba/debba.sql/commit/0769f3b4ed38fe2a531ff9ac7b6affed70af75b2))
+
+
+### Features
+
+* add query cancellation, sanitization, and multi‑statement support ([403956a](https://github.com/debba/debba.sql/commit/403956ab596a3808d9fcb65358bcbaf857cba1ed))
+* **connections:** add error handling UI and propagate connection errors ([3494021](https://github.com/debba/debba.sql/commit/34940210025808434ea7c333263714792ae03b02))
+* **editor:** add run dropdown and dynamic window title ([99b3d1c](https://github.com/debba/debba.sql/commit/99b3d1c3fba7b424533a4ebad4629d5bec1c5484))
+* **pagination:** implement server‑side pagination and UI controls ([f50b110](https://github.com/debba/debba.sql/commit/f50b11001ac1eb82d310fcb23bc51c50881a9b52))
+* **saved-queries:** add saved queries support ([9839737](https://github.com/debba/debba.sql/commit/9839737fc2d532e4e139226fc5e331f722ba57de))
+* **settings:** implement query limit UI and backend streaming support ([9fd89f3](https://github.com/debba/debba.sql/commit/9fd89f3c3b3538b0d09fe8324e89ba4172339100))
+* **ssh:** add SSH tunnel support with connection edit/delete UI ([3a9fc49](https://github.com/debba/debba.sql/commit/3a9fc495d44cdd907d5f561a73d5734d0ccb0590))
+* **ssh:** add system SSH backend and URL encoding for DB URLs ([5e93ea3](https://github.com/debba/debba.sql/commit/5e93ea38f1a74966ab1a41f5ddda4e8cb13bb23c))

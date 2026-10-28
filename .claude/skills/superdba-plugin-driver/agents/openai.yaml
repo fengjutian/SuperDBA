@@ -1,0 +1,7 @@
+interface:
+  display_name: "SuperDBA Plugin Driver"
+  short_description: "Create Rust database plugins for SuperDBA."
+  default_prompt: "Use $superdba-plugin-driver to create or update a Rust SuperDBA database plugin with a modern manifest, modular handlers, tests, and validation."
+
+policy:
+  allow_implicit_invocation: true

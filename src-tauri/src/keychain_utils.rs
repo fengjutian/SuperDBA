@@ -1,0 +1,400 @@
+use keyring::Entry;
+
+use crate::sandbox::{self, Sandbox};
+
+const SERVICE_NAME: &str = "superdba";
+
+/// Advice appended to keychain failures inside the Snap package.
+///
+/// `password-manager-service` is declared as a plug but is not auto-connected
+/// by default, so every Secret Service call is refused by AppArmor until the
+/// user (or the Snap Store, once auto-connection is granted) connects it.
+pub const SNAP_KEYCHAIN_HINT: &str = "The snap sandbox is blocking access to the system keychain. \
+Run `sudo snap connect superdba:password-manager-service` and restart SuperDBA.";
+
+/// Converts a keyring failure into the message surfaced to the frontend.
+///
+/// Delegates to [`describe_error`] with the sandbox of the running process.
+pub fn keychain_error(err: keyring::Error) -> String {
+    describe_error(&err, sandbox::current())
+}
+
+/// Pure formatter behind [`keychain_error`].
+///
+/// A platform failure inside a snap is almost always the missing
+/// `password-manager-service` connection, so the message tells the user how
+/// to fix it instead of leaving them with a raw D-Bus/AppArmor error. Every
+/// other error keeps the keyring crate's own description.
+pub fn describe_error(err: &keyring::Error, sandbox: Option<Sandbox>) -> String {
+    let message = err.to_string();
+    match (err, sandbox) {
+        (keyring::Error::PlatformFailure(_), Some(Sandbox::Snap)) => {
+            format!("{message}. {SNAP_KEYCHAIN_HINT}")
+        }
+        _ => message,
+    }
+}
+
+/// What `save_connection` / `update_connection` must do with the keychain
+/// entry of a password-like field, given the value the frontend sent.
+///
+/// * `None`: the edit dialog omits a password the user did not touch, so the
+///   stored secret is kept.
+/// * `Some("")`: an explicit "no password" (a plugin hid the login inputs, or
+///   the field was cleared on purpose). Any stored secret must go, otherwise
+///   the next connect would hand a stale login to the driver. Storing the
+///   empty string instead is not an option: the Linux keyutils store rejects
+///   empty secrets.
+/// * anything else is stored as-is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StoredPasswordChange<'a> {
+    Keep,
+    Delete,
+    Store(&'a str),
+}
+
+pub fn stored_password_change(password: Option<&str>) -> StoredPasswordChange<'_> {
+    match password {
+        None => StoredPasswordChange::Keep,
+        Some("") => StoredPasswordChange::Delete,
+        Some(value) => StoredPasswordChange::Store(value),
+    }
+}
+
+pub fn set_db_password(connection_id: &str, password: &str) -> Result<(), String> {
+    eprintln!("[Keychain] Setting DB password for {}", connection_id);
+    let entry =
+        Entry::new(SERVICE_NAME, &format!("{}:db", connection_id)).map_err(|e| e.to_string())?;
+    entry.set_password(password).map_err(|e| {
+        eprintln!("[Keychain] Error setting password: {}", e);
+        keychain_error(e)
+    })
+}
+
+pub fn get_db_password(connection_id: &str, connection_name: &str) -> Result<String, String> {
+    if connection_name.is_empty() {
+        eprintln!("[Keychain] Getting DB password for {}", connection_id);
+    } else {
+        eprintln!(
+            "[Keychain] Getting DB password for {} ({})",
+            connection_name, connection_id
+        );
+    }
+    let entry =
+        Entry::new(SERVICE_NAME, &format!("{}:db", connection_id)).map_err(|e| e.to_string())?;
+    match entry.get_password() {
+        Ok(pwd) => {
+            eprintln!("[Keychain] Password found for {}", connection_id);
+            Ok(pwd)
+        }
+        Err(e) => {
+            eprintln!(
+                "[Keychain] Error getting password for {}: {}",
+                connection_id, e
+            );
+            Err(keychain_error(e))
+        }
+    }
+}
+
+pub fn delete_db_password(connection_id: &str) -> Result<(), String> {
+    let entry =
+        Entry::new(SERVICE_NAME, &format!("{}:db", connection_id)).map_err(|e| e.to_string())?;
+    match entry.delete_credential() {
+        Ok(_) => Ok(()),
+        Err(keyring::Error::NoEntry) => Ok(()),
+        Err(e) => Err(keychain_error(e)),
+    }
+}
+
+pub fn set_connection_uri(connection_id: &str, connection_uri: &str) -> Result<(), String> {
+    let entry = Entry::new(SERVICE_NAME, &format!("{}:connection_uri", connection_id))
+        .map_err(|e| e.to_string())?;
+    entry.set_password(connection_uri).map_err(keychain_error)
+}
+
+pub fn get_connection_uri(connection_id: &str) -> Result<String, String> {
+    let entry = Entry::new(SERVICE_NAME, &format!("{}:connection_uri", connection_id))
+        .map_err(|e| e.to_string())?;
+    entry.get_password().map_err(keychain_error)
+}
+
+/// Like [`get_connection_uri`], but a missing entry is `Ok(None)` instead of
+/// an error. `Err` is reserved for genuine keychain failures.
+pub fn find_connection_uri(connection_id: &str) -> Result<Option<String>, String> {
+    let entry = Entry::new(SERVICE_NAME, &format!("{}:connection_uri", connection_id))
+        .map_err(|e| e.to_string())?;
+    match entry.get_password() {
+        Ok(uri) => Ok(Some(uri)),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(e) => Err(keychain_error(e)),
+    }
+}
+
+/// Maps a keychain read so that a missing entry (`NoEntry`) is `Ok(None)` and
+/// `Err` is left for genuine failures (keychain locked or unreachable, access
+/// denied, platform errors), like [`find_connection_uri`] and [`get_ai_key`].
+pub fn optional_secret(read: Result<String, keyring::Error>) -> Result<Option<String>, String> {
+    match read {
+        Ok(secret) => Ok(Some(secret)),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(e) => Err(keychain_error(e)),
+    }
+}
+
+fn find_secret(account: &str) -> Result<Option<String>, String> {
+    let entry = Entry::new(SERVICE_NAME, account).map_err(|e| e.to_string())?;
+    optional_secret(entry.get_password()).map_err(|e| {
+        eprintln!("[Keychain] Error reading {}: {}", account, e);
+        e
+    })
+}
+
+/// Like [`get_db_password`], but a missing entry is `Ok(None)`.
+pub fn find_db_password(connection_id: &str) -> Result<Option<String>, String> {
+    find_secret(&format!("{}:db", connection_id))
+}
+
+/// Like [`get_ssh_password`], but a missing entry is `Ok(None)`.
+pub fn find_ssh_password(connection_id: &str) -> Result<Option<String>, String> {
+    find_secret(&format!("{}:ssh", connection_id))
+}
+
+/// Like [`get_ssh_key_passphrase`], but a missing entry is `Ok(None)`.
+pub fn find_ssh_key_passphrase(connection_id: &str) -> Result<Option<String>, String> {
+    find_secret(&format!("{}:ssh_passphrase", connection_id))
+}
+
+pub fn delete_connection_uri(connection_id: &str) -> Result<(), String> {
+    let entry = Entry::new(SERVICE_NAME, &format!("{}:connection_uri", connection_id))
+        .map_err(|e| e.to_string())?;
+    match entry.delete_credential() {
+        Ok(_) | Err(keyring::Error::NoEntry) => Ok(()),
+        Err(e) => Err(keychain_error(e)),
+    }
+}
+
+/// Keychain account of a plugin-owned connection secret. The driver id is part
+/// of the account so switching a connection to another driver never hands one
+/// plugin's secret to another.
+fn plugin_secret_account(connection_id: &str, driver: &str, key: &str) -> String {
+    format!("{}:plugin:{}:{}", connection_id, driver, key)
+}
+
+pub fn set_plugin_secret(
+    connection_id: &str,
+    driver: &str,
+    key: &str,
+    value: &str,
+) -> Result<(), String> {
+    let entry = Entry::new(
+        SERVICE_NAME,
+        &plugin_secret_account(connection_id, driver, key),
+    )
+    .map_err(|e| e.to_string())?;
+    entry.set_password(value).map_err(keychain_error)
+}
+
+pub fn get_plugin_secret(
+    connection_id: &str,
+    driver: &str,
+    key: &str,
+) -> Result<Option<String>, String> {
+    let entry = Entry::new(
+        SERVICE_NAME,
+        &plugin_secret_account(connection_id, driver, key),
+    )
+    .map_err(|e| e.to_string())?;
+    match entry.get_password() {
+        Ok(value) => Ok(Some(value)),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(error) => Err(keychain_error(error)),
+    }
+}
+
+pub fn delete_plugin_secret(connection_id: &str, driver: &str, key: &str) -> Result<(), String> {
+    let entry = Entry::new(
+        SERVICE_NAME,
+        &plugin_secret_account(connection_id, driver, key),
+    )
+    .map_err(|e| e.to_string())?;
+    match entry.delete_credential() {
+        Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+        Err(error) => Err(keychain_error(error)),
+    }
+}
+
+pub fn set_ssh_password(connection_id: &str, password: &str) -> Result<(), String> {
+    eprintln!("[Keychain] Setting SSH password for {}", connection_id);
+    let entry =
+        Entry::new(SERVICE_NAME, &format!("{}:ssh", connection_id)).map_err(|e| e.to_string())?;
+    entry.set_password(password).map_err(|e| {
+        eprintln!("[Keychain] Error setting SSH password: {}", e);
+        keychain_error(e)
+    })
+}
+
+pub fn get_ssh_password(connection_id: &str, connection_name: &str) -> Result<String, String> {
+    if connection_name.is_empty() {
+        eprintln!("[Keychain] Getting SSH password for {}", connection_id);
+    } else {
+        eprintln!(
+            "[Keychain] Getting SSH password for {} ({})",
+            connection_name, connection_id
+        );
+    }
+    let entry =
+        Entry::new(SERVICE_NAME, &format!("{}:ssh", connection_id)).map_err(|e| e.to_string())?;
+    match entry.get_password() {
+        Ok(pwd) => {
+            eprintln!("[Keychain] SSH Password found for {}", connection_id);
+            Ok(pwd)
+        }
+        Err(e) => {
+            eprintln!(
+                "[Keychain] Error getting SSH password for {}: {}",
+                connection_id, e
+            );
+            Err(keychain_error(e))
+        }
+    }
+}
+
+pub fn delete_ssh_password(connection_id: &str) -> Result<(), String> {
+    let entry =
+        Entry::new(SERVICE_NAME, &format!("{}:ssh", connection_id)).map_err(|e| e.to_string())?;
+    match entry.delete_credential() {
+        Ok(_) => Ok(()),
+        Err(keyring::Error::NoEntry) => Ok(()),
+        Err(e) => Err(keychain_error(e)),
+    }
+}
+
+pub fn set_ssh_key_passphrase(connection_id: &str, passphrase: &str) -> Result<(), String> {
+    eprintln!(
+        "[Keychain] Setting SSH key passphrase for {}",
+        connection_id
+    );
+    let entry = Entry::new(SERVICE_NAME, &format!("{}:ssh_passphrase", connection_id))
+        .map_err(|e| e.to_string())?;
+    entry.set_password(passphrase).map_err(|e| {
+        eprintln!("[Keychain] Error setting SSH key passphrase: {}", e);
+        keychain_error(e)
+    })
+}
+
+pub fn get_ssh_key_passphrase(
+    connection_id: &str,
+    connection_name: &str,
+) -> Result<String, String> {
+    if connection_name.is_empty() {
+        eprintln!(
+            "[Keychain] Getting SSH key passphrase for {}",
+            connection_id
+        );
+    } else {
+        eprintln!(
+            "[Keychain] Getting SSH key passphrase for {} ({})",
+            connection_name, connection_id
+        );
+    }
+    let entry = Entry::new(SERVICE_NAME, &format!("{}:ssh_passphrase", connection_id))
+        .map_err(|e| e.to_string())?;
+    match entry.get_password() {
+        Ok(pwd) => {
+            eprintln!("[Keychain] SSH key passphrase found for {}", connection_id);
+            Ok(pwd)
+        }
+        Err(e) => {
+            eprintln!(
+                "[Keychain] Error getting SSH key passphrase for {}: {}",
+                connection_id, e
+            );
+            Err(keychain_error(e))
+        }
+    }
+}
+
+pub fn delete_ssh_key_passphrase(connection_id: &str) -> Result<(), String> {
+    let entry = Entry::new(SERVICE_NAME, &format!("{}:ssh_passphrase", connection_id))
+        .map_err(|e| e.to_string())?;
+    match entry.delete_credential() {
+        Ok(_) => Ok(()),
+        Err(keyring::Error::NoEntry) => Ok(()),
+        Err(e) => Err(keychain_error(e)),
+    }
+}
+
+pub fn set_ai_key(provider: &str, key: &str) -> Result<(), String> {
+    eprintln!("[Keychain] Setting AI key for {}", provider);
+    let entry =
+        Entry::new(SERVICE_NAME, &format!("ai_key:{}", provider)).map_err(|e| e.to_string())?;
+    entry.set_password(key).map_err(|e| {
+        eprintln!("[Keychain] Error setting AI key: {}", e);
+        keychain_error(e)
+    })
+}
+
+/// Read an AI key from the keychain.
+///
+/// Returns `Ok(Some(key))` when present, `Ok(None)` when the keychain
+/// definitively has no such entry (`NoEntry`), and `Err` only for genuine /
+/// transient failures (access denied, prompt timeout, securityd error, ...).
+/// Distinguishing the two lets the cache layer avoid storing a transient
+/// failure as a permanent "absent" — which would otherwise make a configured
+/// key appear missing until the app restarts.
+pub fn get_ai_key(provider: &str) -> Result<Option<String>, String> {
+    #[cfg(debug_assertions)]
+    log::info!("[Keychain] Getting AI key for {}", provider);
+    let entry =
+        Entry::new(SERVICE_NAME, &format!("ai_key:{}", provider)).map_err(|e| e.to_string())?;
+    match entry.get_password() {
+        Ok(pwd) => Ok(Some(pwd)),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(e) => {
+            eprintln!("[Keychain] Error getting AI key for {}: {}", provider, e);
+            Err(keychain_error(e))
+        }
+    }
+}
+
+pub fn delete_ai_key(provider: &str) -> Result<(), String> {
+    let entry =
+        Entry::new(SERVICE_NAME, &format!("ai_key:{}", provider)).map_err(|e| e.to_string())?;
+    match entry.delete_credential() {
+        Ok(_) => Ok(()),
+        Err(keyring::Error::NoEntry) => Ok(()),
+        Err(e) => Err(keychain_error(e)),
+    }
+}
+
+/// Store a proxy password. `slot` is the full keychain account
+/// (`proxy:global`, `proxy:ai:{provider}`, `proxy:connection:{id}`).
+pub fn set_proxy_password(slot: &str, password: &str) -> Result<(), String> {
+    eprintln!("[Keychain] Setting proxy password for {}", slot);
+    let entry = Entry::new(SERVICE_NAME, slot).map_err(|e| e.to_string())?;
+    entry.set_password(password).map_err(|e| {
+        eprintln!("[Keychain] Error setting proxy password: {}", e);
+        e.to_string()
+    })
+}
+
+pub fn get_proxy_password(slot: &str) -> Result<Option<String>, String> {
+    let entry = Entry::new(SERVICE_NAME, slot).map_err(|e| e.to_string())?;
+    match entry.get_password() {
+        Ok(pwd) => Ok(Some(pwd)),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(e) => {
+            eprintln!("[Keychain] Error getting proxy password for {}: {}", slot, e);
+            Err(e.to_string())
+        }
+    }
+}
+
+pub fn delete_proxy_password(slot: &str) -> Result<(), String> {
+    let entry = Entry::new(SERVICE_NAME, slot).map_err(|e| e.to_string())?;
+    match entry.delete_credential() {
+        Ok(_) | Err(keyring::Error::NoEntry) => Ok(()),
+        Err(e) => Err(e.to_string()),
+    }
+}

@@ -1,0 +1,830 @@
+use std::collections::{HashMap, HashSet};
+
+use serde::{Deserialize, Serialize};
+
+mod column_stats;
+mod table_query_template;
+pub use column_stats::{
+    restrict_column_stats, ColumnStatsParts, ColumnStatsRequest, ColumnStatsResult, ColumnTopValue,
+};
+pub use table_query_template::{TableQueryTemplateKind, TableQueryTemplateRequest};
+
+/// Returns the set of group IDs that form the subtree rooted at `root_id`,
+/// including the root itself. Walks `parent_id` pointers transitively so
+/// any number of nesting levels is collected. The caller is expected to
+/// have already verified that `root_id` exists; an unknown id yields a
+/// singleton set containing just that id (which won't match any record).
+pub fn collect_group_subtree(groups: &[ConnectionGroup], root_id: &str) -> HashSet<String> {
+    let mut to_delete: HashSet<String> = HashSet::new();
+    to_delete.insert(root_id.to_string());
+    let mut changed = true;
+    while changed {
+        changed = false;
+        for g in groups {
+            if let Some(parent) = g.parent_id.as_ref() {
+                if to_delete.contains(parent) && to_delete.insert(g.id.clone()) {
+                    changed = true;
+                }
+            }
+        }
+    }
+    to_delete
+}
+
+/// Returns the set of group IDs consisting of `leaf_ids` and all their
+/// ancestors, walking `parent_id` pointers up to the roots. Unknown ids are
+/// ignored. Used to prune the group list when exporting a subset of
+/// connections without orphaning their group hierarchy.
+pub fn collect_group_ancestors<'a>(
+    groups: &[ConnectionGroup],
+    leaf_ids: impl IntoIterator<Item = &'a str>,
+) -> HashSet<String> {
+    let parents: HashMap<&str, Option<&str>> = groups
+        .iter()
+        .map(|g| (g.id.as_str(), g.parent_id.as_deref()))
+        .collect();
+    let mut kept: HashSet<String> = HashSet::new();
+    for leaf in leaf_ids {
+        let mut current = Some(leaf);
+        while let Some(id) = current {
+            if !parents.contains_key(id) || !kept.insert(id.to_string()) {
+                break;
+            }
+            current = parents.get(id).copied().flatten();
+        }
+    }
+    kept
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(untagged)]
+pub enum DatabaseSelection {
+    Single(String),
+    Multiple(Vec<String>),
+}
+
+impl DatabaseSelection {
+    pub fn primary(&self) -> &str {
+        match self {
+            DatabaseSelection::Single(s) => s.as_str(),
+            DatabaseSelection::Multiple(v) => v.first().map(|s| s.as_str()).unwrap_or(""),
+        }
+    }
+
+    pub fn as_vec(&self) -> Vec<String> {
+        match self {
+            DatabaseSelection::Single(s) => {
+                if s.is_empty() {
+                    vec![]
+                } else {
+                    vec![s.clone()]
+                }
+            }
+            DatabaseSelection::Multiple(v) => v.clone(),
+        }
+    }
+
+    pub fn is_multi(&self) -> bool {
+        matches!(self, DatabaseSelection::Multiple(v) if v.len() > 1)
+    }
+}
+
+/// If `previous` was single-db (zero/one effective database) and `new` is multi-db
+/// (two or more), return the previous single database name so callers can backfill
+/// existing per-connection records (favorites, query history) that had no explicit
+/// database set. Returns `None` when this is not a single→multi transition or when
+/// the previous selection had no usable name.
+pub fn single_db_before_multi_transition(
+    previous: &DatabaseSelection,
+    new: &DatabaseSelection,
+) -> Option<String> {
+    if previous.is_multi() || !new.is_multi() {
+        return None;
+    }
+    previous
+        .as_vec()
+        .into_iter()
+        .find(|s| !s.trim().is_empty())
+}
+
+impl std::fmt::Display for DatabaseSelection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.primary())
+    }
+}
+
+impl Default for DatabaseSelection {
+    fn default() -> Self {
+        DatabaseSelection::Single(String::new())
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
+pub struct SshConnection {
+    pub id: String,
+    pub name: String,
+    pub host: String,
+    pub port: u16,
+    pub user: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auth_type: Option<String>, // "password" or "ssh_key"
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub password: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key_file: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key_passphrase: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allow_passphrase_prompt: Option<bool>,
+    pub save_in_keychain: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct SshConnectionInput {
+    pub host: String,
+    pub port: u16,
+    pub user: String,
+    pub auth_type: String, // "password" or "ssh_key"
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub password: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key_file: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key_passphrase: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allow_passphrase_prompt: Option<bool>,
+    pub save_in_keychain: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct SshTestParams {
+    pub host: String,
+    pub port: u16,
+    pub user: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub password: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key_file: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key_passphrase: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allow_passphrase_prompt: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub connection_id: Option<String>,
+    /// Id of the saved database connection whose inline SSH secrets should be
+    /// used as a fallback: they live in the keychain under the DB connection
+    /// id, not in the SSH connections file.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub db_connection_id: Option<String>,
+    /// When set, the test emits "connection-test-progress" events tagged with
+    /// this id so the caller can render a step log.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub progress_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, Default, PartialEq, Eq)]
+pub struct ConnectionParams {
+    pub driver: String,
+    pub host: Option<String>,
+    pub port: Option<u16>,
+    pub username: Option<String>,
+    pub password: Option<String>,
+    /// Opaque driver-specific connection URI forwarded verbatim to the driver
+    /// (e.g. a `mongodb+srv://` seedlist URI). Runtime only: command handlers
+    /// strip it before persisting a connection, because it embeds credentials.
+    #[serde(
+        default,
+        alias = "connectionUri",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub connection_uri: Option<String>,
+    /// True when the URI can be restored from a separate OS keychain entry.
+    #[serde(
+        default,
+        alias = "connectionUriInKeychain",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub connection_uri_in_keychain: Option<bool>,
+    pub database: DatabaseSelection,
+    pub ssl_mode: Option<String>,
+    pub ssl_ca: Option<String>,
+    pub ssl_cert: Option<String>,
+    pub ssl_key: Option<String>,
+    // MySQL/MariaDB: enable the mysql_clear_password (cleartext) auth plugin.
+    // Required by bastions like Warpgate. Only honoured over a TLS connection.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enable_cleartext_plugin: Option<bool>,
+    // MySQL: whether sqlx should force the PIPES_AS_CONCAT / NO_ENGINE_SUBSTITUTION
+    // sql_mode on connect. Defaults to `true` (sqlx's behavior) when unset.
+    // Set to `false` for servers that reject altering sql_mode, e.g. Vitess/PlanetScale.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pipes_as_concat: Option<bool>,
+    // When true, `password` is a pre-signed RDS auth token (from
+    // `aws rds generate-db-auth-token`) instead of a real password.
+    // Requires TLS; only meaningful for the `mysql` driver.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub use_iam_auth: Option<bool>,
+    // SSH Tunnel
+    pub ssh_enabled: Option<bool>,
+    pub ssh_connection_id: Option<String>,
+    // Legacy SSH fields (for backward compatibility during migration)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ssh_host: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ssh_port: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ssh_user: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ssh_password: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ssh_key_file: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ssh_key_passphrase: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ssh_allow_passphrase_prompt: Option<bool>,
+    pub save_in_keychain: Option<bool>,
+    // Kubernetes Tunnel (mutually exclusive with SSH)
+    #[serde(default)]
+    pub k8s_enabled: Option<bool>,
+    #[serde(default)]
+    pub k8s_connection_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub k8s_context: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub k8s_namespace: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub k8s_resource_type: Option<String>, // "service" or "pod"
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub k8s_resource_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub k8s_port: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub k8s_kubectl_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub k8s_kubeconfig_path: Option<String>,
+    // AWS SSM port forwarding (mutually exclusive with SSH and Kubernetes).
+    // Forwards to `host`:`port` the same way the SSH tunnel does; a loopback
+    // host means the managed node itself.
+    #[serde(default)]
+    pub ssm_enabled: Option<bool>,
+    /// Managed node the session is opened against, e.g. `i-0abc...`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ssm_target: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ssm_profile: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ssm_region: Option<String>,
+    /// SQL run on every new physical connection in the pool (e.g. `SET` /
+    /// `set_config` for session-scoped settings such as bypassing RLS).
+    /// Statements are separated by `;`. Runs per pooled connection so the
+    /// setting applies to every query regardless of which connection the
+    /// pool hands out.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub startup_script: Option<String>,
+    /// Connection pooler mode, set by the user when connecting through PgBouncer
+    /// or another transaction-mode pooler. Forwarded verbatim to the driver
+    /// plugin as part of `params` (the host does not interpret it). The
+    /// postgresql-plugin is expected to use it to avoid its own named-statement
+    /// `prepare()` calls and to surface actionable error messages for
+    /// tokio-postgres's internal `typeinfo_statement` (which requires
+    /// `max_prepared_statements > 0` on the pooler side for custom types);
+    /// see companion issue superdba-postgresql-plugin#157. None for direct
+    /// connections.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pooler_mode: Option<String>, // "transaction" | "session" | None
+    /// Opaque, plugin-specific connection fields. The host does not interpret
+    /// these — they are persisted verbatim and forwarded to the driver plugin
+    /// as part of `params`, so plugins can carry custom connection settings
+    /// (e.g. an AWS region for DynamoDB) without core schema changes.
+    /// Rendered by plugins through the `connection-modal.extra_fields` slot.
+    /// Absent from the JSON when empty.
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub extra: HashMap<String, String>,
+    /// Optional proxy override for this connection (database / SSH traffic).
+    /// Absent or `inherit` falls back to the global proxy scopes.
+    #[serde(
+        default,
+        skip_serializing_if = "crate::proxy::types::skip_optional_proxy_override"
+    )]
+    pub proxy: Option<crate::proxy::ProxyOverride>,
+    // Connection ID for stable pooling (not persisted, set at runtime)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub connection_id: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum IconOverride {
+    Pack { id: String },
+    Emoji { value: String },
+    Image { path: String },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ConnectionAppearance {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub icon: Option<IconOverride>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub accent_color: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct SavedConnection {
+    pub id: String,
+    pub name: String,
+    pub params: ConnectionParams,
+    /// Names of plugin-owned `extra` values stored in the OS keychain. Only
+    /// the names are persisted; values are resolved into `params.extra` at
+    /// runtime and are never written to the connections file.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub plugin_secret_keys: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub group_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sort_order: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detect_json_in_text_columns: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub appearance: Option<ConnectionAppearance>,
+    /// Ids of [`ConnectionTag`]s attached to this connection. Unknown ids
+    /// (e.g. after a partial import) are ignored by the UI.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tag_ids: Option<Vec<String>>,
+    /// Deployment environment: `"development"`, `"staging"` or
+    /// `"production"`. `None` means unclassified. Production drives the
+    /// write-confirmation warning and the visual identity in the UI.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub environment: Option<String>,
+}
+
+/// A user-defined colored label. Tags are purely organizational: a
+/// connection can carry any number of them and they never drive behavior.
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
+pub struct ConnectionTag {
+    pub id: String,
+    pub name: String,
+    /// CSS hex color, e.g. `"#f97316"`.
+    pub color: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
+pub struct ConnectionGroup {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub collapsed: bool,
+    #[serde(default)]
+    pub sort_order: i32,
+    /// `Some(group_id)` makes this group a child of that group; `None` is a
+    /// top-level root. Cycles are rejected by the backend.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
+pub struct ConnectionsFile {
+    #[serde(default)]
+    pub groups: Vec<ConnectionGroup>,
+    #[serde(default)]
+    pub connections: Vec<SavedConnection>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tags: Vec<ConnectionTag>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
+pub struct K8sConnection {
+    pub id: String,
+    pub name: String,
+    pub context: String,
+    pub namespace: String,
+    pub resource_type: String, // "service" or "pod"
+    pub resource_name: String,
+    pub port: u16,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kubectl_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kubeconfig_path: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct K8sConnectionInput {
+    pub name: String,
+    pub context: String,
+    pub namespace: String,
+    pub resource_type: String,
+    pub resource_name: String,
+    pub port: u16,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kubectl_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kubeconfig_path: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct K8sTestParams {
+    pub context: String,
+    pub namespace: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resource_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resource_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub port: Option<u16>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct ExportPayload {
+    pub version: i32,
+    pub groups: Vec<ConnectionGroup>,
+    pub connections: Vec<SavedConnection>,
+    pub ssh_connections: Vec<SshConnection>,
+    #[serde(default)]
+    pub k8s_connections: Vec<K8sConnection>,
+    #[serde(default)]
+    pub tags: Vec<ConnectionTag>,
+    /// Export-only secret material keyed by connection id and plugin field.
+    /// This remains empty for metadata-only exports and never appears in
+    /// `connections.json`.
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub plugin_secrets: HashMap<String, HashMap<String, String>>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct TestConnectionRequest {
+    pub params: ConnectionParams,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub connection_id: Option<String>,
+    /// Per-field secret mutations. Missing keys preserve stored values,
+    /// strings set values, and null explicitly clears values.
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub plugin_secret_changes: HashMap<String, Option<String>>,
+    /// When set, the test emits "connection-test-progress" events tagged with
+    /// this id so the caller can render a live step log.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub progress_id: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TableInfo {
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub comment: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TableColumn {
+    pub name: String,
+    pub data_type: String,
+    pub is_pk: bool,
+    pub is_nullable: bool,
+    pub is_auto_increment: bool,
+    #[serde(default)]
+    pub is_generated: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub default_value: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub character_maximum_length: Option<u64>,
+    /// Number of significant digits for numeric/decimal types (radix-10).
+    /// Populated by drivers from information_schema.numeric_precision (#840).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub numeric_precision: Option<i32>,
+    /// Number of digits after the decimal point for numeric/decimal types.
+    /// Populated by drivers from information_schema.numeric_scale (#840).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub numeric_scale: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub comment: Option<String>,
+    /// Full declared type with its modifiers (`varchar(255)`, `decimal(10,2)`,
+    /// `int unsigned`), for display only. Set when it says more than
+    /// `data_type`, which keeps the base name other code matches on (#1277).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub full_type: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ForeignKey {
+    pub name: String,
+    pub column_name: String,
+    pub ref_table: String,
+    pub ref_column: String,
+    pub on_delete: Option<String>,
+    pub on_update: Option<String>,
+    /// 1-based position of this column within its (possibly composite) foreign
+    /// key constraint. The backend reports one row per column of a composite FK
+    /// that share the same `name`; `seq_in_fk` preserves key order so the SQL
+    /// generator can group rows into one multi-column `FOREIGN KEY` clause (#840).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub seq_in_fk: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Index {
+    pub name: String,
+    pub column_name: String,
+    pub is_unique: bool,
+    pub is_primary: bool,
+    pub seq_in_index: i32,
+    #[serde(default)]
+    pub is_expression: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Pagination {
+    pub page: u32,
+    pub page_size: u32,
+    pub total_rows: Option<u64>,
+    pub has_more: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct QueryResult {
+    pub columns: Vec<String>,
+    pub rows: Vec<Vec<serde_json::Value>>,
+    pub affected_rows: u64,
+    #[serde(default)]
+    pub truncated: bool,
+    pub pagination: Option<Pagination>,
+    /// Extra result sets produced by a single statement beyond the first one,
+    /// e.g. a MySQL `CALL` to a stored procedure containing multiple `SELECT`s.
+    /// The first result set stays in `columns` / `rows` so consumers unaware
+    /// of multi-result statements keep working unchanged.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub additional_results: Option<Vec<QueryResult>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub server_time_ms: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fetch_time_ms: Option<f64>,
+}
+
+/// One statement's outcome within an `execute_batch` call. Exactly one of
+/// `result` / `error` is `Some` — kept as separate optionals (not a tagged
+/// enum) so the TypeScript side can do `if (item.error) ... else ... item.result`
+/// without a discriminated-union helper. Use [`BatchStatementResult::from_outcome`]
+/// to construct so the invariant is enforced.
+///
+/// `execution_time_ms` is measured server-side because a batch is one
+/// Tauri round-trip but the history UI wants per-statement timings.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BatchStatementResult {
+    pub result: Option<QueryResult>,
+    pub error: Option<String>,
+    pub execution_time_ms: Option<f64>,
+}
+
+impl BatchStatementResult {
+    /// Builds a result from a started `Instant` and the outcome of executing
+    /// one statement. Centralises the `Ok` / `Err` -> struct mapping that
+    /// would otherwise be duplicated across every driver's `execute_batch`
+    /// and the trait default.
+    pub fn from_outcome(start: std::time::Instant, outcome: Result<QueryResult, String>) -> Self {
+        let execution_time_ms = Some(start.elapsed().as_secs_f64() * 1000.0);
+        match outcome {
+            Ok(r) => Self {
+                result: Some(r),
+                error: None,
+                execution_time_ms,
+            },
+            Err(e) => Self {
+                result: None,
+                error: Some(e),
+                execution_time_ms,
+            },
+        }
+    }
+}
+
+/// Raw EXPLAIN output produced by a built-in driver.
+///
+/// Parsing lives in the `@superdba/explain` TypeScript package
+/// (`parseRawExplain`): a driver's job ends at handing over the payload it
+/// obtained — text, a JSON document, or decoded rows re-serialised as a JSON
+/// array — plus the format tag naming what it is.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct RawExplainOutput {
+    /// Driver id of the engine that produced the payload ("postgres", …).
+    pub engine: String,
+    /// Wire format tag understood by `@superdba/explain`:
+    /// `postgres-json`, `mysql-json`, `mysql-analyze-text`,
+    /// `mysql-tabular-rows` or `sqlite-eqp-rows`.
+    pub format: String,
+    /// The untouched payload: text, a JSON document, or rows as a JSON array.
+    pub payload: String,
+    pub original_query: String,
+}
+
+/// What `explain_query` hands to the frontend: a raw payload for a registered
+/// parser, or a plan a plugin driver already parsed. Both plugin result shapes
+/// remain supported for backwards compatibility.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(tag = "kind", rename_all = "lowercase")]
+pub enum ExplainQueryOutput {
+    Raw { raw: RawExplainOutput },
+    Plan { plan: serde_json::Value },
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TableSchema {
+    pub name: String,
+    pub columns: Vec<TableColumn>,
+    pub foreign_keys: Vec<ForeignKey>,
+}
+
+/// Bounded schema metadata prepared by a database driver for AI features.
+/// The host remains responsible for rendering this structured data into a
+/// provider-agnostic prompt.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AiSchemaContext {
+    pub tables: Vec<TableSchema>,
+    pub total_table_count: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RoutineInfo {
+    pub name: String,
+    pub routine_type: String, // "PROCEDURE" | "FUNCTION"
+    pub definition: Option<String>,
+    /// The routine's argument signature, where the dialect needs one to tell
+    /// two routines of the same name apart. PostgreSQL does: a name alone
+    /// identifies a set of overloads rather than a routine, so every read that
+    /// followed a click had to pick one of them arbitrarily (#893). Carries the
+    /// output of `pg_get_function_identity_arguments`, which is what `DROP`,
+    /// `ALTER` and a catalog lookup all accept. `None` where a name is enough.
+    ///
+    /// Skipped when it is `None`, so on the dialects that cannot overload the
+    /// field is absent from the payload rather than JSON `null`. That makes the
+    /// optional declaration on the TypeScript side true on the wire, instead of
+    /// asking every reader to remember that it is not.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub identity_args: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RoutineParameter {
+    pub name: String,
+    pub data_type: String,
+    pub mode: String, // "IN", "OUT", "INOUT"
+    pub ordinal_position: i32,
+}
+
+/// One argument for invoking a stored routine, as collected by the
+/// run-routine UI. `value: None` means SQL `NULL`; `is_raw` skips string
+/// quoting so numbers and expressions pass through verbatim.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct RoutineCallArg {
+    pub name: String,
+    pub mode: String, // "IN", "OUT", "INOUT"
+    #[serde(default)]
+    pub value: Option<String>,
+    #[serde(default)]
+    pub is_raw: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ViewInfo {
+    pub name: String,
+    pub definition: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TriggerInfo {
+    pub name: String,
+    pub table_name: String,
+    pub event: String,   // e.g. "INSERT", "UPDATE", "DELETE", "INSERT OR UPDATE"
+    pub timing: String,  // "BEFORE", "AFTER", "INSTEAD OF"
+    pub definition: Option<String>,
+}
+
+/// One database account as listed by the server (MySQL/MariaDB:
+/// `mysql.user` rows, identified by the `user`@`host` pair).
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DbUserInfo {
+    pub user: String,
+    pub host: String,
+    /// Account is locked (`ALTER USER ... ACCOUNT LOCK`); `false` when the
+    /// server does not expose the flag.
+    pub locked: bool,
+}
+
+/// The privilege keywords a driver accepts in `apply_db_user_privileges`,
+/// split by scope. Sent to the frontend so the privilege editor renders the
+/// dialect's own catalog instead of hardcoding one.
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct DbPrivilegeCatalog {
+    /// Privileges valid at the database scope (and also globally).
+    pub database: Vec<String>,
+    /// Privileges valid only at the global scope.
+    pub global: Vec<String>,
+    /// Privileges valid at the table scope.
+    pub table: Vec<String>,
+}
+
+/// One account's privileges on one scope, parsed from the server's grant
+/// metadata (MySQL: one `SHOW GRANTS` line). `database == None` is the
+/// global scope; `table` is only ever `Some` when `database` is.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct DbUserGrantSet {
+    pub database: Option<String>,
+    pub table: Option<String>,
+    /// Canonical privilege keywords, `GRANT OPTION` included as an entry.
+    pub privileges: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ColumnDefinition {
+    pub name: String,
+    pub data_type: String,
+    pub is_nullable: bool,
+    pub is_pk: bool,
+    pub is_auto_increment: bool,
+    pub default_value: Option<String>,
+    /// Column description. Sent to plugins that declare `column_comments`;
+    /// omitted from the payload when unset so legacy request shapes hold.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub comment: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DataTypeInfo {
+    pub name: String,
+    pub category: String,
+    pub requires_length: bool,
+    pub requires_precision: bool,
+    pub default_length: Option<String>,
+    #[serde(default)]
+    pub supports_auto_increment: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub requires_extension: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DataTypeRegistry {
+    pub driver: String,
+    pub types: Vec<DataTypeInfo>,
+}
+
+#[cfg(test)]
+mod appearance_tests {
+    use super::*;
+
+    #[test]
+    fn icon_override_pack_roundtrip() {
+        let v = IconOverride::Pack { id: "server".into() };
+        let s = serde_json::to_string(&v).unwrap();
+        assert_eq!(s, r#"{"type":"pack","id":"server"}"#);
+        let back: IconOverride = serde_json::from_str(&s).unwrap();
+        assert!(matches!(back, IconOverride::Pack { id } if id == "server"));
+    }
+
+    #[test]
+    fn icon_override_emoji_roundtrip() {
+        let v = IconOverride::Emoji { value: "🐘".into() };
+        let s = serde_json::to_string(&v).unwrap();
+        assert_eq!(s, r#"{"type":"emoji","value":"🐘"}"#);
+        let back: IconOverride = serde_json::from_str(&s).unwrap();
+        assert!(matches!(back, IconOverride::Emoji { value } if value == "🐘"));
+    }
+
+    #[test]
+    fn icon_override_image_roundtrip() {
+        let v = IconOverride::Image { path: "connection-icons/abc.png".into() };
+        let s = serde_json::to_string(&v).unwrap();
+        assert_eq!(s, r#"{"type":"image","path":"connection-icons/abc.png"}"#);
+        let back: IconOverride = serde_json::from_str(&s).unwrap();
+        assert!(matches!(back, IconOverride::Image { path } if path == "connection-icons/abc.png"));
+    }
+
+    #[test]
+    fn saved_connection_without_appearance_deserializes() {
+        let s = r#"{"id":"1","name":"x","params":{"driver":"mysql","database":""}}"#;
+        let c: SavedConnection = serde_json::from_str(s).unwrap();
+        assert!(c.appearance.is_none());
+    }
+
+    #[test]
+    fn connection_appearance_with_only_color_serializes_compactly() {
+        let a = ConnectionAppearance { icon: None, accent_color: Some("#ff0000".into()) };
+        let s = serde_json::to_string(&a).unwrap();
+        assert_eq!(s, r##"{"accentColor":"#ff0000"}"##);
+    }
+
+    #[test]
+    fn query_result_roundtrip_with_timing() {
+        let qr = QueryResult {
+            columns: vec!["id".into()],
+            rows: vec![vec![serde_json::json!(1)]],
+            affected_rows: 0,
+            truncated: false,
+            pagination: None,
+            additional_results: None,
+            server_time_ms: Some(12.5),
+            fetch_time_ms: Some(3.2),
+        };
+        let s = serde_json::to_string(&qr).unwrap();
+        assert!(s.contains("server_time_ms"));
+        assert!(s.contains("fetch_time_ms"));
+        let back: QueryResult = serde_json::from_str(&s).unwrap();
+        assert_eq!(back.server_time_ms, Some(12.5));
+        assert_eq!(back.fetch_time_ms, Some(3.2));
+    }
+}

@@ -1,0 +1,584 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://superdba.dev/schemas/tabularium-extensions.json",
+  "title": "SuperDBA extensions for the Tabularium manifest",
+  "description": "JSON-Schema fragment that registers SuperDBA-specific fields on top of Tabularium's core manifest. Paste this into your Tabularium admin panel under /admin/manifest as the global extension. The registry merges it with the core schema and serves the result at /manifest.schema.json, so plugin authors get autocomplete for the whole manifest from a single URL.\n\nNaming rules enforced by Tabularium:\n  * field names match /^[A-Za-z_][A-Za-z0-9_-]*$/\n  * cannot shadow a core field (id, name, version, description, kind, tags, license, icon, screenshots, readme, readmes, documentation_url, homepage, support, min_runtime_version, category)\n  * type whitelist: string | number | integer | boolean | array | object\n  * no $ref, max depth 6, max 32 properties per object\n\nFor the runtime manifest.json that ships inside the plugin zip, see plugins/manifest.schema.json.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(?:[-+].+)?$",
+      "minLength": 1,
+      "maxLength": 40,
+      "description": "Semver of this driver release. Should match the release tag the registry indexes (`v1.4.0` → `1.4.0`)."
+    },
+    "executable": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "Relative path to the plugin executable inside the ZIP (without `.exe`; SuperDBA appends it on Windows)."
+    },
+    "interpreter": {
+      "type": "string",
+      "maxLength": 100,
+      "description": "Interpreter for script-based plugins (e.g. `python3`, `node`). Omit for native binaries."
+    },
+    "default_port": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65535,
+      "description": "TCP port pre-filled in the connection modal. Omit for file/folder-based drivers."
+    },
+    "default_username": {
+      "type": "string",
+      "maxLength": 100,
+      "description": "Username pre-filled in the connection modal (e.g. `postgres`, `root`)."
+    },
+    "color": {
+      "type": "string",
+      "pattern": "^#[0-9A-Fa-f]{6}$",
+      "description": "Hex accent colour shown in the connection picker and sidebar (e.g. `#f97316`)."
+    },
+    "lucide_icon": {
+      "type": "string",
+      "maxLength": 60,
+      "description": "Lucide icon name used inline beside the driver entry (e.g. `database`, `network`). Distinct from the core `icon` field, which is the catalogue logo URL."
+    },
+    "capabilities": {
+      "type": "object",
+      "description": "Feature flags that decide which UI sections SuperDBA shows for this driver. All flags are optional; absent flags default to `false` except `connection_string`, `alter_primary_key`, and `manage_tables` (default `true`).",
+      "properties": {
+        "schemas": {
+          "type": "boolean",
+          "description": "Database supports multiple named schemas (e.g. PostgreSQL `public`, MySQL databases). Shows the schema selector."
+        },
+        "views": {
+          "type": "boolean",
+          "description": "Enable the Views section in the database explorer."
+        },
+        "routines": {
+          "type": "boolean",
+          "description": "Stored procedures and functions surface in the explorer."
+        },
+        "triggers": {
+          "type": "boolean",
+          "description": "Enable trigger listing and management."
+        },
+        "file_based": {
+          "type": "boolean",
+          "description": "Connection points at a single file (e.g. SQLite). Replaces host/port with a file picker."
+        },
+        "folder_based": {
+          "type": "boolean",
+          "description": "Connection points at a directory (e.g. CSV folder). Replaces host/port with a folder picker."
+        },
+        "connection_string": {
+          "type": "boolean",
+          "description": "Show the connection-string import field on the connection modal. Default `true` for network drivers."
+        },
+        "connection_string_example": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Placeholder shown inside the connection-string input (e.g. `postgres://user:pass@host:5432/db`)."
+        },
+        "identifier_quote": {
+          "type": "string",
+          "maxLength": 2,
+          "description": "Character used to quote SQL identifiers — `\"` for ANSI, `` ` `` for MySQL-style."
+        },
+        "alter_primary_key": {
+          "type": "boolean",
+          "description": "Driver supports altering primary keys on existing tables via ALTER TABLE."
+        },
+        "alter_column": {
+          "type": "boolean",
+          "description": "Driver supports ALTER TABLE MODIFY/ALTER COLUMN on existing tables."
+        },
+        "create_foreign_keys": {
+          "type": "boolean",
+          "description": "Driver enforces foreign key constraints."
+        },
+        "manage_tables": {
+          "type": "boolean",
+          "description": "Driver supports CREATE/ALTER/DROP TABLE. Doesn't control index or FK operations. Default `true`."
+        },
+        "auto_increment_keyword": {
+          "type": "string",
+          "maxLength": 40,
+          "description": "Keyword appended to the column definition for auto-increment columns (e.g. `AUTO_INCREMENT` for MySQL). Empty means the driver doesn't use a keyword."
+        },
+        "serial_type": {
+          "type": "string",
+          "maxLength": 40,
+          "description": "Replacement data type for auto-increment columns (e.g. `SERIAL` for PostgreSQL). Empty means the driver doesn't use type substitution."
+        },
+        "inline_pk": {
+          "type": "boolean",
+          "description": "Primary key is declared inline in the column definition (e.g. SQLite `AUTOINCREMENT`)."
+        },
+        "table_query_templates": {
+          "type": "boolean",
+          "default": false,
+          "description": "Generate SQL SELECT/UPDATE/DELETE previews through the optional get_table_query_template RPC."
+        },
+        "column_comments": {
+          "type": "boolean",
+          "default": false,
+          "description": "The DDL builder RPCs honour ColumnDefinition.comment, so the column editor shows a description field."
+        },
+        "drop_table_sql": {
+          "type": "boolean",
+          "default": false,
+          "description": "The explorer's Drop table action asks the optional get_drop_table_sql RPC for the statement. Without it the generic DROP TABLE is used and the RPC is never called."
+        },
+        "column_stats": {
+          "type": "boolean",
+          "default": false,
+          "description": "Column statistics popover through the optional get_column_stats RPC. When false, plugins with a postgres, mysql or sqlite sql_dialect keep the host's generic SQL and the others don't show the entry."
+        },
+        "no_connection_required": {
+          "type": "boolean",
+          "description": "API-based driver with no host/port/credentials. Hides the connection form entirely."
+        },
+        "readonly": {
+          "type": "boolean",
+          "description": "Disables INSERT/UPDATE/DELETE in the UI. Also hides table/column management."
+        },
+        "sql_syntax": {
+          "type": "object",
+          "description": "Declarative SQL syntax extending a preset, for engines no preset describes (e.g. GoogleSQL). Data only. Every field is optional and overrides one rule of the extended preset; invalid fields are ignored with a warning and never fail loading. Hosts that predate it ignore it and use sql_dialect. See PLUGIN_GUIDE.md#sql-syntax-sql_syntax.",
+          "properties": {
+            "extends": {
+              "type": "string",
+              "enum": [
+                "postgres",
+                "mysql",
+                "mssql",
+                "sqlite",
+                "oracle",
+                "generic"
+              ],
+              "description": "Preset to extend. Defaults to sql_dialect."
+            },
+            "quotes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 8,
+              "description": "Replaces the preset's quote rules; each open at most once.",
+              "items": {
+                "type": "object",
+                "required": [
+                  "open",
+                  "kind"
+                ],
+                "properties": {
+                  "open": {
+                    "type": "string",
+                    "enum": [
+                      "'",
+                      "\"",
+                      "`",
+                      "["
+                    ]
+                  },
+                  "close": {
+                    "type": "string",
+                    "enum": [
+                      "'",
+                      "\"",
+                      "`",
+                      "]"
+                    ],
+                    "description": "Defaults to open (] for [); any other value is invalid."
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "string",
+                      "identifier"
+                    ]
+                  },
+                  "escape": {
+                    "type": "string",
+                    "enum": [
+                      "double",
+                      "backslash",
+                      "both",
+                      "none"
+                    ],
+                    "default": "double",
+                    "description": "double: '' escapes a quote; backslash: \\' (no doubling); both; none."
+                  }
+                }
+              }
+            },
+            "triple_quoted_strings": {
+              "type": "boolean",
+              "description": "'''…''' and \"\"\"…\"\"\" strings for the ' and \" string quotes."
+            },
+            "string_prefixes": {
+              "type": "array",
+              "maxItems": 8,
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z]{1,2}$"
+              },
+              "description": "Letter prefixes before a string quote, any case (e.g. r, b, rb, br)."
+            },
+            "hash_comments": {
+              "type": "boolean",
+              "description": "# starts a line comment."
+            },
+            "nested_block_comments": {
+              "type": "boolean",
+              "description": "/* … */ comments nest."
+            },
+            "line_comment_requires_space": {
+              "type": "boolean",
+              "description": "-- needs a following whitespace to start a comment."
+            },
+            "script_blocks": {
+              "type": "boolean",
+              "description": "Procedural BEGIN … END, IF, LOOP, WHILE, REPEAT, FOR and CASE blocks stay one statement."
+            },
+            "dollar_quoting": {
+              "type": "boolean",
+              "description": "$tag$ … $tag$ strings."
+            },
+            "string_escape": {
+              "type": "string",
+              "enum": [
+                "standard",
+                "backslash"
+              ],
+              "description": "How generated string literals are escaped: standard ('') or backslash (\\')."
+            },
+            "like_escape": {
+              "type": "boolean",
+              "default": true,
+              "description": "Whether LIKE … ESCAPE is supported. false: LIKE filters escape wildcards with a backslash and omit ESCAPE."
+            },
+            "boolean_literals": {
+              "type": "string",
+              "enum": ["keywords", "numeric"],
+              "description": "How SuperDBA writes boolean literals in SQL it generates (dumps, Copy as INSERT, filters, notebook cell references). keywords: TRUE / FALSE. numeric: 1 / 0. Omit to keep each generator's default (dumps: TRUE / FALSE on postgres, 1 / 0 elsewhere). Set keywords for an engine without implicit integer-to-boolean coercion (GoogleSQL)."
+            },
+            "formatter": {
+              "type": "string",
+              "enum": [
+                "bigquery",
+                "clickhouse",
+                "db2",
+                "db2i",
+                "duckdb",
+                "hive",
+                "mariadb",
+                "mysql",
+                "n1ql",
+                "plsql",
+                "postgresql",
+                "redshift",
+                "singlestoredb",
+                "snowflake",
+                "spark",
+                "sql",
+                "sqlite",
+                "tidb",
+                "transactsql",
+                "trino"
+              ],
+              "description": "sql-formatter language for Format SQL."
+            },
+            "keywords": {
+              "type": "array",
+              "maxItems": 1000,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z_][A-Za-z0-9_$. ]*$"
+              },
+              "description": "Extra autocomplete keywords."
+            },
+            "functions": {
+              "type": "array",
+              "maxItems": 1000,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z_][A-Za-z0-9_$. ]*$"
+              },
+              "description": "Extra autocomplete function names."
+            }
+          }
+        }
+      }
+    },
+    "settings": {
+      "type": "array",
+      "maxItems": 32,
+      "description": "User-configurable settings rendered on Settings → Plugin → <this plugin>.",
+      "items": {
+        "type": "object",
+        "required": ["key", "label", "type"],
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z_][a-z0-9_]*$",
+            "maxLength": 60,
+            "description": "Setting identifier; passed to the plugin process as `settings[key]`."
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "Label shown next to the input in the settings UI."
+          },
+          "type": {
+            "type": "string",
+            "maxLength": 20,
+            "description": "Input type. SuperDBA renders `string`, `boolean`, `number`, `select`, `password`, `path` (and `folder` for folder pickers)."
+          },
+          "default": {
+            "description": "Default value, any JSON type matching `type`."
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 280,
+            "description": "Helper text shown below the input."
+          },
+          "required": {
+            "type": "boolean",
+            "description": "Block driver startup when the setting is empty."
+          },
+          "options": {
+            "type": "array",
+            "maxItems": 32,
+            "description": "Enum values for `type: select`.",
+            "items": {
+              "type": "string",
+              "maxLength": 80
+            }
+          }
+        }
+      }
+    },
+    "data_types": {
+      "type": "array",
+      "maxItems": 32,
+      "description": "SQL data types this driver advertises in the column-creation UI.",
+      "items": {
+        "type": "object",
+        "required": ["name", "category", "requires_length", "requires_precision"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 60,
+            "description": "Type name as it appears in DDL (e.g. `VARCHAR`, `BIGINT`)."
+          },
+          "category": {
+            "type": "string",
+            "maxLength": 20,
+            "description": "UI grouping: `numeric`, `string`, `date`, `binary`, `json`, `spatial`, or `other`."
+          },
+          "requires_length": {
+            "type": "boolean",
+            "description": "Type takes a length argument (e.g. `VARCHAR(255)`)."
+          },
+          "requires_precision": {
+            "type": "boolean",
+            "description": "Type takes a precision/scale argument (e.g. `DECIMAL(10,2)`)."
+          },
+          "default_length": {
+            "type": "string",
+            "maxLength": 20,
+            "description": "Optional default length value (e.g. `255` for `VARCHAR`)."
+          }
+        }
+      }
+    },
+    "ui_extensions": {
+      "type": "array",
+      "maxItems": 32,
+      "description": "Slot-based UI injections. See plugins/PLUGIN_GUIDE.md §3b for available slot names.",
+      "items": {
+        "type": "object",
+        "required": ["slot", "module"],
+        "properties": {
+          "slot": {
+            "type": "string",
+            "maxLength": 80,
+            "description": "Target slot identifier (e.g. `row-edit-modal.field.after`)."
+          },
+          "module": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Path to the JS module inside the plugin folder (e.g. `dist/index.js`)."
+          },
+          "order": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Ordering weight when multiple plugins target the same slot. Lower runs first."
+          },
+          "api_version": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
+            "description": "@superdba/plugin-api version used to build the bundle."
+          }
+        }
+      }
+    },
+    "explain_parsers": {
+      "type": "array",
+      "maxItems": 32,
+      "description": "Plugin-owned raw EXPLAIN parser IIFE bundles loaded by SuperDBA when the plugin is enabled.",
+      "items": {
+        "type": "object",
+        "required": ["engine", "format", "module"],
+        "additionalProperties": false,
+        "properties": {
+          "engine": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "description": "Canonical database engine identifier handled by this parser."
+          },
+          "format": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "description": "Globally unique raw EXPLAIN wire-format tag."
+          },
+          "module": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Path to the parser IIFE relative to the installed plugin directory."
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "description": "Optional human-readable label for format pickers."
+          }
+        }
+      }
+    },
+    "connection_fields": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional presentation overrides for the host-owned connection inputs. Omitted fields keep the standard SuperDBA behaviour.",
+      "properties": {
+        "host": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Overrides for the `host` input.",
+          "properties": {
+            "hidden": {
+              "type": "boolean",
+              "default": false,
+              "description": "Hide this input for the driver."
+            },
+            "label": {
+              "type": "string",
+              "maxLength": 80,
+              "description": "Driver-specific label."
+            },
+            "placeholder": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "Driver-specific input placeholder."
+            }
+          }
+        },
+        "port": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Overrides for the `port` input.",
+          "properties": {
+            "hidden": {
+              "type": "boolean",
+              "default": false,
+              "description": "Hide this input for the driver."
+            },
+            "label": {
+              "type": "string",
+              "maxLength": 80,
+              "description": "Driver-specific label."
+            },
+            "placeholder": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "Driver-specific input placeholder."
+            }
+          }
+        },
+        "username": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Overrides for the `username` input.",
+          "properties": {
+            "hidden": {
+              "type": "boolean",
+              "default": false,
+              "description": "Hide this input for the driver."
+            },
+            "label": {
+              "type": "string",
+              "maxLength": 80,
+              "description": "Driver-specific label."
+            },
+            "placeholder": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "Driver-specific input placeholder."
+            }
+          }
+        },
+        "password": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Overrides for the `password` input.",
+          "properties": {
+            "hidden": {
+              "type": "boolean",
+              "default": false,
+              "description": "Hide this input for the driver."
+            },
+            "label": {
+              "type": "string",
+              "maxLength": 80,
+              "description": "Driver-specific label."
+            },
+            "placeholder": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "Driver-specific input placeholder."
+            }
+          }
+        },
+        "database": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Overrides for the `database` input.",
+          "properties": {
+            "hidden": {
+              "type": "boolean",
+              "default": false,
+              "description": "Hide this input for the driver."
+            },
+            "label": {
+              "type": "string",
+              "maxLength": 80,
+              "description": "Driver-specific label."
+            },
+            "placeholder": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "Driver-specific input placeholder."
+            }
+          }
+        }
+      }
+    }
+  }
+}

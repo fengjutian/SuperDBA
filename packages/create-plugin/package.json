@@ -1,0 +1,61 @@
+{
+  "name": "@superdba/create-plugin",
+  "version": "0.4.2",
+  "description": "Scaffold a new SuperDBA database driver plugin in seconds.",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/SuperDBA/SuperDBA/tree/main/packages/create-plugin",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SuperDBA/SuperDBA.git",
+    "directory": "packages/create-plugin"
+  },
+  "bugs": {
+    "url": "https://github.com/SuperDBA/SuperDBA/issues"
+  },
+  "keywords": [
+    "superdba",
+    "create-superdba-plugin",
+    "scaffold",
+    "template",
+    "database-plugin",
+    "rust"
+  ],
+  "type": "module",
+  "bin": {
+    "create-plugin": "./dist/cli.js",
+    "superdba-create-plugin": "./dist/cli.js",
+    "superdba-theme": "./dist/theme.js"
+  },
+  "files": [
+    "dist",
+    "templates",
+    "README.md",
+    "THEMES.md",
+    "LICENSE",
+    "THIRD-PARTY-NOTICES.txt"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "clean": "rm -rf dist",
+    "test": "vitest run",
+    "smoke": "tsx scripts/smoke.ts",
+    "smoke:theme": "tsx scripts/theme-smoke.ts",
+    "prepublishOnly": "pnpm run clean && pnpm run build"
+  },
+  "dependencies": {
+    "kleur": "^4.1.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.12.0",
+    "tsup": "^8.3.5",
+    "tsx": "^4.19.2",
+    "typescript": "~5.9.3",
+    "vitest": "^4.1.2"
+  },
+  "engines": {
+    "node": ">=18.17.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

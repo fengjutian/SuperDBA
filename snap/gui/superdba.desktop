@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=SuperDBA
+Comment=Open-source database client with AI, notebooks, and plugins
+Exec=superdba %u
+Icon=${SNAP}/usr/share/icons/hicolor/512x512/apps/superdba.png
+Terminal=false
+Categories=Development;Database;
+StartupWMClass=superdba
+MimeType=x-scheme-handler/superdba;

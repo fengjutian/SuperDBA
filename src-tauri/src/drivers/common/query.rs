@@ -1,0 +1,639 @@
+/// Check if a query is a SELECT statement.
+///
+/// Leading SQL comments are stripped before checking, matching
+/// [`returns_result_set`] and [`is_explainable_query`] — drivers rely
+/// on this to route commented-header SELECTs through the pagination
+/// path.
+pub fn is_select_query(query: &str) -> bool {
+    is_select_query_for(query, false)
+}
+
+/// [`is_select_query`] for a driver whose resolved syntax has `#` line
+/// comments (`hash_comments`). Must use the same flag as
+/// [`returns_result_set_for`] so `# note\nSELECT 1` is paginated too.
+pub fn is_select_query_for(query: &str, hash_comments: bool) -> bool {
+    strip_leading_sql_comments_for(query, hash_comments)
+        .trim_start()
+        .to_uppercase()
+        .starts_with("SELECT")
+}
+
+/// Strip leading SQL comments (`-- …` line comments and `/* … */` block
+/// comments) and whitespace so the first statement keyword is at position 0.
+///
+/// A leading `#` is kept: it is code (or an error) outside MySQL-like
+/// syntaxes. Drivers whose resolved syntax has `#` comments use
+/// [`strip_leading_sql_comments_for`].
+pub fn strip_leading_sql_comments(query: &str) -> &str {
+    strip_leading_sql_comments_for(query, false)
+}
+
+/// [`strip_leading_sql_comments`] that also strips `# …` line comments when
+/// `hash_comments` is set (the driver's resolved `SqlSyntax::hash_comments`,
+/// e.g. MySQL / MariaDB).
+pub fn strip_leading_sql_comments_for(query: &str, hash_comments: bool) -> &str {
+    let mut s = query;
+    loop {
+        s = s.trim_start();
+        if s.starts_with("--") || (hash_comments && s.starts_with('#')) {
+            match s.find('\n') {
+                Some(pos) => s = &s[pos + 1..],
+                None => return "",
+            }
+        } else if s.starts_with("/*") {
+            match s.find("*/") {
+                Some(pos) => s = &s[pos + 2..],
+                None => return "",
+            }
+        } else {
+            break;
+        }
+    }
+    s
+}
+
+/// Returns true if a statement's leading keyword produces a row stream.
+/// Used by drivers to pick between the fetch-rows path and the
+/// execute-and-collect-affected-rows path so INSERT/UPDATE/DELETE no
+/// longer hardcode `affected_rows: 0`.
+///
+/// `CALL` is intentionally treated as result-set-bearing: a MySQL stored
+/// procedure may or may not return one, and the fetch path degrades to
+/// `(rows: [], affected_rows: 0)` for the no-result case without
+/// erroring — losing accurate affected_rows for procs that mutate is the
+/// lesser evil compared to misclassifying procedures that do return
+/// rows.
+pub fn returns_result_set(query: &str) -> bool {
+    returns_result_set_for(query, false)
+}
+
+/// [`returns_result_set`] for a driver whose resolved syntax has `#` line
+/// comments (`hash_comments`), so `# note\nSELECT 1` still fetches rows.
+pub fn returns_result_set_for(query: &str, hash_comments: bool) -> bool {
+    let head = strip_leading_sql_comments_for(query, hash_comments)
+        .split(|c: char| !c.is_ascii_alphanumeric() && c != '_')
+        .next()
+        .unwrap_or("")
+        .to_uppercase();
+    matches!(
+        head.as_str(),
+        "SELECT"
+            | "WITH"
+            | "SHOW"
+            | "EXPLAIN"
+            | "DESCRIBE"
+            | "DESC"
+            | "VALUES"
+            | "TABLE"
+            | "PRAGMA"
+            | "CALL"
+    )
+}
+
+/// Check if a query type supports EXPLAIN.
+///
+/// MySQL/MariaDB support EXPLAIN for DML statements only:
+/// SELECT, INSERT, UPDATE, DELETE, REPLACE, and WITH (CTE).
+/// PostgreSQL 15+ and Oracle also support EXPLAIN MERGE.
+/// DDL statements (CREATE, DROP, ALTER, TRUNCATE, etc.) are not supported.
+/// Leading SQL comments are stripped before checking.
+///
+/// Kept in sync with the TypeScript classifier in
+/// `packages/web-ui/src/utils/sqlSplitter/classify.ts` (EXPLAINABLE_KEYWORDS) so the
+/// editor's Explain UI cannot offer a statement the backend will refuse.
+pub fn is_explainable_query(query: &str) -> bool {
+    is_explainable_query_for(query, false)
+}
+
+/// [`is_explainable_query`] for a driver whose resolved syntax has `#` line
+/// comments (`hash_comments`), so `# note\nSELECT 1` can be explained.
+pub fn is_explainable_query_for(query: &str, hash_comments: bool) -> bool {
+    let upper = strip_leading_sql_comments_for(query, hash_comments).to_uppercase();
+    upper.starts_with("SELECT")
+        || upper.starts_with("INSERT")
+        || upper.starts_with("UPDATE")
+        || upper.starts_with("DELETE")
+        || upper.starts_with("REPLACE")
+        || upper.starts_with("WITH")
+        || upper.starts_with("TABLE")
+        || upper.starts_with("MERGE")
+}
+
+/// Calculate offset for pagination
+pub fn calculate_offset(page: u32, page_size: u32) -> u32 {
+    (page - 1) * page_size
+}
+
+/// Read a quoted token (`'...'`, `"..."`, or `` `...` ``) starting at
+/// `chars[*i]`, which must be the opening quote. The doubled-quote
+/// escape (`''`, `""`, ` `` `) is consumed as a single literal quote.
+/// On return `*i` points past the closing quote (or past end-of-input
+/// for an unterminated literal — kept as-is for parity with the rest
+/// of the tokenizer's lenient behaviour).
+fn read_quoted(chars: &[(usize, char)], i: &mut usize, quote: char) -> String {
+    let len = chars.len();
+    let mut token = String::new();
+    token.push(quote);
+    *i += 1;
+    while *i < len {
+        let ch = chars[*i].1;
+        token.push(ch);
+        if quote != '`' && ch == '\\' && *i + 1 < len {
+            *i += 1;
+            token.push(chars[*i].1);
+        } else if ch == quote {
+            if *i + 1 < len && chars[*i + 1].1 == quote {
+                *i += 1;
+                token.push(chars[*i].1);
+            } else {
+                *i += 1;
+                break;
+            }
+        }
+        *i += 1;
+    }
+    token
+}
+
+/// Simple SQL tokenizer that respects:
+/// - Single-quoted strings ('...')
+/// - Double-quoted identifiers ("...")
+/// - Backtick-quoted identifiers (`...`)
+/// - Parenthesized groups (treated as single tokens)
+/// - Whitespace as delimiter
+///
+/// This prevents keywords like LIMIT or OFFSET from being matched
+/// inside string literals, quoted identifiers, or table names such as
+/// `tapp_appointment_message_event_limit`. Each token is returned with
+/// its starting byte offset so callers can slice the original input
+/// instead of rebuilding it from tokens.
+fn tokenize_sql_with_pos(sql: &str) -> Vec<(String, usize)> {
+    let mut tokens: Vec<(String, usize)> = Vec::new();
+    let chars: Vec<(usize, char)> = sql.char_indices().collect();
+    let len = chars.len();
+    let mut i = 0;
+
+    while i < len {
+        let (start_byte, c) = chars[i];
+
+        if c.is_whitespace() {
+            i += 1;
+            continue;
+        }
+
+        if c == '\'' || c == '"' || c == '`' {
+            let token = read_quoted(&chars, &mut i, c);
+            tokens.push((token, start_byte));
+            continue;
+        }
+
+        if c == '(' {
+            let mut token = String::new();
+            let mut depth = 0;
+            while i < len {
+                let ch = chars[i].1;
+                token.push(ch);
+                if ch == '(' {
+                    depth += 1;
+                } else if ch == ')' {
+                    depth -= 1;
+                    if depth == 0 {
+                        i += 1;
+                        break;
+                    }
+                } else if ch == '\'' {
+                    i += 1;
+                    while i < len {
+                        let inner = chars[i].1;
+                        token.push(inner);
+                        if inner == '\'' {
+                            if i + 1 < len && chars[i + 1].1 == '\'' {
+                                i += 1;
+                                token.push(chars[i].1);
+                            } else {
+                                break;
+                            }
+                        }
+                        i += 1;
+                    }
+                }
+                i += 1;
+            }
+            tokens.push((token, start_byte));
+            continue;
+        }
+
+        let mut token = String::new();
+        while i < len {
+            let ch = chars[i].1;
+            if ch.is_whitespace() || ch == '(' || ch == '\'' || ch == '"' || ch == '`' {
+                break;
+            }
+            token.push(ch);
+            i += 1;
+        }
+        if !token.is_empty() {
+            tokens.push((token, start_byte));
+        }
+    }
+
+    tokens
+}
+
+/// Remove trailing LIMIT and OFFSET clauses from a SQL query.
+///
+/// Returns a substring of the original input so leading comments and
+/// internal whitespace are preserved verbatim. Rebuilding via
+/// `tokens.join(" ")` would collapse newlines, fatal for queries that
+/// begin with `--` headers — the appended pagination clause would land
+/// on the same line as the `--` and be parsed as part of the comment.
+pub fn strip_limit_offset(query: &str) -> String {
+    let trimmed = query.trim_end();
+    let tokens = tokenize_sql_with_pos(trimmed);
+    let mut end = tokens.len();
+
+    if end >= 2
+        && tokens[end - 2].0.to_uppercase() == "OFFSET"
+        && tokens[end - 1].0.parse::<u64>().is_ok()
+    {
+        end -= 2;
+    }
+
+    if end >= 2
+        && tokens[end - 2].0.to_uppercase() == "LIMIT"
+        && tokens[end - 1].0.parse::<u64>().is_ok()
+    {
+        end -= 2;
+    }
+
+    if end == tokens.len() {
+        return trimmed.to_string();
+    }
+
+    let cut = tokens[end].1;
+    trimmed[..cut].trim_end().to_string()
+}
+
+/// Extract the numeric value from a trailing LIMIT clause, if present.
+///
+/// Uses a token-aware scan so that `LIMIT` as a substring of a table name
+/// (e.g. `tapp_appointment_message_event_limit`) is never misidentified.
+pub fn extract_user_limit(query: &str) -> Option<u32> {
+    let tokens = tokenize_sql_with_pos(query.trim());
+    let len = tokens.len();
+
+    let mut end = len;
+    if end >= 2
+        && tokens[end - 2].0.to_uppercase() == "OFFSET"
+        && tokens[end - 1].0.parse::<u64>().is_ok()
+    {
+        end -= 2;
+    }
+
+    if end >= 2 && tokens[end - 2].0.to_uppercase() == "LIMIT" {
+        return tokens[end - 1].0.parse().ok();
+    }
+
+    None
+}
+
+/// Extract the numeric value from a trailing OFFSET clause, if present.
+///
+/// Mirrors [`extract_user_limit`] and only recognises the `… OFFSET <n>`
+/// shape that [`strip_limit_offset`] removes (the common `LIMIT x OFFSET y`
+/// ordering). Uses a token-aware scan so `OFFSET` inside an identifier or
+/// string literal is never misidentified.
+pub fn extract_user_offset(query: &str) -> Option<u32> {
+    let tokens = tokenize_sql_with_pos(query.trim());
+    let end = tokens.len();
+
+    if end >= 2 && tokens[end - 2].0.to_uppercase() == "OFFSET" {
+        return tokens[end - 1].0.parse().ok();
+    }
+
+    None
+}
+
+/// Build a paginated query by stripping any user-supplied LIMIT/OFFSET and
+/// appending pagination clauses directly. ORDER BY is left in place so that
+/// table-qualified column references (e.g. `o.created_at`) remain valid —
+/// wrapping the original query in a subquery would move those references out
+/// of scope and cause "unknown column" errors.
+///
+/// When the user wrote an explicit LIMIT, it is honoured as a cap on the total
+/// number of rows returned across all pages. A user-supplied OFFSET is honoured
+/// too: it is added to the per-page offset so that pagination walks the result
+/// set the user actually asked for (the rows after their OFFSET). Discarding it
+/// silently collapsed `LIMIT 1 OFFSET 1` to `LIMIT 1 OFFSET 0` on page 1.
+pub fn build_paginated_query(query: &str, page_size: u32, page: u32) -> String {
+    let page_offset = calculate_offset(page, page_size);
+    let normalized = trim_trailing_statement_terminator(query);
+    let clause_source = match trailing_comment_start(normalized) {
+        Some(comment_start) => normalized[..comment_start].trim_end(),
+        None => normalized,
+    };
+    let user_limit = extract_user_limit(clause_source);
+    let user_offset = extract_user_offset(clause_source).unwrap_or(0);
+    let base_source = if user_limit.is_some() || user_offset > 0 {
+        clause_source
+    } else {
+        normalized
+    };
+    let base = strip_limit_offset(base_source);
+
+    let fetch_count = match user_limit {
+        Some(ul) => {
+            let remaining = ul.saturating_sub(page_offset);
+            // +1 for has_more detection, but capped by user's LIMIT
+            remaining.min(page_size + 1)
+        }
+        None => page_size + 1,
+    };
+
+    let offset = user_offset.saturating_add(page_offset);
+
+    let separator = if trailing_comment_start(&base).is_some() {
+        "\n"
+    } else {
+        " "
+    };
+
+    format!("{}{}LIMIT {} OFFSET {}", base, separator, fetch_count, offset)
+}
+
+fn trim_trailing_statement_terminator(query: &str) -> &str {
+    let original_end = query.trim_end().len();
+    let mut end = query.len();
+
+    loop {
+        let trimmed = query[..end].trim_end();
+        end = trimmed.len();
+
+        if let Some(comment_start) = trailing_comment_start(trimmed) {
+            end = comment_start;
+            continue;
+        }
+
+        break;
+    }
+
+    let without_trailing_space = query[..end].trim_end();
+    match without_trailing_space.strip_suffix(';') {
+        Some(without_semicolon) => without_semicolon.trim_end_matches([' ', '\t', '\r']),
+        None => &query[..original_end],
+    }
+}
+
+fn trailing_comment_start(sql: &str) -> Option<usize> {
+    #[derive(Clone, Copy)]
+    enum State {
+        Normal,
+        SingleQuote,
+        DoubleQuote,
+        Backtick,
+        LineComment,
+        HashComment,
+        BlockComment,
+    }
+
+    let chars: Vec<(usize, char)> = sql.char_indices().collect();
+    let mut state = State::Normal;
+    let mut candidate = None;
+    let mut i = 0;
+
+    while i < chars.len() {
+        let (byte, ch) = chars[i];
+        match state {
+            State::Normal => {
+                if ch.is_whitespace() {
+                    i += 1;
+                    continue;
+                }
+
+                if ch == '-'
+                    && i + 1 < chars.len()
+                    && chars[i + 1].1 == '-'
+                    && (i + 2 >= chars.len() || chars[i + 2].1.is_whitespace())
+                {
+                    candidate.get_or_insert(byte);
+                    state = State::LineComment;
+                    i += 2;
+                    continue;
+                }
+
+                if ch == '#' {
+                    candidate.get_or_insert(byte);
+                    state = State::HashComment;
+                    i += 1;
+                    continue;
+                }
+
+                if ch == '/' && i + 1 < chars.len() && chars[i + 1].1 == '*' {
+                    candidate.get_or_insert(byte);
+                    state = State::BlockComment;
+                    i += 2;
+                    continue;
+                }
+
+                candidate = None;
+                state = match ch {
+                    '\'' => State::SingleQuote,
+                    '"' => State::DoubleQuote,
+                    '`' => State::Backtick,
+                    _ => State::Normal,
+                };
+                i += 1;
+            }
+            State::SingleQuote | State::DoubleQuote | State::Backtick => {
+                let quote = match state {
+                    State::SingleQuote => '\'',
+                    State::DoubleQuote => '"',
+                    State::Backtick => '`',
+                    _ => unreachable!(),
+                };
+                if !matches!(state, State::Backtick)
+                    && ch == '\\'
+                    && i + 1 < chars.len()
+                {
+                    i += 2;
+                } else if ch == quote {
+                    if i + 1 < chars.len() && chars[i + 1].1 == quote {
+                        i += 2;
+                    } else {
+                        state = State::Normal;
+                        i += 1;
+                    }
+                } else {
+                    i += 1;
+                }
+            }
+            State::LineComment | State::HashComment => {
+                if ch == '\n' {
+                    state = State::Normal;
+                }
+                i += 1;
+            }
+            State::BlockComment => {
+                if ch == '*' && i + 1 < chars.len() && chars[i + 1].1 == '/' {
+                    state = State::Normal;
+                    i += 2;
+                } else {
+                    i += 1;
+                }
+            }
+        }
+    }
+
+    match state {
+        State::Normal | State::LineComment | State::HashComment => candidate,
+        State::BlockComment => None,
+        State::SingleQuote | State::DoubleQuote | State::Backtick => None,
+    }
+}
+
+/// What a statement does to the surrounding transaction.
+///
+/// Drivers use this to decide whether the physical connection a batch ran
+/// on must be held for the next batch (an explicit transaction is still
+/// open) or may go back to the pool.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransactionEffect {
+    /// Opens an explicit transaction (`BEGIN`, `START TRANSACTION`).
+    Opens,
+    /// Closes the current transaction (`COMMIT`, `ROLLBACK`, `END`).
+    ///
+    /// `ROLLBACK TO SAVEPOINT` does NOT close the transaction and is
+    /// classified as [`TransactionEffect::None`].
+    Closes,
+    /// Ends the current transaction and opens a new one (`COMMIT AND CHAIN`).
+    Chains,
+    /// Leaves the transaction state as it was.
+    None,
+}
+
+impl TransactionEffect {
+    /// Whether a transaction is open after a statement with this effect ran.
+    pub fn in_transaction_after(self, succeeded: bool, before: bool) -> bool {
+        match (self, succeeded) {
+            (TransactionEffect::Opens | TransactionEffect::Chains, true) => true,
+            // PostgreSQL ends the transaction even when COMMIT itself fails, e.g. on a deferred constraint.
+            (TransactionEffect::Closes, _) | (TransactionEffect::Chains, false) => false,
+            _ => before,
+        }
+    }
+}
+
+/// Classify a statement's effect on the transaction state.
+///
+/// Only the leading keywords are inspected, on the statement the driver is
+/// about to run, so a `BEGIN` inside a string literal or a later clause
+/// cannot be mistaken for transaction control. PL/pgSQL `BEGIN ... END`
+/// blocks are not a concern here: they arrive as part of a `DO` or
+/// `CREATE FUNCTION` statement, whose leading keyword is not `BEGIN`.
+pub fn transaction_effect(query: &str) -> TransactionEffect {
+    // Six cover the longest form, `ROLLBACK TRANSACTION AND NO CHAIN`.
+    let mut words = leading_keywords(query, 6).into_iter();
+    let Some(first) = words.next() else {
+        return TransactionEffect::None;
+    };
+    let mut rest: Vec<String> = words.collect();
+    // `WORK` / `TRANSACTION` after a transaction-control verb is optional noise.
+    if matches!(first.as_str(), "COMMIT" | "END" | "ROLLBACK" | "ABORT")
+        && matches!(rest.first().map(String::as_str), Some("WORK" | "TRANSACTION"))
+    {
+        rest.remove(0);
+    }
+    let second = rest.first().map(String::as_str);
+    let chains = rest.windows(2).any(|p| p[0] == "AND" && p[1] == "CHAIN");
+
+    match first.as_str() {
+        // `BEGIN` alone, `BEGIN TRANSACTION`, `BEGIN ISOLATION LEVEL …`.
+        "BEGIN" => TransactionEffect::Opens,
+        "START" if second == Some("TRANSACTION") => TransactionEffect::Opens,
+        // Two-phase commit acts on a prepared transaction, not this session's.
+        "COMMIT" | "ROLLBACK" if second == Some("PREPARED") => TransactionEffect::None,
+        // `ROLLBACK [WORK] TO [SAVEPOINT] x` unwinds to a savepoint and leaves the transaction open.
+        "ROLLBACK" if second == Some("TO") => TransactionEffect::None,
+        "COMMIT" | "END" | "ROLLBACK" | "ABORT" if chains => TransactionEffect::Chains,
+        "COMMIT" | "END" | "ROLLBACK" | "ABORT" => TransactionEffect::Closes,
+        // `PREPARE TRANSACTION` dissociates the transaction from the session.
+        "PREPARE" if second == Some("TRANSACTION") => TransactionEffect::Closes,
+        _ => TransactionEffect::None,
+    }
+}
+
+/// The first `n` keywords of `query`, uppercased. Every `--` and (nested)
+/// `/* */` comment is skipped, wherever it appears, and reading stops at a
+/// string literal, dollar quote or `;`, so no data is read as a keyword.
+fn leading_keywords(query: &str, n: usize) -> Vec<String> {
+    let mut words = Vec::new();
+    let mut word = String::new();
+    let mut chars = query.chars().peekable();
+    let mut comment_depth = 0usize;
+    while let Some(c) = chars.next() {
+        if comment_depth > 0 {
+            if c == '*' && chars.peek() == Some(&'/') {
+                chars.next();
+                comment_depth -= 1;
+            } else if c == '/' && chars.peek() == Some(&'*') {
+                chars.next();
+                comment_depth += 1;
+            }
+            continue;
+        }
+        if c.is_ascii_alphanumeric() || c == '_' {
+            word.push(c.to_ascii_uppercase());
+            continue;
+        }
+        if !word.is_empty() {
+            words.push(std::mem::take(&mut word));
+            if words.len() == n {
+                return words;
+            }
+        }
+        match (c, chars.peek()) {
+            ('-', Some('-')) => {
+                for c in chars.by_ref() {
+                    if c == '\n' {
+                        break;
+                    }
+                }
+            }
+            ('/', Some('*')) => {
+                chars.next();
+                comment_depth = 1;
+            }
+            ('\'' | '"' | '$' | ';', _) => return words,
+            _ => {}
+        }
+    }
+    if !word.is_empty() && words.len() < n {
+        words.push(word);
+    }
+    words
+}
+
+/// Calculates `(server_time_ms, fetch_time_ms)` from the total elapsed time and
+/// the optional elapsed time until the first row was received.
+///
+/// If no rows were received (`first_row_elapsed_ms` is `None`), server execution
+/// time equals the total elapsed time, and fetch time is 0.0.
+pub fn calculate_query_timing(
+    total_elapsed_ms: f64,
+    first_row_elapsed_ms: Option<f64>,
+) -> (Option<f64>, Option<f64>) {
+    match first_row_elapsed_ms {
+        Some(s_ms) => (Some(s_ms), Some((total_elapsed_ms - s_ms).max(0.0))),
+        None => (Some(total_elapsed_ms), Some(0.0)),
+    }
+}
+
+/// Computes query timing given a `start_instant` and the optional
+/// first-row arrival time.
+pub fn calculate_query_timing_from_start(
+    start_instant: std::time::Instant,
+    first_row_elapsed_ms: Option<f64>,
+) -> (Option<f64>, Option<f64>) {
+    let total_elapsed_ms = start_instant.elapsed().as_secs_f64() * 1000.0;
+    calculate_query_timing(total_elapsed_ms, first_row_elapsed_ms)
+}

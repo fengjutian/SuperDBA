@@ -1,0 +1,77 @@
+[
+  {
+    "label": "Plugin registry platform — OAuth publishing, release sync, download analytics",
+    "done": true,
+    "url": "https://github.com/SuperDBA/SuperDBA/issues/196"
+  },
+  {
+    "label": "SQL Server driver — implementation roadmap & call for contributors",
+    "done": true,
+    "url": "https://github.com/SuperDBA/SuperDBA/issues/150"
+  },
+  {
+    "label": "[Feat]: Allow loading of multiple Databases per connection",
+    "done": true,
+    "url": "https://github.com/SuperDBA/SuperDBA/issues/47"
+  },
+  {
+    "label": "Command Palette",
+    "done": true,
+    "url": "https://github.com/SuperDBA/SuperDBA/issues/25"
+  },
+  {
+    "label": "JSON/JSONB Editor & Viewer",
+    "done": true,
+    "url": "https://github.com/SuperDBA/SuperDBA/issues/24"
+  },
+  {
+    "label": "SQL Formatting / Prettier",
+    "done": true,
+    "url": "https://github.com/SuperDBA/SuperDBA/issues/23"
+  },
+  {
+    "label": "Visual Explain Analyze",
+    "done": true,
+    "url": "https://github.com/SuperDBA/SuperDBA/issues/22"
+  },
+  {
+    "label": "Plugin System",
+    "done": true,
+    "url": "https://github.com/SuperDBA/SuperDBA/issues/19"
+  },
+  {
+    "label": "Query History",
+    "done": true,
+    "url": "https://github.com/SuperDBA/SuperDBA/issues/18"
+  },
+  {
+    "label": "UI design system & visual identity — call for contributors",
+    "done": false,
+    "url": "https://github.com/SuperDBA/SuperDBA/issues/195"
+  },
+  {
+    "label": "Feature: Remote Control",
+    "done": false,
+    "url": "https://github.com/SuperDBA/SuperDBA/issues/46"
+  },
+  {
+    "label": "Data Compare / Diff Tool",
+    "done": false,
+    "url": "https://github.com/SuperDBA/SuperDBA/issues/21"
+  },
+  {
+    "label": "Team Collaboration",
+    "done": false,
+    "url": "https://github.com/SuperDBA/SuperDBA/issues/20"
+  },
+  {
+    "label": "Better SQLite Support",
+    "done": false,
+    "url": "https://github.com/SuperDBA/SuperDBA/issues/17"
+  },
+  {
+    "label": "Better PostgreSQL Support",
+    "done": false,
+    "url": "https://github.com/SuperDBA/SuperDBA/issues/16"
+  }
+]

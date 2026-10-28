@@ -1,0 +1,82 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "superdba",
+  "version": "0.30.0",
+  "identifier": "superdba",
+  "build": {
+    "frontendDist": "../packages/web-ui/dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "pnpm dev",
+    "beforeBuildCommand": "pnpm build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "SuperDBA",
+        "dragDropEnabled": false,
+        "width": 1280,
+        "height": 800,
+        "resizable": true,
+        "fullscreen": false,
+        "backgroundColor": "#020617"
+      }
+    ],
+    "security": {
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": [
+          "$APPDATA/connection-icons/**"
+        ]
+      }
+    }
+  },
+  "bundle": {
+    "createUpdaterArtifacts": true,
+    "active": true,
+    "category": "DeveloperTool",
+    "targets": "all",
+    "resources": {
+      "../packages/web-ui/dist/": "web-ui/"
+    },
+    "icon": [
+      "icons/32x32.png",
+      "icons/64x64.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "linux": {
+      "deb": {
+        "depends": [
+          "libwebkit2gtk-4.1-0",
+          "libsecret-1-0"
+        ],
+        "desktopTemplate": "linux/superdba.desktop"
+      },
+      "rpm": {
+        "desktopTemplate": "linux/superdba.desktop"
+      },
+      "appimage": {
+        "bundleMediaFramework": false
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/SuperDBA/SuperDBA/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDY0NzY0QjNEQjI4QjFEQjcKUldTM0hZdXlQVXQyWkRYdmRJOEJhVEpYTit2VXRYS0drTit1bmthSHVzcWlQK09Wb2l5cVpOWXAK"
+    },
+    "deep-link": {
+      "desktop": {
+        "schemes": [
+          "superdba"
+        ]
+      }
+    }
+  }
+}
