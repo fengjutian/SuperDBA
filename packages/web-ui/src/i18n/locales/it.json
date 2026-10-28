@@ -658,6 +658,8 @@
     "fontSize": "Dimensione Font",
     "fontSizeLabel": "Dimensione Font",
     "fontSizeDesc": "Regola la dimensione base del font usata nell'applicazione (10-20px).",
+    "fontSizeDecrease": "Riduci la dimensione del font",
+    "fontSizeIncrease": "Aumenta la dimensione del font",
     "preview": "Anteprima",
     "fontPreviewText": "La volpe marrone salta sopra il cane pigro",
     "dataGrid": {

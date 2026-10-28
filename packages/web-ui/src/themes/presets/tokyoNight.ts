@@ -1,0 +1,96 @@
+import type {Theme} from '@/types/theme';
+
+export const tokyoNight: Theme = {
+    id: 'tokyo-night',
+    name: 'Tokyo Night',
+    author: 'enkia',
+    isPreset: true,
+    isReadOnly: true,
+    colors: {
+        bg: {
+            base: '#1a1b26',
+            elevated: '#16161e',
+            overlay: '#1f2335',
+            input: '#16161e',
+            tooltip: '#1f2335',
+        },
+        surface: {
+            primary: '#1f2335',
+            secondary: '#292e42',
+            tertiary: '#3b4261',
+            hover: '#292e42',
+            active: '#7aa2f7',
+            disabled: '#1f2335',
+        },
+        text: {
+            primary: '#c0caf5',
+            secondary: '#a9b1d6',
+            muted: '#959ec9',
+            disabled: '#565f89',
+            accent: '#7aa2f7',
+            inverse: '#1a1b26',
+        },
+        accent: {
+            primary: '#7aa2f7',
+            secondary: '#bb9af7',
+            success: '#9ece6a',
+            warning: '#e0af68',
+            error: '#f7768e',
+            info: '#7dcfff',
+        },
+        border: {
+            subtle: '#16161e',
+            default: '#2f334d',
+            strong: '#3b4261',
+            focus: '#7aa2f7',
+        },
+        semantic: {
+            string: '#9ece6a',
+            number: '#ff9e64',
+            boolean: '#bb9af7',
+            date: '#e0af68',
+            null: '#8b93bd',
+            primaryKey: '#ff9e64',
+            foreignKey: '#7dcfff',
+            index: '#bb9af7',
+            connectionActive: '#9ece6a',
+            connectionInactive: '#737aa2',
+            modified: '#7aa2f7',
+            deleted: '#f7768e',
+            new: '#9ece6a',
+        },
+    },
+    typography: {
+        fontFamily: {
+            base: 'Inter, system-ui, sans-serif',
+            mono: 'JetBrains Mono, Fira Code, Menlo, Consolas, monospace',
+        },
+        fontSize: {
+            xs: '0.75rem',
+            sm: '0.875rem',
+            base: '1rem',
+            lg: '1.125rem',
+            xl: '1.25rem',
+        },
+    },
+    layout: {
+        borderRadius: {
+            sm: '0.25rem',
+            base: '0.5rem',
+            lg: '0.75rem',
+            xl: '1rem',
+        },
+        spacing: {
+            xs: '0.25rem',
+            sm: '0.5rem',
+            base: '1rem',
+            lg: '1.5rem',
+            xl: '2rem',
+        },
+    },
+    monacoTheme: {
+        base: 'vs-dark',
+        inherit: true,
+        themeName: 'Tokyo Night',
+    },
+};

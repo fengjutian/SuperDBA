@@ -126,6 +126,11 @@ const MINIMAX_ENDPOINTS: [MiniMaxEndpoint; 2] = [
 
 static MINIMAX_PREFERRED_ENDPOINT: AtomicUsize = AtomicUsize::new(0);
 
+/// DeepSeek exposes a single OpenAI-compatible endpoint. The `deepseek-chat`
+/// and `deepseek-reasoner` aliases always resolve to the current models, and
+/// the live catalogue is refreshed from `/models` when a key is configured.
+const DEEPSEEK_BASE_URL: &str = "https://api.deepseek.com/v1";
+
 fn minimax_endpoint_order(preferred: usize) -> [usize; 2] {
     if preferred == 1 {
         [1, 0]
@@ -291,6 +296,31 @@ async fn fetch_minimax_models(api_key: &str) -> Vec<String> {
     Vec::new()
 }
 
+async fn fetch_deepseek_models(api_key: &str) -> Vec<String> {
+    if api_key.is_empty() {
+        return Vec::new();
+    }
+    let Ok(client) = ai_client_for("deepseek") else {
+        return Vec::new();
+    };
+    match client
+        .get(format!("{DEEPSEEK_BASE_URL}/models"))
+        .header("Authorization", format!("Bearer {}", api_key))
+        .send()
+        .await
+    {
+        Ok(res) => {
+            if res.status().is_success() {
+                if let Ok(json) = res.json::<OpenAiModelList>().await {
+                    return json.data.into_iter().map(|m| m.id).collect();
+                }
+            }
+            Vec::new()
+        }
+        Err(_) => Vec::new(),
+    }
+}
+
 async fn fetch_openrouter_models() -> Vec<String> {
     let Ok(client) = ai_client_for("openrouter") else {
         return Vec::new();
@@ -421,6 +451,12 @@ pub async fn get_models(
             if now - models_cache.last_updated < 86400 {
                 let mut cached_models = models_cache.models;
 
+                // A cache written before a provider existed would otherwise hide
+                // that provider from the model picker until the cache expired.
+                for (provider, default_models) in load_default_models() {
+                    cached_models.entry(provider).or_insert(default_models);
+                }
+
                 // Always refresh Ollama as it is local and fast
                 let ollama_models = fetch_ollama_models(ollama_port).await;
                 // Replace or insert ollama entry
@@ -458,6 +494,14 @@ pub async fn get_models(
                     let minimax_models = fetch_minimax_models(&key).await;
                     if !minimax_models.is_empty() {
                         cached_models.insert("minimax".to_string(), minimax_models);
+                    }
+                }
+
+                // Always refresh DeepSeek if API key is present
+                if let Ok(key) = crate::application::ai::get_api_key(runtime, cache, "deepseek") {
+                    let deepseek_models = fetch_deepseek_models(&key).await;
+                    if !deepseek_models.is_empty() {
+                        cached_models.insert("deepseek".to_string(), deepseek_models);
                     }
                 }
 
@@ -515,7 +559,20 @@ pub async fn get_models(
         }
     }
 
-    // 5. OpenRouter (Dynamic public)
+    // 5. DeepSeek (Dynamic if key exists)
+    if let Ok(key) = crate::application::ai::get_api_key(runtime, cache, "deepseek") {
+        let remote_models = fetch_deepseek_models(&key).await;
+        if !remote_models.is_empty() {
+            if let Some(static_list) = models.get_mut("deepseek") {
+                let mut set: HashSet<String> = static_list.iter().cloned().collect();
+                set.extend(remote_models);
+                *static_list = set.into_iter().collect();
+                static_list.sort();
+            }
+        }
+    }
+
+    // 6. OpenRouter (Dynamic public)
     let openrouter_models = fetch_openrouter_models().await;
     if !openrouter_models.is_empty() {
         if let Some(static_list) = models.get_mut("openrouter") {
@@ -531,7 +588,7 @@ pub async fn get_models(
         }
     }
 
-    // 6. Requesty (Dynamic public)
+    // 7. Requesty (Dynamic public)
     let requesty_models = fetch_requesty_models().await;
     if !requesty_models.is_empty() {
         if let Some(static_list) = models.get_mut("requesty") {
@@ -547,7 +604,7 @@ pub async fn get_models(
         }
     }
 
-    // 7. Custom OpenAI (Dynamic if configured)
+    // 8. Custom OpenAI (Dynamic if configured)
     if let (Some(base_url), Ok(api_key)) = (
         app_config.ai_custom_openai_url,
         crate::application::ai::get_api_key(runtime, cache, "custom-openai"),
@@ -653,6 +710,7 @@ async fn dispatch_provider(
             generate_custom_openai(&client, &api_key, gen_req, system_prompt, base_url).await
         }
         "minimax" => generate_minimax(&client, &api_key, gen_req, system_prompt).await,
+        "deepseek" => generate_deepseek(&client, &api_key, gen_req, system_prompt).await,
         _ => Err(format!("Unsupported provider: {}", gen_req.provider)),
     }
 }
@@ -1210,6 +1268,44 @@ async fn generate_minimax(
     Err(format!("MiniMax Error: {}", errors.join("; ")))
 }
 
+async fn generate_deepseek(
+    client: &Client,
+    api_key: &str,
+    req: &AiGenerateRequest,
+    system_prompt: &str,
+) -> Result<String, String> {
+    let body = json!({
+        "model": req.model,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": req.prompt}
+        ],
+        "temperature": 0.0,
+        "stream": false
+    });
+
+    let res = client
+        .post(format!("{DEEPSEEK_BASE_URL}/chat/completions"))
+        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !res.status().is_success() {
+        let error_text = res.text().await.unwrap_or_default();
+        return Err(format!("DeepSeek Error: {}", error_text));
+    }
+
+    let json: serde_json::Value = res.json().await.map_err(|e| e.to_string())?;
+    let content = json["choices"][0]["message"]["content"]
+        .as_str()
+        .ok_or("Invalid response format from DeepSeek")?;
+
+    Ok(clean_response(content))
+}
+
 fn clean_response(text: &str) -> String {
     let text = text.trim();
     if text.starts_with("```") {
@@ -1243,6 +1339,7 @@ mod tests {
         assert!(models.contains_key("openrouter"));
         assert!(models.contains_key("requesty"));
         assert!(models.contains_key("minimax"));
+        assert!(models.contains_key("deepseek"));
 
         // Check for new futuristic models from yaml
         let openai = models.get("openai").unwrap();
@@ -1262,6 +1359,11 @@ mod tests {
         assert!(minimax.contains(&"MiniMax-M2.7-highspeed".to_string()));
         // M3 should be listed first so it is selected as the default model
         assert_eq!(minimax.first().map(String::as_str), Some("MiniMax-M3"));
+
+        // DeepSeek aliases keep the default model valid across API versions
+        let deepseek = models.get("deepseek").unwrap();
+        assert!(deepseek.contains(&"deepseek-chat".to_string()));
+        assert_eq!(deepseek.first().map(String::as_str), Some("deepseek-chat"));
 
         // Ollama is not in yaml, so it shouldn't be here yet
         assert!(!models.contains_key("ollama"));

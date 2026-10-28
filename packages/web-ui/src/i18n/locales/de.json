@@ -626,6 +626,8 @@
     "fontSize": "Schriftgröße",
     "fontSizeLabel": "Schriftgröße",
     "fontSizeDesc": "Passt die in der gesamten Anwendung verwendete Grundschriftgröße an (10-20 px).",
+    "fontSizeDecrease": "Schriftgröße verkleinern",
+    "fontSizeIncrease": "Schriftgröße vergrößern",
     "preview": "Vorschau",
     "fontPreviewText": "Franz jagt im komplett verwahrlosten Taxi quer durch Bayern",
     "dataGrid": {

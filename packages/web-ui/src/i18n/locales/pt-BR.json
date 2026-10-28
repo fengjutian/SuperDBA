@@ -615,6 +615,8 @@
     "fontSize": "Tamanho da Fonte",
     "fontSizeLabel": "Tamanho da Fonte",
     "fontSizeDesc": "Ajusta o tamanho base da fonte usado em todo o aplicativo (10-20px).",
+    "fontSizeDecrease": "Diminuir tamanho da fonte",
+    "fontSizeIncrease": "Aumentar tamanho da fonte",
     "preview": "Pré-visualização",
     "fontPreviewText": "A rápida raposa marrom pula sobre o cão preguiçoso",
     "resultColors": {

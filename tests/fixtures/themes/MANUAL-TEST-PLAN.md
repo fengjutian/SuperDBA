@@ -103,7 +103,7 @@ light/dark OS appearance, a genuine old profile copy, and multiple mounted edito
 
 | Input / action | Expected result |
 | --- | --- |
-| Cold launch offline | All 12 builtins selectable; no package/network dependency |
+| Cold launch offline | All 16 builtins selectable; no package/network dependency |
 | Historical static, system light/dark, custom and independent editor preferences | Same visuals/editor precedence; startup and OS changes do not save/repair preferences |
 | Legacy JSON import/export, including nullable/native field spellings | Readable, editable personal copy; original file untouched; opaque metadata retained; optional chosen import name respected |
 | Duplicate a named builtin, edit its separate exact editor JSON, export/reimport | New personal identity, no builtin overwrite; SQL rendering remains exact rather than regenerating source rules |

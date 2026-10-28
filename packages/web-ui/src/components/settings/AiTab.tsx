@@ -38,6 +38,7 @@ import {
     OpenAIIcon,
     AnthropicIcon,
     MiniMaxIcon,
+    DeepSeekIcon,
     OpenRouterIcon,
     RequestyIcon,
     OllamaIcon,
@@ -87,6 +88,11 @@ const PROVIDERS: Array<{
         id: 'custom-openai',
         label: 'OpenAI Compatible',
         icon: <OpenAIIcon size={18} className="text-muted" />,
+    },
+    {
+        id: 'deepseek',
+        label: 'DeepSeek',
+        icon: <DeepSeekIcon size={18} className="text-[#4d6bfe]" />,
     },
 ];
 
@@ -139,7 +145,7 @@ export function AiTab() {
 
     const checkKeys = useCallback(async () => {
         try {
-            const [openai, anthropic, openrouter, requesty, minimax, customOpenai] =
+            const [openai, anthropic, openrouter, requesty, minimax, deepseek, customOpenai] =
                 await Promise.all(
                     [
                         'openai',
@@ -147,6 +153,7 @@ export function AiTab() {
                         'openrouter',
                         'requesty',
                         'minimax',
+                        'deepseek',
                         'custom-openai',
                     ].map((provider) => client.call('check_ai_key_status', {provider})),
                 );
@@ -157,6 +164,7 @@ export function AiTab() {
                 openrouter,
                 requesty,
                 minimax,
+                deepseek,
                 'custom-openai': customOpenai,
                 ollama,
             });

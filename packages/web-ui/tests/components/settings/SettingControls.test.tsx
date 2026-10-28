@@ -243,6 +243,89 @@ describe('SettingSlider', () => {
     });
 });
 
+describe('SettingSlider stepper', () => {
+    const stepper = {decreaseLabel: 'Decrease', increaseLabel: 'Increase'};
+
+    it('renders labelled step buttons around the formatted value', () => {
+        render(
+            <SettingSlider
+                value={15}
+                onChange={() => {}}
+                min={10}
+                max={20}
+                step={1}
+                formatValue={(v) => `${v}px`}
+                stepper={stepper}
+            />,
+        );
+        expect(screen.getByRole('button', {name: 'Decrease'})).toBeEnabled();
+        expect(screen.getByRole('button', {name: 'Increase'})).toBeEnabled();
+        expect(screen.getByText('15px')).toBeInTheDocument();
+    });
+
+    it('increments and decrements by one step', () => {
+        const onChange = vi.fn();
+        render(
+            <SettingSlider
+                value={15}
+                onChange={onChange}
+                min={10}
+                max={20}
+                step={1}
+                stepper={stepper}
+            />,
+        );
+        fireEvent.click(screen.getByRole('button', {name: 'Increase'}));
+        expect(onChange).toHaveBeenLastCalledWith(16);
+        fireEvent.click(screen.getByRole('button', {name: 'Decrease'}));
+        expect(onChange).toHaveBeenLastCalledWith(14);
+    });
+
+    it('rounds sub-unit steps to avoid floating point noise', () => {
+        const onChange = vi.fn();
+        render(
+            <SettingSlider
+                value={1.5}
+                onChange={onChange}
+                min={1.0}
+                max={2.5}
+                step={0.1}
+                stepper={stepper}
+            />,
+        );
+        fireEvent.click(screen.getByRole('button', {name: 'Increase'}));
+        expect(onChange).toHaveBeenLastCalledWith(1.6);
+    });
+
+    it('disables the buttons at the bounds', () => {
+        const {rerender} = render(
+            <SettingSlider
+                value={10}
+                onChange={() => {}}
+                min={10}
+                max={20}
+                step={1}
+                stepper={stepper}
+            />,
+        );
+        expect(screen.getByRole('button', {name: 'Decrease'})).toBeDisabled();
+        expect(screen.getByRole('button', {name: 'Increase'})).toBeEnabled();
+
+        rerender(
+            <SettingSlider
+                value={20}
+                onChange={() => {}}
+                min={10}
+                max={20}
+                step={1}
+                stepper={stepper}
+            />,
+        );
+        expect(screen.getByRole('button', {name: 'Decrease'})).toBeEnabled();
+        expect(screen.getByRole('button', {name: 'Increase'})).toBeDisabled();
+    });
+});
+
 describe('SettingNumberInput', () => {
     it('renders with the current value', () => {
         render(<SettingNumberInput value={500} onChange={() => {}} />);

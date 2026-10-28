@@ -284,7 +284,7 @@ export const Settings = () => {
 
             {/* Content */}
             <div className="flex-1 overflow-auto">
-                <div className="max-w-5xl mx-auto p-8">
+                <div className="p-5">
                     {activePluginId ? (
                         <PluginSettingsPage key={activePluginId} pluginId={activePluginId} />
                     ) : activeTab === 'plugins' ? (

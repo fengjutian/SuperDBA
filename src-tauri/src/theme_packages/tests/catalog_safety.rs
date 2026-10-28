@@ -94,7 +94,7 @@ fn fifo_namespace_locks_are_rejected_without_opening_them() {
         .success());
     assert!(files::package_read_lock(&namespace).is_err());
     let catalog = read_theme_catalog(root.path(), root.path(), "0.99.0");
-    assert_eq!(catalog.themes.len(), 12);
+    assert_eq!(catalog.themes.len(), 16);
     assert!(catalog
         .issues
         .iter()

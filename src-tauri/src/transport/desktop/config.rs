@@ -196,6 +196,7 @@ pub fn get_ai_api_key(app: &AppHandle, provider: &str) -> Result<String, String>
         "requesty" => "REQUESTY_API_KEY",
         "custom-openai" => "CUSTOM_OPENAI_API_KEY",
         "minimax" => "MINIMAX_API_KEY",
+        "deepseek" => "DEEPSEEK_API_KEY",
         _ => "",
     };
 
@@ -226,6 +227,7 @@ pub fn get_ai_api_key_status(app: &AppHandle, provider: &str) -> AiKeyStatus {
         "requesty" => "REQUESTY_API_KEY",
         "custom-openai" => "CUSTOM_OPENAI_API_KEY",
         "minimax" => "MINIMAX_API_KEY",
+        "deepseek" => "DEEPSEEK_API_KEY",
         _ => "",
     };
 

@@ -14,7 +14,7 @@ export const FONT_MAP: Record<string, string> = {
     'DejaVu Sans Mono': 'DejaVu Sans Mono, Menlo, Monaco, Consolas, monospace',
 };
 
-export const DEFAULT_FONT_SIZE = 14;
+export const DEFAULT_FONT_SIZE = 15;
 export const DEFAULT_FONT_FAMILY = 'System';
 export const FONT_CACHE_KEY = 'superdba_font_cache';
 export const OLD_SETTINGS_KEY = 'superdba_settings';
@@ -159,7 +159,7 @@ export function detectAIProviderFromKeys(
     keyStatus: Record<AiProvider, boolean>,
     availableModels: Record<string, string[]>,
 ): DetectedAIConfig {
-    const providers: AiProvider[] = ['openai', 'anthropic', 'openrouter', 'minimax'];
+    const providers: AiProvider[] = ['openai', 'anthropic', 'openrouter', 'minimax', 'deepseek'];
 
     for (const provider of providers) {
         if (keyStatus[provider]) {

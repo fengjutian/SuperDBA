@@ -102,7 +102,7 @@
 :root {
     /* Typography - Define BEFORE usage */
     --font-base: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-    --font-size-base: 14px;
+    --font-size-base: 15px;
     --font-mono: 'JetBrains Mono', 'Consolas', 'Courier New', monospace;
     --font-result: var(--font-mono);
 

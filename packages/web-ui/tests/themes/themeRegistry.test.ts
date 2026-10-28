@@ -74,6 +74,34 @@ describe('themeRegistry', () => {
             expect(theme?.name).toBe('High Contrast');
         });
 
+        it('should return tokyo-night theme', () => {
+            const theme = themeRegistry.getPreset('tokyo-night');
+            expect(theme).toBeDefined();
+            expect(theme?.id).toBe('tokyo-night');
+            expect(theme?.name).toBe('Tokyo Night');
+        });
+
+        it('should return catppuccin-mocha theme', () => {
+            const theme = themeRegistry.getPreset('catppuccin-mocha');
+            expect(theme).toBeDefined();
+            expect(theme?.id).toBe('catppuccin-mocha');
+            expect(theme?.name).toBe('Catppuccin Mocha');
+        });
+
+        it('should return night-owl theme', () => {
+            const theme = themeRegistry.getPreset('night-owl');
+            expect(theme).toBeDefined();
+            expect(theme?.id).toBe('night-owl');
+            expect(theme?.name).toBe('Night Owl');
+        });
+
+        it('should return github-light theme', () => {
+            const theme = themeRegistry.getPreset('github-light');
+            expect(theme).toBeDefined();
+            expect(theme?.id).toBe('github-light');
+            expect(theme?.name).toBe('GitHub Light');
+        });
+
         it('should return undefined for non-existent theme', () => {
             const theme = themeRegistry.getPreset('non-existent-theme');
             expect(theme).toBeUndefined();
@@ -86,9 +114,9 @@ describe('themeRegistry', () => {
     });
 
     describe('getAllPresets', () => {
-        it('should return all 12 preset themes', () => {
+        it('should return all 16 preset themes', () => {
             const themes = themeRegistry.getAllPresets();
-            expect(themes).toHaveLength(12);
+            expect(themes).toHaveLength(16);
         });
 
         it('should return themes with correct structure', () => {
@@ -154,6 +182,11 @@ describe('themeRegistry', () => {
         it('should return true for vs base', () => {
             const lightTheme = themeRegistry.getPreset('superdba-light');
             expect(themeRegistry.isLightTheme(lightTheme!)).toBe(true);
+        });
+
+        it('should return true for github-light', () => {
+            const theme = themeRegistry.getPreset('github-light');
+            expect(themeRegistry.isLightTheme(theme!)).toBe(true);
         });
 
         it('should return true for solarized-light', () => {

@@ -644,6 +644,8 @@
     "fontSize": "Laki ng Font",
     "fontSizeLabel": "Laki ng Font",
     "fontSizeDesc": "I-adjust ang base font size na ginagamit sa buong application (10-20px).",
+    "fontSizeDecrease": "Bawasan ang laki ng font",
+    "fontSizeIncrease": "Dagdagan ang laki ng font",
     "preview": "Preview",
     "fontPreviewText": "Ang mabilis na kayumangging soro ay tumalon sa tamad na aso",
     "resultColors": {

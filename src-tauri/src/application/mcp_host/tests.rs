@@ -55,6 +55,44 @@ args = ["--mcp"]
 }
 
 #[test]
+fn lists_minimax_code_as_file_client() {
+    let clients = get_all_clients();
+    let minimax = clients
+        .iter()
+        .find(|client| client.id == "minimax")
+        .expect("MiniMax Code should be listed as an MCP client");
+
+    assert_eq!(minimax.name, "MiniMax Code");
+    assert_eq!(minimax.client_type, "file");
+    assert!(
+        minimax
+            .config_path
+            .as_ref()
+            .is_some_and(|path| path.ends_with(".minimax/mcp.json")),
+        "MiniMax Code config path should point to ~/.minimax/mcp.json"
+    );
+}
+
+#[test]
+fn minimax_entry_declares_stdio_transport() {
+    let entry = build_stdio_server_entry("minimax", "/Applications/SuperDBA.app/superdba");
+
+    assert_eq!(entry["command"], "/Applications/SuperDBA.app/superdba");
+    assert_eq!(entry["args"], json!(["--mcp"]));
+    assert_eq!(entry["type"], "stdio");
+    assert_eq!(entry["enabled"], true);
+}
+
+#[test]
+fn other_file_clients_keep_a_minimal_entry() {
+    let entry = build_stdio_server_entry("cursor", "/Applications/SuperDBA.app/superdba");
+
+    assert_eq!(entry["command"], "/Applications/SuperDBA.app/superdba");
+    assert!(entry.get("type").is_none(), "unexpected transport metadata");
+    assert!(entry.get("enabled").is_none(), "unexpected enabled flag");
+}
+
+#[test]
 fn rejects_unknown_host_client_without_writing_configuration() {
     let error = install_config_blocking("unknown-client")
         .expect_err("unknown MCP clients must be rejected");

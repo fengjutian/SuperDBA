@@ -7,6 +7,7 @@ import {
     AnthropicIcon,
     AntigravityIcon,
     CursorIcon,
+    MiniMaxIcon,
     OpenAIIcon,
     WindsurfIcon,
 } from '@/components/icons/ClientIcons';
@@ -33,6 +34,8 @@ const ClientIcon = ({clientId, size = 20}: {clientId: string; size?: number}) =>
             return <WindsurfIcon size={size} className="text-primary" />;
         case 'antigravity':
             return <AntigravityIcon size={size} />;
+        case 'minimax':
+            return <MiniMaxIcon size={size} className="text-[#6c6cff]" />;
         case 'codex':
             return <OpenAIIcon size={size} className="text-[#10a37f]" />;
         default:
@@ -118,22 +121,18 @@ function McpSetupPanel() {
         [clients, selectedClientId],
     );
 
-    const jsonValue = useMemo(
-        () =>
-            JSON.stringify(
-                {
-                    mcpServers: {
-                        superdba: {
-                            command: selectedClient?.executable_path || 'superdba',
-                            args: ['--mcp'],
-                        },
-                    },
-                },
-                null,
-                2,
-            ),
-        [selectedClient?.executable_path],
-    );
+    const jsonValue = useMemo(() => {
+        const server: Record<string, unknown> = {
+            command: selectedClient?.executable_path || 'superdba',
+            args: ['--mcp'],
+        };
+        // MiniMax Code documents explicit stdio metadata for local servers.
+        if (selectedClient?.client_id === 'minimax') {
+            server.type = 'stdio';
+            server.enabled = true;
+        }
+        return JSON.stringify({mcpServers: {superdba: server}}, null, 2);
+    }, [selectedClient?.executable_path, selectedClient?.client_id]);
 
     const cliCommand = useMemo(
         () =>

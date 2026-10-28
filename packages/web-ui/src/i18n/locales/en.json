@@ -644,6 +644,8 @@
     "fontSize": "Font Size",
     "fontSizeLabel": "Font Size",
     "fontSizeDesc": "Adjust the base font size used throughout the application (10-20px).",
+    "fontSizeDecrease": "Decrease font size",
+    "fontSizeIncrease": "Increase font size",
     "preview": "Preview",
     "fontPreviewText": "The quick brown fox jumps over the lazy dog",
     "resultColors": {

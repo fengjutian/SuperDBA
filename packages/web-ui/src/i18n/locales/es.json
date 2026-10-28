@@ -651,6 +651,8 @@
     "fontSize": "Tamaño de Fuente",
     "fontSizeLabel": "Tamaño de Fuente",
     "fontSizeDesc": "Ajusta el tamaño base de fuente usado en la aplicación (10-20px).",
+    "fontSizeDecrease": "Reducir el tamaño de fuente",
+    "fontSizeIncrease": "Aumentar el tamaño de fuente",
     "preview": "Vista Previa",
     "fontPreviewText": "El veloz zorro marrón salta sobre el perro perezoso",
     "dataGrid": {

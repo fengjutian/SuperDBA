@@ -644,6 +644,8 @@
     "fontSize": "Taille de police",
     "fontSizeLabel": "Taille de police",
     "fontSizeDesc": "Ajustez la taille de police de base utilisée dans toute l’application (10-20 px).",
+    "fontSizeDecrease": "Réduire la taille de police",
+    "fontSizeIncrease": "Augmenter la taille de police",
     "preview": "Aperçu",
     "fontPreviewText": "Voix ambiguë d’un cœur qui au zéphyr préfère les jattes de kiwis",
     "resultColors": {

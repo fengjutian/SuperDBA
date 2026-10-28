@@ -1894,9 +1894,9 @@ export function PluginsTab({onOpenPluginSettings, onPluginsChanged}: PluginsTabP
 
             {/* Sticky attribution — pinned to the bottom of the Settings scroll
           area regardless of how far the user has scrolled. The negative
-          horizontal margin pulls it through the parent's p-8 padding so
-          the top border looks edge-to-edge inside the max-w-5xl. */}
-            <div className="sticky bottom-0 z-10 -mx-8 mt-6 px-8 py-2.5 bg-base/85 backdrop-blur-md border-t border-default flex items-center justify-end text-xs text-muted">
+          horizontal margin pulls it through the parent's 20px padding so
+          the top border looks edge-to-edge. */}
+            <div className="sticky bottom-0 z-10 -mx-5 mt-6 px-5 py-2.5 bg-base/85 backdrop-blur-md border-t border-default flex items-center justify-end text-xs text-muted">
                 <span>{t('settings.plugins.poweredBy')}</span>
                 <button
                     type="button"

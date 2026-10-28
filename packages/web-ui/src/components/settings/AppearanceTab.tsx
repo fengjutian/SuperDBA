@@ -9,7 +9,12 @@ import {
     EDITOR_FONT_SIZE_MIN,
 } from '@/utils/editorFontSize';
 import {useTheme} from '@/hooks/useTheme';
-import {DEFAULT_RESULT_FONT_FAMILY, RESULT_FONT_INHERIT, getFontCSS} from '@/utils/settings';
+import {
+    DEFAULT_FONT_SIZE,
+    DEFAULT_RESULT_FONT_FAMILY,
+    RESULT_FONT_INHERIT,
+    getFontCSS,
+} from '@/utils/settings';
 import {
     SettingSection,
     SettingRow,
@@ -83,19 +88,23 @@ export function AppearanceTab() {
                             description={t('settings.fontSizeDesc')}
                         >
                             <SettingSlider
-                                value={settings.fontSize || 14}
+                                value={settings.fontSize || DEFAULT_FONT_SIZE}
                                 onChange={(v) => updateSetting('fontSize', v)}
                                 min={10}
                                 max={20}
                                 step={1}
                                 formatValue={(v) => `${v}px`}
+                                stepper={{
+                                    decreaseLabel: t('settings.fontSizeDecrease'),
+                                    increaseLabel: t('settings.fontSizeIncrease'),
+                                }}
                             />
                         </SettingRow>
                         <div className="bg-base border border-default rounded-lg p-4 mt-2">
                             <p className="text-xs text-muted mb-2">{t('settings.preview')}:</p>
                             <p
                                 className="text-primary"
-                                style={{fontSize: `${settings.fontSize || 14}px`}}
+                                style={{fontSize: `${settings.fontSize || DEFAULT_FONT_SIZE}px`}}
                             >
                                 Aa Bb Cc 123 - {t('settings.fontPreviewText')}
                             </p>

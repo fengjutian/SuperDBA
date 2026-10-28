@@ -1,4 +1,5 @@
 import {createContext, useContext, useId, type ReactNode} from 'react';
+import {Minus, Plus} from 'lucide-react';
 import clsx from 'clsx';
 
 /* ── Section ── */
@@ -167,24 +168,93 @@ interface SettingSliderProps {
     max: number;
     step: number;
     formatValue?: (value: number) => string;
+    /** Adds −/+ buttons around the value so exact steps are reachable without dragging. */
+    stepper?: {decreaseLabel: string; increaseLabel: string};
 }
 
-export function SettingSlider({value, onChange, min, max, step, formatValue}: SettingSliderProps) {
-    const display = formatValue ? formatValue(value) : String(value);
+interface StepperButtonProps {
+    label: string;
+    disabled: boolean;
+    onClick: () => void;
+    children: ReactNode;
+}
+
+function StepperButton({label, disabled, onClick, children}: StepperButtonProps) {
     return (
-        <div className="flex items-center gap-4 min-w-[200px]">
+        <button
+            type="button"
+            aria-label={label}
+            disabled={disabled}
+            onClick={onClick}
+            className={clsx(
+                'flex h-7 w-7 items-center justify-center rounded-md border border-default transition-colors',
+                'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus',
+                disabled
+                    ? 'cursor-not-allowed text-muted opacity-40'
+                    : 'text-muted hover:border-strong hover:text-primary',
+            )}
+        >
+            {children}
+        </button>
+    );
+}
+
+export function SettingSlider({
+    value,
+    onChange,
+    min,
+    max,
+    step,
+    formatValue,
+    stepper,
+}: SettingSliderProps) {
+    const row = useContext(SettingRowContext);
+    const display = formatValue ? formatValue(value) : String(value);
+    // Round away binary floating point noise (e.g. 1.5 + 0.1) for sub-unit steps.
+    const changeBy = (direction: 1 | -1) => {
+        const next = Math.min(max, Math.max(min, value + direction * step));
+        onChange(Number(next.toFixed(4)));
+    };
+    return (
+        <div
+            className={clsx('flex items-center gap-4', stepper ? 'min-w-[280px]' : 'min-w-[200px]')}
+        >
             <input
                 type="range"
                 min={min}
                 max={max}
                 step={step}
                 value={value}
+                aria-labelledby={row?.labelId}
+                aria-describedby={row?.descriptionId}
                 onChange={(e) =>
                     onChange(step < 1 ? parseFloat(e.target.value) : parseInt(e.target.value))
                 }
                 className="flex-1 h-2 bg-surface-tertiary rounded-lg appearance-none cursor-pointer accent-accent-primary"
             />
-            <span className="text-sm font-mono text-primary w-16 text-right">{display}</span>
+            {stepper ? (
+                <div className="flex items-center gap-1">
+                    <StepperButton
+                        label={stepper.decreaseLabel}
+                        disabled={value <= min}
+                        onClick={() => changeBy(-1)}
+                    >
+                        <Minus size={13} aria-hidden="true" />
+                    </StepperButton>
+                    <span className="text-sm font-mono text-primary w-12 text-center tabular-nums">
+                        {display}
+                    </span>
+                    <StepperButton
+                        label={stepper.increaseLabel}
+                        disabled={value >= max}
+                        onClick={() => changeBy(1)}
+                    >
+                        <Plus size={13} aria-hidden="true" />
+                    </StepperButton>
+                </div>
+            ) : (
+                <span className="text-sm font-mono text-primary w-16 text-right">{display}</span>
+            )}
         </div>
     );
 }

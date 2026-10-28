@@ -14,7 +14,7 @@ export async function detectAiDefaults(
         return {};
     let provider = settings.aiProvider;
     if (!provider) {
-        const providers = ['openai', 'anthropic', 'openrouter', 'minimax'] as const;
+        const providers = ['openai', 'anthropic', 'openrouter', 'minimax', 'deepseek'] as const;
         const available = await Promise.all(
             providers.map((provider) => client.call('check_ai_key', {provider}).catch(() => false)),
         );

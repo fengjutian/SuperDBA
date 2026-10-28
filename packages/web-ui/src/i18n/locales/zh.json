@@ -626,6 +626,8 @@
     "fontSize": "字体大小",
     "fontSizeLabel": "字体大小",
     "fontSizeDesc": "调整整个应用使用的基础字体大小（10-20px）。",
+    "fontSizeDecrease": "减小字体大小",
+    "fontSizeIncrease": "增大字体大小",
     "preview": "预览",
     "fontPreviewText": "The quick brown fox jumps over the lazy dog",
     "dataGrid": {

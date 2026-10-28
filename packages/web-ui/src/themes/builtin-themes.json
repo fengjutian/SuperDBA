@@ -1123,5 +1123,381 @@
       "inherit": true,
       "themeName": "Gruvbox Material Light"
     }
+  },
+  {
+    "id": "tokyo-night",
+    "name": "Tokyo Night",
+    "author": "enkia",
+    "isPreset": true,
+    "isReadOnly": true,
+    "colors": {
+      "bg": {
+        "base": "#1a1b26",
+        "elevated": "#16161e",
+        "overlay": "#1f2335",
+        "input": "#16161e",
+        "tooltip": "#1f2335"
+      },
+      "surface": {
+        "primary": "#1f2335",
+        "secondary": "#292e42",
+        "tertiary": "#3b4261",
+        "hover": "#292e42",
+        "active": "#7aa2f7",
+        "disabled": "#1f2335"
+      },
+      "text": {
+        "primary": "#c0caf5",
+        "secondary": "#a9b1d6",
+        "muted": "#959ec9",
+        "disabled": "#565f89",
+        "accent": "#7aa2f7",
+        "inverse": "#1a1b26"
+      },
+      "accent": {
+        "primary": "#7aa2f7",
+        "secondary": "#bb9af7",
+        "success": "#9ece6a",
+        "warning": "#e0af68",
+        "error": "#f7768e",
+        "info": "#7dcfff"
+      },
+      "border": {
+        "subtle": "#16161e",
+        "default": "#2f334d",
+        "strong": "#3b4261",
+        "focus": "#7aa2f7"
+      },
+      "semantic": {
+        "string": "#9ece6a",
+        "number": "#ff9e64",
+        "boolean": "#bb9af7",
+        "date": "#e0af68",
+        "null": "#8b93bd",
+        "primaryKey": "#ff9e64",
+        "foreignKey": "#7dcfff",
+        "index": "#bb9af7",
+        "connectionActive": "#9ece6a",
+        "connectionInactive": "#737aa2",
+        "modified": "#7aa2f7",
+        "deleted": "#f7768e",
+        "new": "#9ece6a"
+      }
+    },
+    "typography": {
+      "fontFamily": {
+        "base": "Inter, system-ui, sans-serif",
+        "mono": "JetBrains Mono, Fira Code, Menlo, Consolas, monospace"
+      },
+      "fontSize": {
+        "xs": "0.75rem",
+        "sm": "0.875rem",
+        "base": "1rem",
+        "lg": "1.125rem",
+        "xl": "1.25rem"
+      }
+    },
+    "layout": {
+      "borderRadius": {
+        "sm": "0.25rem",
+        "base": "0.5rem",
+        "lg": "0.75rem",
+        "xl": "1rem"
+      },
+      "spacing": {
+        "xs": "0.25rem",
+        "sm": "0.5rem",
+        "base": "1rem",
+        "lg": "1.5rem",
+        "xl": "2rem"
+      }
+    },
+    "monacoTheme": {
+      "base": "vs-dark",
+      "inherit": true,
+      "themeName": "Tokyo Night"
+    }
+  },
+  {
+    "id": "catppuccin-mocha",
+    "name": "Catppuccin Mocha",
+    "author": "Catppuccin",
+    "isPreset": true,
+    "isReadOnly": true,
+    "colors": {
+      "bg": {
+        "base": "#1e1e2e",
+        "elevated": "#181825",
+        "overlay": "#313244",
+        "input": "#181825",
+        "tooltip": "#313244"
+      },
+      "surface": {
+        "primary": "#181825",
+        "secondary": "#313244",
+        "tertiary": "#45475a",
+        "hover": "#313244",
+        "active": "#89b4fa",
+        "disabled": "#181825"
+      },
+      "text": {
+        "primary": "#cdd6f4",
+        "secondary": "#bac2de",
+        "muted": "#a6adc8",
+        "disabled": "#6c7086",
+        "accent": "#89b4fa",
+        "inverse": "#1e1e2e"
+      },
+      "accent": {
+        "primary": "#89b4fa",
+        "secondary": "#cba6f7",
+        "success": "#a6e3a1",
+        "warning": "#f9e2af",
+        "error": "#f38ba8",
+        "info": "#89dceb"
+      },
+      "border": {
+        "subtle": "#181825",
+        "default": "#313244",
+        "strong": "#45475a",
+        "focus": "#89b4fa"
+      },
+      "semantic": {
+        "string": "#a6e3a1",
+        "number": "#fab387",
+        "boolean": "#cba6f7",
+        "date": "#f9e2af",
+        "null": "#9399b2",
+        "primaryKey": "#fab387",
+        "foreignKey": "#89dceb",
+        "index": "#cba6f7",
+        "connectionActive": "#a6e3a1",
+        "connectionInactive": "#6c7086",
+        "modified": "#89b4fa",
+        "deleted": "#f38ba8",
+        "new": "#a6e3a1"
+      }
+    },
+    "typography": {
+      "fontFamily": {
+        "base": "Inter, system-ui, sans-serif",
+        "mono": "JetBrains Mono, Fira Code, Menlo, Consolas, monospace"
+      },
+      "fontSize": {
+        "xs": "0.75rem",
+        "sm": "0.875rem",
+        "base": "1rem",
+        "lg": "1.125rem",
+        "xl": "1.25rem"
+      }
+    },
+    "layout": {
+      "borderRadius": {
+        "sm": "0.25rem",
+        "base": "0.5rem",
+        "lg": "0.75rem",
+        "xl": "1rem"
+      },
+      "spacing": {
+        "xs": "0.25rem",
+        "sm": "0.5rem",
+        "base": "1rem",
+        "lg": "1.5rem",
+        "xl": "2rem"
+      }
+    },
+    "monacoTheme": {
+      "base": "vs-dark",
+      "inherit": true,
+      "themeName": "Catppuccin Mocha"
+    }
+  },
+  {
+    "id": "night-owl",
+    "name": "Night Owl",
+    "author": "Sarah Drasner",
+    "isPreset": true,
+    "isReadOnly": true,
+    "colors": {
+      "bg": {
+        "base": "#011627",
+        "elevated": "#01111e",
+        "overlay": "#0b2942",
+        "input": "#011627",
+        "tooltip": "#0b2942"
+      },
+      "surface": {
+        "primary": "#0b2942",
+        "secondary": "#1d3b53",
+        "tertiary": "#234d70",
+        "hover": "#0b2942",
+        "active": "#7fdbca",
+        "disabled": "#0b2942"
+      },
+      "text": {
+        "primary": "#d6deeb",
+        "secondary": "#b6c6da",
+        "muted": "#9db3c8",
+        "disabled": "#637777",
+        "accent": "#82aaff",
+        "inverse": "#011627"
+      },
+      "accent": {
+        "primary": "#82aaff",
+        "secondary": "#c792ea",
+        "success": "#addb67",
+        "warning": "#ecc48d",
+        "error": "#ff5874",
+        "info": "#7fdbca"
+      },
+      "border": {
+        "subtle": "#01111e",
+        "default": "#1d3b53",
+        "strong": "#2d5577",
+        "focus": "#82aaff"
+      },
+      "semantic": {
+        "string": "#addb67",
+        "number": "#f78c6c",
+        "boolean": "#c792ea",
+        "date": "#ecc48d",
+        "null": "#8ba7bd",
+        "primaryKey": "#f78c6c",
+        "foreignKey": "#7fdbca",
+        "index": "#c792ea",
+        "connectionActive": "#addb67",
+        "connectionInactive": "#5f7e97",
+        "modified": "#82aaff",
+        "deleted": "#ff5874",
+        "new": "#addb67"
+      }
+    },
+    "typography": {
+      "fontFamily": {
+        "base": "Inter, system-ui, sans-serif",
+        "mono": "Menlo, Monaco, Consolas, Courier New, monospace"
+      },
+      "fontSize": {
+        "xs": "0.75rem",
+        "sm": "0.875rem",
+        "base": "1rem",
+        "lg": "1.125rem",
+        "xl": "1.25rem"
+      }
+    },
+    "layout": {
+      "borderRadius": {
+        "sm": "0.25rem",
+        "base": "0.5rem",
+        "lg": "0.75rem",
+        "xl": "1rem"
+      },
+      "spacing": {
+        "xs": "0.25rem",
+        "sm": "0.5rem",
+        "base": "1rem",
+        "lg": "1.5rem",
+        "xl": "2rem"
+      }
+    },
+    "monacoTheme": {
+      "base": "vs-dark",
+      "inherit": true,
+      "themeName": "Night Owl"
+    }
+  },
+  {
+    "id": "github-light",
+    "name": "GitHub Light",
+    "author": "GitHub",
+    "isPreset": true,
+    "isReadOnly": true,
+    "colors": {
+      "bg": {
+        "base": "#ffffff",
+        "elevated": "#f6f8fa",
+        "overlay": "#eef1f4",
+        "input": "#ffffff",
+        "tooltip": "#f6f8fa"
+      },
+      "surface": {
+        "primary": "#f6f8fa",
+        "secondary": "#eaeef2",
+        "tertiary": "#d8dee4",
+        "hover": "#f3f4f6",
+        "active": "#0969da",
+        "disabled": "#f6f8fa"
+      },
+      "text": {
+        "primary": "#1f2328",
+        "secondary": "#57606a",
+        "muted": "#5f6873",
+        "disabled": "#8c959f",
+        "accent": "#0550ae",
+        "inverse": "#ffffff"
+      },
+      "accent": {
+        "primary": "#0969da",
+        "secondary": "#8250df",
+        "success": "#1a7f37",
+        "warning": "#9a6700",
+        "error": "#cf222e",
+        "info": "#0b6e8a"
+      },
+      "border": {
+        "subtle": "#eaeef2",
+        "default": "#d0d7de",
+        "strong": "#8c959f",
+        "focus": "#0969da"
+      },
+      "semantic": {
+        "string": "#0a3069",
+        "number": "#0550ae",
+        "boolean": "#8250df",
+        "date": "#1a7f37",
+        "null": "#636c76",
+        "primaryKey": "#953800",
+        "foreignKey": "#0b6e8a",
+        "index": "#8250df",
+        "connectionActive": "#1a7f37",
+        "connectionInactive": "#6e7781",
+        "modified": "#0969da",
+        "deleted": "#cf222e",
+        "new": "#1a7f37"
+      }
+    },
+    "typography": {
+      "fontFamily": {
+        "base": "-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif",
+        "mono": "SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace"
+      },
+      "fontSize": {
+        "xs": "0.75rem",
+        "sm": "0.875rem",
+        "base": "1rem",
+        "lg": "1.125rem",
+        "xl": "1.25rem"
+      }
+    },
+    "layout": {
+      "borderRadius": {
+        "sm": "0.25rem",
+        "base": "0.5rem",
+        "lg": "0.75rem",
+        "xl": "1rem"
+      },
+      "spacing": {
+        "xs": "0.25rem",
+        "sm": "0.5rem",
+        "base": "1rem",
+        "lg": "1.5rem",
+        "xl": "2rem"
+      }
+    },
+    "monacoTheme": {
+      "base": "vs",
+      "inherit": true,
+      "themeName": "GitHub Light"
+    }
   }
 ]

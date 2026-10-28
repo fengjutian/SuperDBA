@@ -12,6 +12,10 @@ import {solarizedLight} from './presets/solarizedLight';
 import {highContrast} from './presets/highContrast';
 import {gruvboxDark} from './presets/gruvboxDark';
 import {gruvboxLight} from './presets/gruvboxLight';
+import {tokyoNight} from './presets/tokyoNight';
+import {catppuccinMocha} from './presets/catppuccinMocha';
+import {nightOwl} from './presets/nightOwl';
+import {githubLight} from './presets/githubLight';
 
 class ThemeRegistry {
     private presets: Map<string, Theme> = new Map();
@@ -29,6 +33,10 @@ class ThemeRegistry {
         this.registerPreset(highContrast);
         this.registerPreset(gruvboxDark);
         this.registerPreset(gruvboxLight);
+        this.registerPreset(tokyoNight);
+        this.registerPreset(catppuccinMocha);
+        this.registerPreset(nightOwl);
+        this.registerPreset(githubLight);
     }
 
     private registerPreset(theme: Theme): void {

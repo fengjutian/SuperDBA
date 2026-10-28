@@ -1,6 +1,7 @@
 import {createContext} from 'react';
 import type {AppLanguage} from '@/i18n/config';
 import {DEFAULT_MASKING_PATTERNS} from '@/utils/columnMasking';
+import {DEFAULT_FONT_SIZE} from '@/utils/settings';
 import type {AutocompleteKeywordCase} from '@/utils/autocomplete';
 import type {GlobalProxySettings, ProxyOverride} from '@/types/proxy';
 
@@ -15,7 +16,8 @@ export type AiProvider =
     | 'requesty'
     | 'ollama'
     | 'custom-openai'
-    | 'minimax';
+    | 'minimax'
+    | 'deepseek';
 export type ERDiagramLayout = 'LR' | 'TB';
 export type WindowDecorationsMode = 'automatic' | 'alwaysShow' | 'alwaysHide';
 
@@ -229,7 +231,7 @@ export const DEFAULT_SETTINGS: Settings = {
     language: 'auto',
     displayTimezone: 'auto',
     fontFamily: 'System',
-    fontSize: 14,
+    fontSize: DEFAULT_FONT_SIZE,
     resultColorByType: false,
     resultTypeColors: {},
     stickyColumnHeaders: true,

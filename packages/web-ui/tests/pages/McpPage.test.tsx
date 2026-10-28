@@ -31,22 +31,23 @@ vi.mock('@/components/modals/mcp/McpSafetySection', () => ({
     McpSafetySection: () => null,
 }));
 
+const status = (overrides: Record<string, unknown> = {}) => ({
+    client_id: 'claude',
+    client_name: 'Claude Desktop',
+    installed: false,
+    config_path: '/home/test/.config/Claude/claude_desktop_config.json',
+    executable_path: '/usr/bin/superdba',
+    client_type: 'file',
+    manual_command: null,
+    ...overrides,
+});
+
 describe('McpPage transport parity', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         mocks.call.mockImplementation((command: string) => {
             if (command === 'get_mcp_status') {
-                return Promise.resolve([
-                    {
-                        client_id: 'claude',
-                        client_name: 'Claude Desktop',
-                        installed: false,
-                        config_path: '/home/test/.config/Claude/claude_desktop_config.json',
-                        executable_path: '/usr/bin/superdba',
-                        client_type: 'file',
-                        manual_command: null,
-                    },
-                ]);
+                return Promise.resolve([status()]);
             }
             if (command === 'install_mcp_config') {
                 return Promise.resolve('Claude Desktop');
@@ -66,6 +67,36 @@ describe('McpPage transport parity', () => {
         await waitFor(() => {
             expect(mocks.call).toHaveBeenCalledWith('install_mcp_config', {
                 clientId: 'claude',
+            });
+            expect(mocks.showAlert).toHaveBeenCalled();
+        });
+    });
+
+    it('installs configuration for MiniMax Code', async () => {
+        mocks.call.mockImplementation((command: string) => {
+            if (command === 'get_mcp_status') {
+                return Promise.resolve([
+                    status({
+                        client_id: 'minimax',
+                        client_name: 'MiniMax Code',
+                        config_path: '/home/test/.minimax/mcp.json',
+                    }),
+                ]);
+            }
+            if (command === 'install_mcp_config') {
+                return Promise.resolve('MiniMax Code');
+            }
+            return Promise.reject(new Error(`Unexpected command: ${command}`));
+        });
+
+        render(<McpPage />);
+
+        await screen.findByText('MiniMax Code');
+        fireEvent.click(screen.getByRole('button', {name: 'mcp.install'}));
+
+        await waitFor(() => {
+            expect(mocks.call).toHaveBeenCalledWith('install_mcp_config', {
+                clientId: 'minimax',
             });
             expect(mocks.showAlert).toHaveBeenCalled();
         });

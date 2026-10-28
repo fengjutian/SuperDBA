@@ -140,10 +140,7 @@ fn install_config_blocking(client_id: &str) -> Result<String, String> {
     if config.get("mcpServers").is_none() {
         config["mcpServers"] = json!({});
     }
-    config["mcpServers"]["superdba"] = json!({
-        "command": executable,
-        "args": ["--mcp"]
-    });
+    config["mcpServers"]["superdba"] = build_stdio_server_entry(client.id, &executable);
 
     let content = serde_json::to_string_pretty(&config).map_err(|error| error.to_string())?;
     fs::write(config_path, content).map_err(|error| error.to_string())?;
@@ -205,7 +202,30 @@ fn get_all_clients() -> Vec<McpClient> {
                 .map(|base| base.home_dir().join(".gemini/antigravity/mcp_config.json")),
             client_type: "file",
         },
+        McpClient {
+            id: "minimax",
+            name: "MiniMax Code",
+            config_path: base
+                .as_ref()
+                .map(|base| base.home_dir().join(".minimax/mcp.json")),
+            client_type: "file",
+        },
     ]
+}
+
+/// Builds the `superdba` entry written into a client's `mcpServers` map. MiniMax Code
+/// documents explicit `type` and `enabled` fields for stdio servers, so write them there
+/// while keeping every other client config minimal.
+fn build_stdio_server_entry(client_id: &str, executable: &str) -> Value {
+    let mut entry = json!({
+        "command": executable,
+        "args": ["--mcp"]
+    });
+    if client_id == "minimax" {
+        entry["type"] = json!("stdio");
+        entry["enabled"] = json!(true);
+    }
+    entry
 }
 
 fn is_superdba_in_mcp_servers(path: &PathBuf) -> bool {

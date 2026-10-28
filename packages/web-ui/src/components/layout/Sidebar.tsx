@@ -2,23 +2,17 @@ import {lazy, Suspense, useState, useEffect, useMemo, useCallback, useRef} from 
 import {useNavigate, useLocation} from 'react-router-dom';
 import {useTranslation} from 'react-i18next';
 import {Plug2, Settings, Cpu, PanelLeft, Layers, Star, Clock, BookOpen} from 'lucide-react';
-import {DiscordIcon} from '@/components/icons/DiscordIcon';
-import {usePlatformCapabilities} from '@/hooks/usePlatformCapabilities';
-import {DISCORD_URL} from '@/config/links';
 import {useDatabase} from '@/hooks/useDatabase';
-import {useTheme} from '@/hooks/useTheme';
 import {SlotAnchor} from '@/components/ui/SlotAnchor';
 
 // Sub-components
 import {NavItem} from './sidebar/NavItem';
-import {RailIndicator} from './sidebar/RailIndicator';
 import {OpenConnectionItem} from './sidebar/OpenConnectionItem';
 import {ConnectionGroupItem} from './sidebar/ConnectionGroupItem';
 import {ConnectionGroupFolder} from './sidebar/ConnectionGroupFolder';
 import type {SidebarTab} from './ExplorerSidebar';
 import {LoadingState} from '@/components/ui/LoadingState';
 import {PanelDatabaseProvider} from './PanelDatabaseProvider';
-import {DiscordCommunityCallout} from './sidebar/DiscordCommunityCallout';
 
 // Hooks & Utils
 import {useSidebarResize} from '@/hooks/useSidebarResize';
@@ -41,11 +35,8 @@ const ExplorerSidebar = lazy(() =>
 );
 
 export const Sidebar = () => {
-    const platform = usePlatformCapabilities();
     const {t} = useTranslation();
     const updates = useAvailableUpdates();
-    const {currentTheme} = useTheme();
-    const isDarkTheme = !currentTheme?.id?.includes('-light');
     const {activeConnectionId, activeDriver, connections, connectionGroups} = useDatabase();
     const {settings} = useSettings();
     const navigate = useNavigate();
@@ -324,19 +315,6 @@ export const Sidebar = () => {
         <div className="flex h-full">
             {/* Primary Navigation Bar (Narrow) */}
             <aside className="w-16 bg-elevated border-r border-default flex flex-col items-center py-4 z-20">
-                <div className="mb-8" title="SuperDBA">
-                    <img
-                        src="/logo.svg"
-                        alt="SuperDBA"
-                        className="w-12 h-12 p-1.5 rounded-2xl mx-auto mb-4 shadow-lg shadow-accent-primary/30"
-                        style={{
-                            backgroundColor: isDarkTheme
-                                ? currentTheme?.colors?.surface?.secondary || '#334155'
-                                : currentTheme?.colors?.bg?.elevated || '#f8fafc',
-                        }}
-                    />
-                </div>
-
                 <nav className="flex-1 w-full flex flex-col items-center">
                     <NavItem
                         to="/connections"
@@ -396,22 +374,6 @@ export const Sidebar = () => {
                 </nav>
 
                 <div className="mt-auto">
-                    <div className="relative mb-2">
-                        <button
-                            onClick={() => void platform.openExternalUrl(DISCORD_URL)}
-                            className="flex items-center justify-center w-12 h-12 rounded-lg transition-colors relative group text-secondary hover:bg-surface-secondary hover:text-accent"
-                        >
-                            <RailIndicator isActive={false} className="-left-2" />
-                            <div className="relative">
-                                <DiscordIcon size={24} />
-                            </div>
-                            <span className="absolute left-14 bg-surface-secondary text-primary text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-30 pointer-events-none">
-                                Discord
-                            </span>
-                        </button>
-                        <DiscordCommunityCallout />
-                    </div>
-
                     <NavItem to="/mcp" icon={Cpu} label={t('sidebar.mcpServer')} />
 
                     <NavItem

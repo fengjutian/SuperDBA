@@ -37,7 +37,7 @@ fn empty_profile_reads_do_not_create_directories_and_keep_all_builtins() {
     let temp = temp_dir();
     let absent = temp.path().join("absent");
     let catalog = read_theme_catalog(&absent, &absent, "0.99.0");
-    assert_eq!(catalog.themes.len(), 12);
+    assert_eq!(catalog.themes.len(), 16);
     assert!(catalog.issues.is_empty(), "{:?}", catalog.issues);
     assert!(catalog
         .themes
@@ -67,7 +67,7 @@ fn native_and_frontend_legacy_shapes_and_nulls_are_read_without_rewriting() {
         .map(|i| fs::read(temp.path().join(format!("themes/{i}.json"))).unwrap())
         .collect();
     let catalog = read_theme_catalog(temp.path(), temp.path(), "0.99.0");
-    assert_eq!(catalog.themes.len(), 15, "{:?}", catalog.issues);
+    assert_eq!(catalog.themes.len(), 19, "{:?}", catalog.issues);
     for entry in catalog
         .themes
         .iter()
@@ -91,7 +91,7 @@ fn corrupt_and_colliding_personal_files_do_not_hide_builtins_or_get_renamed() {
     store(temp.path(), "b.json", &value);
     fs::write(temp.path().join("themes/corrupt.json"), b"{").unwrap();
     let catalog = read_theme_catalog(temp.path(), temp.path(), "0.99.0");
-    assert_eq!(catalog.themes.len(), 12);
+    assert_eq!(catalog.themes.len(), 16);
     assert!(!catalog.issues.is_empty());
     assert_eq!(fs::read_dir(temp.path().join("themes")).unwrap().count(), 3);
 }
@@ -155,7 +155,7 @@ fn import_issues_distinct_native_ids_and_preserves_source_metadata() {
     assert_eq!(a["extra"], value["extra"]);
     assert_eq!(a["isPreset"], false);
     assert_eq!(a["isReadOnly"], false);
-    assert_eq!(read_theme_catalog(temp.path(), temp.path(), "0.99.0").themes.len(), 14);
+    assert_eq!(read_theme_catalog(temp.path(), temp.path(), "0.99.0").themes.len(), 18);
 }
 
 #[test]
@@ -196,7 +196,7 @@ fn definitions_are_additive_and_stale_updates_do_not_replace_them() {
         "Changed"
     );
     remove_personal_theme(temp.path(), &created.id).unwrap();
-    assert_eq!(read_theme_catalog(temp.path(), temp.path(), "0.99.0").themes.len(), 12);
+    assert_eq!(read_theme_catalog(temp.path(), temp.path(), "0.99.0").themes.len(), 16);
 }
 
 #[test]
@@ -206,7 +206,7 @@ fn installed_catalog_uses_host_identity_and_never_activates_or_recovers() {
     let namespace = temp.path().join("plugins/themes");
     fs::create_dir(namespace.join(".staging-00000000-0000-0000-0000-000000000000")).unwrap();
     let catalog = read_theme_catalog(temp.path(), temp.path(), "0.99.0");
-    assert_eq!(catalog.themes.len(), 13, "{:?}", catalog.issues);
+    assert_eq!(catalog.themes.len(), 17, "{:?}", catalog.issues);
     let theme = catalog
         .themes
         .iter()
@@ -219,7 +219,7 @@ fn installed_catalog_uses_host_identity_and_never_activates_or_recovers() {
         .join(".staging-00000000-0000-0000-0000-000000000000")
         .exists());
     assert!(!temp.path().join("config.json").exists());
-    assert_eq!(read_theme_catalog(temp.path(), temp.path(), "0.24.0").themes.len(), 12);
+    assert_eq!(read_theme_catalog(temp.path(), temp.path(), "0.24.0").themes.len(), 16);
 }
 
 #[test]
@@ -229,11 +229,11 @@ fn package_tampering_isolated_and_disabled_variants_keep_identity() {
     let namespace = temp.path().join("plugins/themes");
     fs::write(namespace.join(".disabled-fixture-theme"), "1").unwrap();
     let catalog = read_theme_catalog(temp.path(), temp.path(), "0.99.0");
-    assert_eq!(catalog.themes.len(), 13);
+    assert_eq!(catalog.themes.len(), 17);
     assert!(!catalog.themes.last().unwrap().available);
     fs::write(namespace.join("fixture-theme/extra.js"), "do not execute").unwrap();
     let catalog = read_theme_catalog(temp.path(), temp.path(), "0.99.0");
-    assert_eq!(catalog.themes.len(), 12);
+    assert_eq!(catalog.themes.len(), 16);
     assert!(!catalog.issues.is_empty());
 }
 
@@ -272,7 +272,7 @@ fn symlinked_files_and_roots_never_read_or_modify_external_data() {
     fs::create_dir(&root).unwrap();
     symlink(outside.join("themes"), root.join("themes")).unwrap();
     let catalog = read_theme_catalog(&root, &root, "0.99.0");
-    assert_eq!(catalog.themes.len(), 12);
+    assert_eq!(catalog.themes.len(), 16);
     assert!(!catalog.issues.is_empty());
     assert!(save_legacy_theme(&root, legacy()).is_err());
     assert!(outside.join("themes/secret.json").exists());

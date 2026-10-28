@@ -164,7 +164,7 @@ describe('SettingsProvider', () => {
         expect(result.current.settings.resultPageSize).toBe(500);
         expect(result.current.settings.language).toBe('auto');
         expect(result.current.settings.fontFamily).toBe('System');
-        expect(result.current.settings.fontSize).toBe(14);
+        expect(result.current.settings.fontSize).toBe(15);
         expect(result.current.settings.aiEnabled).toBe(false);
         expect(result.current.settings.aiProvider).toBeNull();
         expect(result.current.settings.aiModel).toBeNull();

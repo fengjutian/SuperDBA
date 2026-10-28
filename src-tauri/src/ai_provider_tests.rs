@@ -158,6 +158,9 @@ async fn generate(provider: &str, fixture: &Fixture) -> Result<String, String> {
         "minimax" => {
             generate_minimax(&fixture.client, "fixture-key", &req, "SQL instructions").await
         }
+        "deepseek" => {
+            generate_deepseek(&fixture.client, "fixture-key", &req, "SQL instructions").await
+        }
         "custom-openai" => {
             generate_custom_openai(
                 &fixture.client,
@@ -189,6 +192,7 @@ async fn existing_providers_keep_their_wire_protocols_and_parse_completed_sql() 
         "anthropic",
         "openrouter",
         "minimax",
+        "deepseek",
         "custom-openai",
         "ollama",
     ] {
@@ -234,6 +238,15 @@ async fn existing_providers_keep_their_wire_protocols_and_parse_completed_sql() 
                 assert!(headers.contains("http-referer: https://github.com/superdba/superdba"));
                 assert!(headers.contains("x-title: superdba"));
             }
+            if provider == "deepseek" {
+                // TLS proxying records the CONNECT authority as the target.
+                assert!(
+                    request.target.contains("api.deepseek.com"),
+                    "deepseek must call its own endpoint: {}",
+                    request.target
+                );
+                assert_eq!(request.body["stream"], false);
+            }
         }
     }
 }
@@ -244,6 +257,7 @@ async fn existing_providers_propagate_http_failures() {
         "openai",
         "anthropic",
         "openrouter",
+        "deepseek",
         "custom-openai",
         "ollama",
     ] {

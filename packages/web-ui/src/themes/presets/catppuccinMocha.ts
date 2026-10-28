@@ -1,0 +1,96 @@
+import type {Theme} from '@/types/theme';
+
+export const catppuccinMocha: Theme = {
+    id: 'catppuccin-mocha',
+    name: 'Catppuccin Mocha',
+    author: 'Catppuccin',
+    isPreset: true,
+    isReadOnly: true,
+    colors: {
+        bg: {
+            base: '#1e1e2e',
+            elevated: '#181825',
+            overlay: '#313244',
+            input: '#181825',
+            tooltip: '#313244',
+        },
+        surface: {
+            primary: '#181825',
+            secondary: '#313244',
+            tertiary: '#45475a',
+            hover: '#313244',
+            active: '#89b4fa',
+            disabled: '#181825',
+        },
+        text: {
+            primary: '#cdd6f4',
+            secondary: '#bac2de',
+            muted: '#a6adc8',
+            disabled: '#6c7086',
+            accent: '#89b4fa',
+            inverse: '#1e1e2e',
+        },
+        accent: {
+            primary: '#89b4fa',
+            secondary: '#cba6f7',
+            success: '#a6e3a1',
+            warning: '#f9e2af',
+            error: '#f38ba8',
+            info: '#89dceb',
+        },
+        border: {
+            subtle: '#181825',
+            default: '#313244',
+            strong: '#45475a',
+            focus: '#89b4fa',
+        },
+        semantic: {
+            string: '#a6e3a1',
+            number: '#fab387',
+            boolean: '#cba6f7',
+            date: '#f9e2af',
+            null: '#9399b2',
+            primaryKey: '#fab387',
+            foreignKey: '#89dceb',
+            index: '#cba6f7',
+            connectionActive: '#a6e3a1',
+            connectionInactive: '#6c7086',
+            modified: '#89b4fa',
+            deleted: '#f38ba8',
+            new: '#a6e3a1',
+        },
+    },
+    typography: {
+        fontFamily: {
+            base: 'Inter, system-ui, sans-serif',
+            mono: 'JetBrains Mono, Fira Code, Menlo, Consolas, monospace',
+        },
+        fontSize: {
+            xs: '0.75rem',
+            sm: '0.875rem',
+            base: '1rem',
+            lg: '1.125rem',
+            xl: '1.25rem',
+        },
+    },
+    layout: {
+        borderRadius: {
+            sm: '0.25rem',
+            base: '0.5rem',
+            lg: '0.75rem',
+            xl: '1rem',
+        },
+        spacing: {
+            xs: '0.25rem',
+            sm: '0.5rem',
+            base: '1rem',
+            lg: '1.5rem',
+            xl: '2rem',
+        },
+    },
+    monacoTheme: {
+        base: 'vs-dark',
+        inherit: true,
+        themeName: 'Catppuccin Mocha',
+    },
+};

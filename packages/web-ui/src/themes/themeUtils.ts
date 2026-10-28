@@ -16,6 +16,8 @@ import OneDarkProTheme from './monaco/One Dark Pro.json';
 import NightOwlTheme from './monaco/Night Owl.json';
 import GruvboxMaterialDarkTheme from './monaco/Gruvbox Material Dark.json';
 import GruvboxMaterialLightTheme from './monaco/Gruvbox Material Light.json';
+import TokyoNightTheme from './monaco/Tokyo Night.json';
+import CatppuccinMochaTheme from './monaco/Catppuccin Mocha.json';
 
 // Map of theme names to imported theme data
 const MONACO_THEMES_MAP: Record<string, unknown> = {
@@ -30,6 +32,8 @@ const MONACO_THEMES_MAP: Record<string, unknown> = {
     'Night Owl': NightOwlTheme,
     'Gruvbox Material Dark': GruvboxMaterialDarkTheme,
     'Gruvbox Material Light': GruvboxMaterialLightTheme,
+    'Tokyo Night': TokyoNightTheme,
+    'Catppuccin Mocha': CatppuccinMochaTheme,
 };
 
 // Monaco modules can be independently instantiated. Cache actual definitions,

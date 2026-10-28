@@ -19,6 +19,31 @@ vi.mock('react-i18next', () => ({
     Trans: () => null,
 }));
 
+describe('AiTab provider selection', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        invoke.mockImplementation(async (cmd: string) => {
+            if (cmd === 'check_ai_key_status') return {configured: false, fromEnv: false};
+            if (cmd === 'get_ai_models') return {openrouter: [], deepseek: []};
+            return '';
+        });
+        updateSetting.mockResolvedValue(undefined);
+    });
+
+    it('offers DeepSeek and checks its key status', async () => {
+        render(<AiTab />);
+        const deepseek = await screen.findByRole('button', {name: 'DeepSeek'});
+
+        expect(deepseek).toHaveAttribute('aria-pressed', 'false');
+        await waitFor(() =>
+            expect(invoke).toHaveBeenCalledWith('check_ai_key_status', {provider: 'deepseek'}),
+        );
+
+        fireEvent.click(deepseek);
+        expect(updateSetting).toHaveBeenCalledWith('aiProvider', 'deepseek');
+    });
+});
+
 describe('AiTab proxy configuration', () => {
     beforeEach(() => {
         vi.clearAllMocks();

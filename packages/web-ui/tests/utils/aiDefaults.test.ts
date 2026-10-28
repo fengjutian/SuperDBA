@@ -50,6 +50,21 @@ describe('detectAiDefaults', () => {
             }),
         ).toEqual({aiProvider: 'anthropic', aiModel: 'model-a'});
     });
+
+    it('falls back to DeepSeek when it is the only provider with a key', async () => {
+        call.mockImplementation(async (command: string, args: {provider?: string} | undefined) => {
+            if (command === 'check_ai_key') return args?.provider === 'deepseek';
+            return {deepseek: ['deepseek-chat', 'deepseek-reasoner']};
+        });
+        expect(
+            await detectAiDefaults(client, {
+                ...DEFAULT_SETTINGS,
+                aiEnabled: true,
+                aiProvider: null,
+                aiModel: null,
+            }),
+        ).toEqual({aiProvider: 'deepseek', aiModel: 'deepseek-chat'});
+    });
 });
 
 it('does not load either catalog while hydrating ChatGPT with an empty model', async () => {

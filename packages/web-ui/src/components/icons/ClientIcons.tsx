@@ -29,6 +29,25 @@ export const MiniMaxIcon = ({size = 20, className}: IconProps) => (
     </svg>
 );
 
+export const DeepSeekIcon = ({size = 20, className}: IconProps) => (
+    <svg
+        viewBox="0 0 24 24"
+        width={size}
+        height={size}
+        className={className}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
+    >
+        <rect x="2" y="2" width="20" height="20" rx="6" />
+        <path d="M9 17V7h2.6a5 5 0 0 1 0 10H9z" />
+    </svg>
+);
+
 export const OpenRouterIcon = ({size = 20, className}: IconProps) => (
     <svg
         viewBox="-45 32.23 556.5 433.48"

@@ -10,15 +10,15 @@ The baseline fixtures below were captured before runtime changes, from SuperDBA 
 No fixture contains real user data. Do not refresh expectations from a new
 resolver to hide a compatibility regression.
 
-- `builtin-rendering.json`: all 12 builtin descriptors, every CSS property set
+- `builtin-rendering.json`: all 16 builtin descriptors, every CSS property set
   by the existing application function, generated Monaco defaults, and SHA-256
   of the JSON passed to the actual Monaco `defineTheme` call. Hashes avoid
   duplicating large named assets for several builtin themes. They cover the
   complete editor definition (not just a color subset). The generated defaults
   are recorded separately because named editor assets take precedence today.
-- `named-editor-assets.json`: byte-level SHA-256 for all 12 checked-in Monaco
+- `named-editor-assets.json`: byte-level SHA-256 for all 14 checked-in Monaco
   assets. `Tomorrow-Night-Eighties.json` exists on disk but is not registered in
-  the loader's 11-name map. The original assets remain in `src/themes/monaco/`.
+  the loader's 13-name map. The original assets remain in `src/themes/monaco/`.
   A formatting-only asset edit changes this checksum and requires explicit
   review; the renderer checksums are separately computed from parsed data.
 - `legacy-frontend.json`: representative personal standalone export with

@@ -1,0 +1,96 @@
+import type {Theme} from '@/types/theme';
+
+export const nightOwl: Theme = {
+    id: 'night-owl',
+    name: 'Night Owl',
+    author: 'Sarah Drasner',
+    isPreset: true,
+    isReadOnly: true,
+    colors: {
+        bg: {
+            base: '#011627',
+            elevated: '#01111e',
+            overlay: '#0b2942',
+            input: '#011627',
+            tooltip: '#0b2942',
+        },
+        surface: {
+            primary: '#0b2942',
+            secondary: '#1d3b53',
+            tertiary: '#234d70',
+            hover: '#0b2942',
+            active: '#7fdbca',
+            disabled: '#0b2942',
+        },
+        text: {
+            primary: '#d6deeb',
+            secondary: '#b6c6da',
+            muted: '#9db3c8',
+            disabled: '#637777',
+            accent: '#82aaff',
+            inverse: '#011627',
+        },
+        accent: {
+            primary: '#82aaff',
+            secondary: '#c792ea',
+            success: '#addb67',
+            warning: '#ecc48d',
+            error: '#ff5874',
+            info: '#7fdbca',
+        },
+        border: {
+            subtle: '#01111e',
+            default: '#1d3b53',
+            strong: '#2d5577',
+            focus: '#82aaff',
+        },
+        semantic: {
+            string: '#addb67',
+            number: '#f78c6c',
+            boolean: '#c792ea',
+            date: '#ecc48d',
+            null: '#8ba7bd',
+            primaryKey: '#f78c6c',
+            foreignKey: '#7fdbca',
+            index: '#c792ea',
+            connectionActive: '#addb67',
+            connectionInactive: '#5f7e97',
+            modified: '#82aaff',
+            deleted: '#ff5874',
+            new: '#addb67',
+        },
+    },
+    typography: {
+        fontFamily: {
+            base: 'Inter, system-ui, sans-serif',
+            mono: 'Menlo, Monaco, Consolas, Courier New, monospace',
+        },
+        fontSize: {
+            xs: '0.75rem',
+            sm: '0.875rem',
+            base: '1rem',
+            lg: '1.125rem',
+            xl: '1.25rem',
+        },
+    },
+    layout: {
+        borderRadius: {
+            sm: '0.25rem',
+            base: '0.5rem',
+            lg: '0.75rem',
+            xl: '1rem',
+        },
+        spacing: {
+            xs: '0.25rem',
+            sm: '0.5rem',
+            base: '1rem',
+            lg: '1.5rem',
+            xl: '2rem',
+        },
+    },
+    monacoTheme: {
+        base: 'vs-dark',
+        inherit: true,
+        themeName: 'Night Owl',
+    },
+};

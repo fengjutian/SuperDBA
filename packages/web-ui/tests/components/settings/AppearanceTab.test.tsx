@@ -45,10 +45,14 @@ vi.mock('react-i18next', () => ({
     useTranslation: () => ({t: (key: string) => key}),
 }));
 
+const updateSetting = vi.fn();
+
+let settingsFontSize: number | undefined = 14;
+
 vi.mock('@/hooks/useSettings', () => ({
     useSettings: () => ({
-        settings: {fontFamily: 'System', fontSize: 14},
-        updateSetting: vi.fn(),
+        settings: {fontFamily: 'System', fontSize: settingsFontSize},
+        updateSetting,
     }),
 }));
 
@@ -74,6 +78,7 @@ describe('AppearanceTab theme mode', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         themeSettings = {...themeSettings, followSystemTheme: false};
+        settingsFontSize = 14;
         loading = false;
     });
 
@@ -170,5 +175,36 @@ describe('AppearanceTab theme mode', () => {
         expect(updateSettings).toHaveBeenCalledWith({
             lightThemeId: 'superdba-light',
         });
+    });
+});
+
+describe('AppearanceTab base font size', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        settingsFontSize = 14;
+        themeSettings = {...themeSettings, followSystemTheme: false};
+        loading = false;
+    });
+
+    it('falls back to the 15px default when the setting is missing', () => {
+        settingsFontSize = undefined;
+        render(
+            <MemoryRouter>
+                <AppearanceTab />
+            </MemoryRouter>,
+        );
+        expect(screen.getByText('15px')).toBeInTheDocument();
+    });
+
+    it('adjusts the base font size with the stepper buttons', () => {
+        render(
+            <MemoryRouter>
+                <AppearanceTab />
+            </MemoryRouter>,
+        );
+        fireEvent.click(screen.getByRole('button', {name: 'settings.fontSizeIncrease'}));
+        expect(updateSetting).toHaveBeenCalledWith('fontSize', 15);
+        fireEvent.click(screen.getByRole('button', {name: 'settings.fontSizeDecrease'}));
+        expect(updateSetting).toHaveBeenCalledWith('fontSize', 13);
     });
 });
