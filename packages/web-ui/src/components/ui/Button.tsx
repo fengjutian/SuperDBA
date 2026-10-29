@@ -13,15 +13,13 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const VARIANT_CLASS: Record<ButtonVariant, string> = {
-    primary:
-        'border-transparent bg-accent-primary text-inverse enabled:hover:bg-accent-primary/90',
+    primary: 'border-transparent bg-accent-primary text-inverse enabled:hover:bg-accent-primary/90',
     secondary:
         'border-strong bg-base text-secondary enabled:hover:bg-surface-secondary enabled:hover:text-primary',
     ghost: 'border-transparent bg-transparent text-secondary enabled:hover:bg-surface-hover enabled:hover:text-primary',
     success:
         'border-transparent bg-accent-success text-on-accent-success enabled:hover:bg-accent-success/90',
-    danger:
-        'border-transparent bg-accent-error text-on-accent-error enabled:hover:bg-accent-error/90',
+    danger: 'border-transparent bg-accent-error text-on-accent-error enabled:hover:bg-accent-error/90',
 };
 
 const SIZE_CLASS: Record<ButtonSize, string> = {

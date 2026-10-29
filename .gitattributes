@@ -1,0 +1,26 @@
+# Keep the repository and every checkout on LF so byte-based checks stay stable.
+#
+# Without this, a Windows clone with core.autocrlf=true rewrites every text file
+# to CRLF, which changes the recorded theme-asset digests, hides documentation
+# table headers from line-based tests, and makes Node reject the `#!` line of
+# imported scripts.
+* text=auto eol=lf
+
+# Binary assets keep their exact bytes.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.so binary
+*.dylib binary
+*.dll binary
+*.exe binary
+*.zip binary
+*.gz binary
+*.pdf binary

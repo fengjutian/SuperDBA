@@ -570,4 +570,20 @@ mod take_for_prompt_tests {
             None
         );
     }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_backslash_key_path_matches_forward_slash_prompt() {
+        let home = directories::BaseDirs::new()
+            .expect("home directory")
+            .home_dir()
+            .to_string_lossy()
+            .replace('\\', "/");
+        let mut stored = secrets(None, Some("key-secret"), Some("~\\.ssh\\id_ed25519"));
+        let expanded = format!("Enter passphrase for key '{home}/.ssh/id_ed25519': ");
+        assert_eq!(
+            stored.take_for_prompt(&expanded).as_deref(),
+            Some("key-secret")
+        );
+    }
 }

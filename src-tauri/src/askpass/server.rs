@@ -77,7 +77,7 @@ impl StoredSecrets {
         if let Some(path) = self.key_path.as_deref() {
             // OpenSSH expands a leading `~` in `-i` before building the prompt.
             let expanded = expand_leading_tilde(path);
-            if prompt == openssh_key_passphrase_prompt(&expanded) {
+            if same_prompt_path(prompt, &openssh_key_passphrase_prompt(&expanded)) {
                 return self.key_passphrase.take();
             }
         }
@@ -86,6 +86,15 @@ impl StoredSecrets {
         }
         None
     }
+}
+
+/// Compare two passphrase prompts while ignoring path separator style.
+///
+/// OpenSSH prints the key path with `/` separators even on Windows, but a `~`
+/// expanded through `Path::join` yields `\` there, so a byte-for-byte
+/// comparison would never release the stored passphrase on Windows.
+fn same_prompt_path(actual: &str, expected: &str) -> bool {
+    actual == expected || actual.replace('\\', "/") == expected.replace('\\', "/")
 }
 
 /// Expand a leading `~` or `~/` to the current user's home directory.

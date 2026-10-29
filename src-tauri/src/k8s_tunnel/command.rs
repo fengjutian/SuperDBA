@@ -186,9 +186,38 @@ fn validate_kubectl_path(value: &str) -> Result<(), String> {
         ));
     }
 
-    which::which(&path)
+    let resolved = which::which(&path)
         .map_err(|_| format!("kubectl path is not executable: {}", path.display()))?;
+    // Windows has no executable bit, and `which` accepts any existing absolute
+    // path there, so an extension check is the only way to reject e.g. a `.txt`.
+    #[cfg(windows)]
+    if !has_executable_extension(&resolved) {
+        return Err(format!(
+            "kubectl path is not executable: {}",
+            path.display()
+        ));
+    }
     Ok(())
+}
+
+/// Whether `path` ends with one of the `PATHEXT` extensions Windows can launch.
+///
+/// Only consulted on Windows; the Unix check is the permission bit inside
+/// `which`.
+#[cfg(windows)]
+fn has_executable_extension(path: &Path) -> bool {
+    const DEFAULT_PATHEXT: &str = ".COM;.EXE;.BAT;.CMD";
+
+    let Some(extension) = path.extension().and_then(|extension| extension.to_str()) else {
+        return false;
+    };
+    let extension = extension.to_ascii_lowercase();
+    let pathext = env::var("PATHEXT").unwrap_or_else(|_| DEFAULT_PATHEXT.to_string());
+    pathext
+        .split(';')
+        .map(|candidate| candidate.trim().trim_start_matches('.'))
+        .filter(|candidate| !candidate.is_empty())
+        .any(|candidate| candidate.eq_ignore_ascii_case(&extension))
 }
 
 fn validate_kubeconfig_path(value: &str) -> Result<(), String> {

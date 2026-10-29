@@ -8,7 +8,9 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8');
 
 function tableRows(document, header) {
-    const lines = document.split('\n');
+    // Checkouts on Windows may use CRLF; the table is line-based, not
+    // byte-based, so normalize before splitting.
+    const lines = document.replace(/\r\n/g, '\n').split('\n');
     const headerIndex = lines.indexOf(header);
     expect(headerIndex, `Missing table header: ${header}`).not.toBe(-1);
 

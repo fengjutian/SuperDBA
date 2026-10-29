@@ -41,9 +41,7 @@ describe('Button', () => {
         render(<Button variant="danger">Delete</Button>);
 
         expect(screen.getByRole('button', {name: 'Delete'})).toHaveClass('bg-accent-error');
-        expect(screen.getByRole('button', {name: 'Delete'})).toHaveClass(
-            'text-on-accent-error',
-        );
+        expect(screen.getByRole('button', {name: 'Delete'})).toHaveClass('text-on-accent-error');
     });
 });
 
