@@ -35,7 +35,7 @@ import {
     clonePendingInsertions,
     type GridPendingSnapshot,
 } from '@/utils/gridUndo';
-import {TONE_SOFT_BG_CLASS, TONE_TEXT_CLASS, tint} from '@/utils/tones';
+import {TONE_SOFT_BG_CLASS, TONE_TEXT_CLASS} from '@/utils/tones';
 import {buildKeylessUpdatePlan, resolveRowIdentity} from '@/utils/rowIdentity';
 import {
     getTableDataChangeScope,
@@ -188,7 +188,6 @@ import {useAlert} from '@/hooks/useAlert';
 import {useToast} from '@/hooks/useToast';
 import {useDatabase} from '@/hooks/useDatabase';
 import {useDrivers} from '@/hooks/useDrivers';
-import {getConnectionAccent} from '@/utils/driverUI';
 import {useSavedQueries} from '@/hooks/useSavedQueries';
 import {useQueryHistory} from '@/hooks/useQueryHistory';
 import {useSettings} from '@/hooks/useSettings';
@@ -290,7 +289,6 @@ export const Editor = ({commandScopeId}: EditorProps) => {
     const {t} = useTranslation();
     const {
         activeConnectionId,
-        connections,
         views,
         materializedViews,
         activeDriver,
@@ -4929,35 +4927,11 @@ export const Editor = ({commandScopeId}: EditorProps) => {
         );
     }
 
-    const activeConnection = connections.find((c) => c.id === activeConnectionId);
-    const tabBarAccent = activeConnectionId
-        ? getConnectionAccent(
-              activeConnection,
-              allDrivers.find((d) => d.id === activeDriver),
-          )
-        : null;
-    // Active-tab accents (indicator line, loading bar, rename border) follow the
-    // connection color when present, falling back to the default blue otherwise.
-    const tabAccentColor = tabBarAccent ?? 'var(--accent-primary)';
-    const tabTint = (percent: number) => tint(tabAccentColor, percent);
-
     return (
         <div ref={editorRootRef} className="flex flex-col h-full bg-base">
             {commandPaletteScopeBridge}
-            {/* Tab Bar — tinted with the active connection's accent color */}
-            <div
-                className="flex items-center bg-elevated border-b border-default h-9 shrink-0"
-                style={
-                    tabBarAccent
-                        ? {
-                              // Vertical accent wash (stronger at top) + accent-tinted bottom
-                              // border so the bar reads as part of the active connection.
-                              backgroundImage: `linear-gradient(${tabBarAccent}30, ${tabBarAccent}20)`,
-                              borderBottomColor: `${tabBarAccent}50`,
-                          }
-                        : undefined
-                }
-            >
+            {/* The tab bar follows the application theme; connection colors stay in the explorer. */}
+            <div className="flex items-center bg-elevated border-b border-default h-9 shrink-0">
                 <button
                     onClick={() => scrollTabs('left')}
                     disabled={!canScrollLeft}
@@ -5019,31 +4993,13 @@ export const Editor = ({commandScopeId}: EditorProps) => {
                             className={clsx(
                                 'flex items-center gap-2 px-3 h-full border-r border-default cursor-pointer min-w-[140px] max-w-[220px] text-xs transition-all duration-150 group relative select-none focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus',
                                 activeTabId === tab.id
-                                    ? 'bg-base text-primary font-medium'
-                                    : 'text-muted hover:bg-[var(--tab-hover)] hover:text-secondary',
+                                    ? 'bg-accent-primary/10 text-primary font-medium'
+                                    : 'text-muted hover:bg-accent-primary/10 hover:text-secondary',
                                 dragTabId === tab.id && 'opacity-40',
                             )}
-                            style={
-                                activeTabId === tab.id
-                                    ? {
-                                          // Active tab keeps the content background (so it reads as
-                                          // connected to the pane below) but carries a soft accent
-                                          // body, stronger at the top, tinted by the connection.
-                                          backgroundImage: `linear-gradient(${tabTint(19)}, ${tabTint(13)})`,
-                                      }
-                                    : // Inactive tabs pick up a soft accent wash on hover instead of
-                                      // a flat neutral grey, keeping the strip tied to the connection.
-                                      ({'--tab-hover': `${tabTint(20)}`} as React.CSSProperties)
-                            }
                         >
                             {activeTabId === tab.id && (
-                                <div
-                                    className="absolute top-0 left-0 right-0 h-[2px] rounded-b-sm"
-                                    style={{
-                                        backgroundColor: `${tabTint(80)}`,
-                                        boxShadow: `0 0 5px ${tabTint(35)}`,
-                                    }}
-                                />
+                                <div className="absolute top-0 left-0 right-0 h-[2px] rounded-b-sm bg-accent-primary shadow-[0_0_5px_color-mix(in_srgb,var(--accent-primary)_35%,transparent)]" />
                             )}
                             {tab.isLoading ? (
                                 // Running indicator: the type icon gives way to a spinner so
@@ -5055,11 +5011,7 @@ export const Editor = ({commandScopeId}: EditorProps) => {
                                     aria-label={t('editor.executingQuery')}
                                     role="status"
                                 >
-                                    <Loader2
-                                        size={12}
-                                        className="animate-spin"
-                                        style={{color: tabAccentColor}}
-                                    />
+                                    <Loader2 size={12} className="animate-spin text-accent" />
                                 </span>
                             ) : tab.type === 'table' ? (
                                 <TableIcon size={12} className="text-accent shrink-0" />
@@ -5091,8 +5043,7 @@ export const Editor = ({commandScopeId}: EditorProps) => {
                                         if (e.key === 'Enter') commitTabRename();
                                         if (e.key === 'Escape') setEditingTabId(null);
                                     }}
-                                    className="flex-1 min-w-0 bg-surface-secondary border rounded px-1 py-0.5 text-xs text-primary focus:outline-none"
-                                    style={{borderColor: `${tabTint(50)}`}}
+                                    className="flex-1 min-w-0 bg-surface-secondary border border-accent-primary/50 rounded px-1 py-0.5 text-xs text-primary focus:outline-none"
                                 />
                             ) : (
                                 <span
@@ -5162,7 +5113,8 @@ export const Editor = ({commandScopeId}: EditorProps) => {
                                 <div
                                     className="absolute bottom-0 left-0 h-0.5 w-full animate-pulse"
                                     style={{
-                                        backgroundImage: `linear-gradient(90deg, transparent, ${tabAccentColor}, transparent)`,
+                                        backgroundImage:
+                                            'linear-gradient(90deg, transparent, var(--accent-primary), transparent)',
                                     }}
                                 />
                             )}
@@ -5170,8 +5122,8 @@ export const Editor = ({commandScopeId}: EditorProps) => {
                     ))}
                     {dragTabId && dropIndicatorLeft !== null && (
                         <div
-                            className="absolute top-0 bottom-0 w-0.5 pointer-events-none z-10"
-                            style={{left: dropIndicatorLeft, backgroundColor: tabAccentColor}}
+                            className="absolute top-0 bottom-0 w-0.5 pointer-events-none z-10 bg-accent-primary"
+                            style={{left: dropIndicatorLeft}}
                         />
                     )}
                 </div>
