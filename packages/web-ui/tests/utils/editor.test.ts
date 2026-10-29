@@ -11,6 +11,7 @@ import {
     canRenameTab,
     buildDuplicatedTab,
     insertTabAfter,
+    insertTabAtConnectionStart,
     DUPLICATE_TAB_TITLE_SUFFIX,
     getConnectionTabs,
     getActiveTab,
@@ -1445,6 +1446,29 @@ describe('editor', () => {
             expect(insertTabAfter([first], 'missing', copy).map((tab) => tab.id)).toEqual([
                 'a1',
                 'copy',
+            ]);
+        });
+    });
+
+    describe('insertTabAtConnectionStart', () => {
+        it('inserts before the first tab of the same connection', () => {
+            const other = makeTab({id: 'b1', connectionId: 'conn-b'});
+            const first = makeTab({id: 'a1', connectionId: 'conn-a'});
+            const last = makeTab({id: 'a2', connectionId: 'conn-a'});
+            const table = makeTab({id: 'table', connectionId: 'conn-a', type: 'table'});
+
+            expect(
+                insertTabAtConnectionStart([other, first, last], table).map((tab) => tab.id),
+            ).toEqual(['b1', 'table', 'a1', 'a2']);
+        });
+
+        it('appends when the connection has no existing tabs', () => {
+            const existing = makeTab({id: 'a1', connectionId: 'conn-a'});
+            const table = makeTab({id: 'table', connectionId: 'conn-b', type: 'table'});
+
+            expect(insertTabAtConnectionStart([existing], table).map((tab) => tab.id)).toEqual([
+                'a1',
+                'table',
             ]);
         });
     });

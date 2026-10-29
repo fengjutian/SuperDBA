@@ -1,3 +1,4 @@
+import {forwardRef} from 'react';
 import type {ButtonHTMLAttributes, ReactNode} from 'react';
 import {Loader2} from 'lucide-react';
 import clsx from 'clsx';
@@ -28,20 +29,24 @@ const SIZE_CLASS: Record<ButtonSize, string> = {
     lg: 'min-h-11 gap-2.5 px-5 py-2.5 text-base',
 };
 
-export function Button({
-    variant = 'secondary',
-    size = 'md',
-    loading = false,
-    icon,
-    disabled,
-    type = 'button',
-    className,
-    children,
-    ...props
-}: ButtonProps) {
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+    {
+        variant = 'secondary',
+        size = 'md',
+        loading = false,
+        icon,
+        disabled,
+        type = 'button',
+        className,
+        children,
+        ...props
+    },
+    ref,
+) {
     return (
         <button
             {...props}
+            ref={ref}
             type={type}
             disabled={disabled || loading}
             aria-busy={loading || undefined}
@@ -60,7 +65,7 @@ export function Button({
             {children}
         </button>
     );
-}
+});
 
 interface IconButtonProps extends Omit<ButtonProps, 'children' | 'icon'> {
     label: string;

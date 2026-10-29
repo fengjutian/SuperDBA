@@ -1,6 +1,7 @@
 import {createContext, useContext, useId, type ReactNode} from 'react';
 import {Minus, Plus} from 'lucide-react';
 import clsx from 'clsx';
+import {Button, IconButton} from '@/components/ui/Button';
 
 /* ── Section ── */
 
@@ -139,21 +140,20 @@ export function SettingButtonGroup<T extends string | number>({
     return (
         <div className="flex gap-2">
             {options.map((opt) => (
-                <button
+                <Button
                     key={String(opt.value)}
-                    type="button"
+                    variant={value === opt.value ? 'primary' : 'secondary'}
                     aria-pressed={value === opt.value}
                     onClick={() => onChange(opt.value)}
                     className={clsx(
-                        'px-4 py-2 rounded-lg text-sm font-medium transition-all border focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus',
                         mono && 'font-mono',
                         value === opt.value
-                            ? 'bg-accent-primary border-accent-primary text-inverse shadow-lg shadow-accent-primary/20'
-                            : 'bg-base border-default text-muted hover:border-strong hover:text-primary',
+                            ? 'border-accent-primary shadow-lg shadow-accent-primary/20'
+                            : 'border-default text-muted enabled:hover:border-strong',
                     )}
                 >
                     {opt.label}
-                </button>
+                </Button>
             ))}
         </div>
     );
@@ -181,21 +181,20 @@ interface StepperButtonProps {
 
 function StepperButton({label, disabled, onClick, children}: StepperButtonProps) {
     return (
-        <button
-            type="button"
-            aria-label={label}
+        <IconButton
+            label={label}
+            icon={children}
+            size="sm"
+            variant="ghost"
             disabled={disabled}
             onClick={onClick}
             className={clsx(
-                'flex h-7 w-7 items-center justify-center rounded-md border border-default transition-colors',
-                'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus',
+                'rounded-md border-default',
                 disabled
                     ? 'cursor-not-allowed text-muted opacity-40'
-                    : 'text-muted hover:border-strong hover:text-primary',
+                    : 'text-muted enabled:hover:border-strong enabled:hover:text-primary',
             )}
-        >
-            {children}
-        </button>
+        />
     );
 }
 

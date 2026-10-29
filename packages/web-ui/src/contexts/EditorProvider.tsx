@@ -13,6 +13,7 @@ import {
     generateTabTitle,
     findExistingTableTab,
     insertTabAfter,
+    insertTabAtConnectionStart,
     getConnectionTabs,
     getActiveTab,
     closeTabWithState,
@@ -321,8 +322,11 @@ export const EditorProvider = ({children}: {children: ReactNode}) => {
                     connectionId: activeConnectionId,
                     ...partial,
                 });
-                return options?.insertAfterId
-                    ? insertTabAfter(prev, options.insertAfterId, newTab)
+                if (options?.insertAfterId) {
+                    return insertTabAfter(prev, options.insertAfterId, newTab);
+                }
+                return options?.insertAtStart
+                    ? insertTabAtConnectionStart(prev, newTab)
                     : [...prev, newTab];
             });
             setActiveTabId(id);

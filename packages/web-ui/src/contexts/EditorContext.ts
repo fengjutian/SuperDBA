@@ -5,6 +5,8 @@ import type {AutoRefreshSchedule} from '@/utils/autoRefresh';
 export interface AddTabOptions {
     /** Insert the new tab immediately after this id instead of appending it. */
     insertAfterId?: string;
+    /** Insert the new tab before every other tab of the active connection. */
+    insertAtStart?: boolean;
     /**
      * Create a new tab even when a table tab for the same table is already open.
      * Ordinary opens still focus that existing tab.

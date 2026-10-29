@@ -1942,7 +1942,8 @@ export const Editor = ({commandScopeId}: EditorProps) => {
                 return;
             }
 
-            const tabId = addTab(toFlatMultiDbTabTarget(intent.addTabInput, isMultiDb));
+            const tabInput = toFlatMultiDbTabTarget(intent.addTabInput, isMultiDb);
+            const tabId = addTab(tabInput, {insertAtStart: tabInput.type === 'table'});
             if (!tabId) return;
 
             if (intent.execution.patchReadOnlyOnDuplicate) {

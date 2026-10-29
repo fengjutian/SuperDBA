@@ -154,6 +154,25 @@ describe('EditorProvider', () => {
         expect(result.current.tabs[0].isEditorOpen).toBe(false);
     });
 
+    it('should insert a table tab at the start when requested', () => {
+        const wrapper = createWrapper('conn-1');
+        const {result} = renderHook(() => useEditor(), {wrapper});
+
+        act(() => {
+            result.current.addTab({type: 'console', title: 'First console'});
+            result.current.addTab({type: 'console', title: 'Second console'});
+        });
+        act(() => {
+            result.current.addTab({type: 'table', activeTable: 'users'}, {insertAtStart: true});
+        });
+
+        expect(result.current.tabs.map((tab) => tab.title)).toEqual([
+            'users',
+            'First console',
+            'Second console',
+        ]);
+    });
+
     it('should focus existing table tab instead of creating duplicate', () => {
         const wrapper = createWrapper('conn-1');
         const {result} = renderHook(() => useEditor(), {wrapper});

@@ -238,6 +238,19 @@ export function insertTabAfter(tabs: Tab[], afterTabId: string, tab: Tab): Tab[]
     return next;
 }
 
+/**
+ * Insert `tab` before the first tab belonging to its connection. Tabs for
+ * other connections keep their relative order. Appends when the connection
+ * has no tabs yet. Does not mutate `tabs`.
+ */
+export function insertTabAtConnectionStart(tabs: Tab[], tab: Tab): Tab[] {
+    const index = tabs.findIndex((candidate) => candidate.connectionId === tab.connectionId);
+    if (index === -1) return [...tabs, tab];
+    const next = tabs.slice();
+    next.splice(index, 0, tab);
+    return next;
+}
+
 export function getConnectionTabs(tabs: Tab[], connectionId: string | null): Tab[] {
     return filterTabsByConnection(tabs, connectionId);
 }
