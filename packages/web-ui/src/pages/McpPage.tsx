@@ -59,7 +59,7 @@ export function McpPage() {
 
     return (
         <div className="h-full overflow-auto bg-base">
-            <div className="mx-auto flex max-w-6xl flex-col gap-6 p-8">
+            <div className="flex flex-col gap-5 p-5">
                 <header className="flex flex-col gap-3 border-b border-default pb-5">
                     <div className="flex items-center gap-3">
                         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent-secondary/15 text-accent-secondary">

@@ -493,4 +493,3 @@ SuperDBA started as an experiment: how far could AI-assisted development get in 
     <img src="https://repostars.dev/api/embed?repo=SuperDBA%2Fsuperdba&theme=dark" alt="RepoStars" />
   </a>
 </p>
-x
