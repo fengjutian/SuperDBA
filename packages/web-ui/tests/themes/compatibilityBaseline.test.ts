@@ -72,9 +72,7 @@ describe('theme compatibility baseline', () => {
                 path.slice(path.lastIndexOf('/') + 1),
                 // The goldens are recorded from LF sources; a Windows checkout
                 // with core.autocrlf=true would otherwise change every digest.
-                createHash('sha256')
-                    .update(content.replace(/\r\n/g, '\n'))
-                    .digest('hex'),
+                createHash('sha256').update(content.replace(/\r\n/g, '\n')).digest('hex'),
             ]),
         );
         expect(digests).toEqual(assetGolden);

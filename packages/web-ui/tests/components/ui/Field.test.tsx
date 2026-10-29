@@ -28,7 +28,7 @@ describe('Field', () => {
 
         expect(screen.getByText('The server port')).toHaveAttribute('id', 'port-description');
         expect(screen.getByRole('alert')).toHaveAttribute('id', 'port-error');
-        const input = screen.getByLabelText('Port');
+        const input = screen.getByRole('textbox', {name: /Port/});
         expect(input).toHaveAttribute('aria-required', 'true');
         expect(input).toHaveAttribute('aria-invalid', 'true');
         expect(input).toHaveAttribute('aria-describedby', 'port-description port-error');
