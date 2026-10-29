@@ -5662,7 +5662,10 @@ export const Editor = ({commandScopeId}: EditorProps) => {
                             height: isResultsCollapsed ? undefined : editorHeight,
                             display: isVisible ? 'block' : 'none',
                         }}
-                        className={clsx('relative', isResultsCollapsed && 'flex-1 min-h-0')}
+                        className={clsx(
+                            'relative sql-editor-dot-grid',
+                            isResultsCollapsed && 'flex-1 min-h-0',
+                        )}
                     >
                         {tab.type === 'query_builder' ? (
                             <VisualQueryBuilder />

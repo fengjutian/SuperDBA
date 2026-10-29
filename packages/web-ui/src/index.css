@@ -678,6 +678,29 @@ select option:active {
     background-color: color-mix(in srgb, var(--surface-active) 32%, transparent) !important;
 }
 
+/* Subtle drafting-grid texture behind the main SQL workspace only. The gutter
+   remains opaque, while Monaco's code canvas lets the theme-aware dots show. */
+.sql-editor-dot-grid {
+    background-color: var(--bg-base);
+    background-image:
+        linear-gradient(to bottom, transparent 55%, var(--bg-base) 100%),
+        radial-gradient(
+            circle,
+            color-mix(in srgb, var(--text-muted) 18%, transparent) 0.75px,
+            transparent 0.9px
+        );
+    background-size: 18px 18px;
+    box-shadow:
+        inset 0 1px 0 color-mix(in srgb, var(--border-subtle) 72%, transparent),
+        inset 0 -1px 0 var(--border-default);
+}
+
+.sql-editor-dot-grid .monaco-editor,
+.sql-editor-dot-grid .monaco-editor .overflow-guard,
+.sql-editor-dot-grid .monaco-editor-background {
+    background-color: transparent !important;
+}
+
 /* Statement-at-cursor highlight (Cmd+Enter run target) */
 .cursor-statement-highlight {
     background-color: color-mix(in srgb, var(--accent-primary) 10%, transparent);

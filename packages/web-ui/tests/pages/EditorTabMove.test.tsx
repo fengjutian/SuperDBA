@@ -210,3 +210,11 @@ describe('Editor tab context menu move actions (#1160)', () => {
         expect(mocks.reorderTab).toHaveBeenCalledExactlyOnceWith('middle', 0);
     });
 });
+
+describe('Editor workspace background', () => {
+    it('marks the SQL editor panel for the dotted theme background', () => {
+        render(<Harness initialTabs={[baseTab({id: 'sql', isEditorOpen: true})]} />);
+
+        expect(document.querySelector('[data-editor-panel]')).toHaveClass('sql-editor-dot-grid');
+    });
+});

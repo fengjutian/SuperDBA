@@ -1451,6 +1451,21 @@ describe('editor', () => {
     });
 
     describe('insertTabAtConnectionStart', () => {
+        const makeTab = (overrides: Partial<Tab> = {}): Tab => ({
+            id: 'tab-1',
+            title: 'Test',
+            type: 'console',
+            query: '',
+            result: null,
+            error: '',
+            executionTime: null,
+            page: 1,
+            activeTable: null,
+            pkColumns: null,
+            connectionId: 'conn-a',
+            ...overrides,
+        });
+
         it('inserts before the first tab of the same connection', () => {
             const other = makeTab({id: 'b1', connectionId: 'conn-b'});
             const first = makeTab({id: 'a1', connectionId: 'conn-a'});
