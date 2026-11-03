@@ -9,6 +9,7 @@
 mod agent;
 mod plan_facts;
 mod provider;
+mod starters;
 mod store;
 mod stream;
 mod tools;
@@ -142,6 +143,27 @@ pub struct ChatSendRequest {
     pub context: ChatContext,
 }
 
+/// Asks the configured model for the opening questions of an empty conversation.
+///
+/// The frontend renders deterministic questions immediately and swaps in these
+/// only when the call succeeds, so a slow or failing provider costs nothing but
+/// nicer wording.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatSuggestStartersRequest {
+    pub provider: String,
+    #[serde(default)]
+    pub model: String,
+    /// BCP-47 tag of the language the questions must be written in (`zh`, `en`).
+    #[serde(default)]
+    pub language: Option<String>,
+    #[serde(default)]
+    pub context: ChatContext,
+    /// Table names of the active scope; the questions have to name real tables.
+    #[serde(default)]
+    pub tables: Vec<String>,
+}
+
 #[derive(Debug)]
 pub enum ChatCommand {
     ListSessions,
@@ -149,6 +171,7 @@ pub enum ChatCommand {
     DeleteSession { session_id: String },
     Send(ChatSendRequest),
     Cancel { request_id: String },
+    SuggestStarters(ChatSuggestStartersRequest),
 }
 
 /// Request ids that the user asked to stop. The key includes the transport
@@ -242,6 +265,10 @@ pub async fn execute(
                 .unwrap_or_else(|error| error.into_inner())
                 .insert(cancellation_key(web_session_id, &request_id));
             Ok(Value::Null)
+        }
+        ChatCommand::SuggestStarters(request) => {
+            let starters = starters::suggest(runtime, state, &request).await?;
+            serde_json::to_value(starters).map_err(|error| error.to_string())
         }
     }
 }

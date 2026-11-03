@@ -572,6 +572,7 @@ pub fn run(args: crate::cli::Args, log_buffer: crate::logger::SharedLogBuffer) {
             ai_commands::chat_delete_session,
             ai_commands::chat_send,
             ai_commands::chat_cancel,
+            ai_commands::chat_suggest_starters,
             // Themes
             theme_packages::commands::preview_theme_document,
             theme_packages::commands::preview_local_theme_package,

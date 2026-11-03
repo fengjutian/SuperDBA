@@ -75,6 +75,20 @@ export interface ChatSendRequest {
 }
 
 /**
+ * Asks the model for the opening questions of an empty conversation. The panel
+ * shows local questions right away and only swaps in the returned ones.
+ */
+export interface ChatSuggestStartersRequest {
+    provider: string;
+    model: string;
+    /** BCP-47 tag of the language the questions must be written in. */
+    language?: string;
+    context: ChatContext;
+    /** Table names of the active scope; the questions have to name real tables. */
+    tables: string[];
+}
+
+/**
  * Progress emitted while a turn runs. `finished`, `cancelled`, and `failed`
  * close the stream; the authoritative transcript still comes from the
  * `chat_send` response.

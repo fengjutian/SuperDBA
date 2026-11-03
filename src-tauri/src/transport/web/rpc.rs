@@ -255,6 +255,7 @@ enum AiRpcCommand {
     ChatDeleteSession,
     ChatSend,
     ChatCancel,
+    ChatSuggestStarters,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -2242,6 +2243,7 @@ impl AiRpcCommand {
             "chat_delete_session" => Self::ChatDeleteSession,
             "chat_send" => Self::ChatSend,
             "chat_cancel" => Self::ChatCancel,
+            "chat_suggest_starters" => Self::ChatSuggestStarters,
             _ => return None,
         })
     }
@@ -2703,6 +2705,13 @@ fn decode_ai_command(command: AiRpcCommand, body: &[u8]) -> Result<AiCommand, St
             AiCommand::Chat(crate::application::chat::ChatCommand::Cancel {
                 request_id: request.request_id,
             })
+        }
+        AiRpcCommand::ChatSuggestStarters => {
+            let request: crate::application::chat::ChatSuggestStartersRequest =
+                decode_payload(body)?;
+            AiCommand::Chat(crate::application::chat::ChatCommand::SuggestStarters(
+                request,
+            ))
         }
     })
 }

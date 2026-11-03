@@ -19,6 +19,13 @@ import {useEditor} from '@/hooks/useEditor';
 import {useRightSidebar} from '@/hooks/useRightSidebar';
 import {useSettings} from '@/hooks/useSettings';
 import {extractSqlBlock, formatToolResult} from '@/utils/chat';
+import {
+    buildLocalStarters,
+    cachedStarters,
+    rememberStarters,
+    selectPromptTables,
+    starterCacheKey,
+} from '@/utils/chatStarters';
 import type {ChatMessage, ChatToolCall} from '@/types/chat';
 
 function ToolCallRow({call}: {call: ChatToolCall}) {
@@ -146,10 +153,11 @@ function MessageBubble({
 }
 
 export function ChatPanel() {
-    const {t} = useTranslation();
+    const {t, i18n} = useTranslation();
     const {close} = useRightSidebar();
     const {activeTab, updateTab, addTab} = useEditor();
-    const {activeConnectionId, activeSchema, activeDatabaseName, connections} = useDatabase();
+    const {activeConnectionId, activeSchema, activeDatabaseName, connections, tables} =
+        useDatabase();
     const {settings} = useSettings();
     const {
         sessions,
@@ -158,6 +166,7 @@ export function ChatPanel() {
         stream,
         error,
         send,
+        suggestStarters,
         cancel,
         openSession,
         startNewSession,
@@ -203,6 +212,78 @@ export function ChatPanel() {
     }, [messages.length, sending]);
 
     const connectionName = connections.find((entry) => entry.id === activeConnectionId)?.name;
+
+    const promptTables = useMemo(
+        () => selectPromptTables(tables.map((table) => table.name)),
+        [tables],
+    );
+
+    /** Instant, offline-safe questions derived only from the loaded table names. */
+    const localStarters = useMemo(
+        () =>
+            buildLocalStarters(promptTables).map(({key, fallback, params}) =>
+                t(key, {defaultValue: fallback, ...params}),
+            ),
+        [promptTables, t],
+    );
+
+    const [generatedStarters, setGeneratedStarters] = useState<string[] | null>(null);
+    const startersKey = useMemo(
+        () =>
+            starterCacheKey(
+                settings.aiProvider ?? '',
+                settings.aiModel ?? '',
+                i18n.language,
+                activeConnectionId,
+                promptTables,
+            ),
+        [settings.aiProvider, settings.aiModel, i18n.language, activeConnectionId, promptTables],
+    );
+    const showEmptyState = messages.length === 0 && !stream;
+
+    // Model-written questions are a progressive enhancement: the empty state
+    // paints the local set immediately and this effect only swaps it in later.
+    useEffect(() => {
+        if (!showEmptyState) return;
+        const cached = cachedStarters(startersKey);
+        if (cached) {
+            setGeneratedStarters(cached);
+            return;
+        }
+        setGeneratedStarters(null);
+        if (!settings.aiProvider || promptTables.length === 0) return;
+        let cancelled = false;
+        void suggestStarters(
+            {
+                ...(activeConnectionId ? {connectionId: activeConnectionId} : {}),
+                ...(connectionName ? {connectionName} : {}),
+                ...(activeSchema ? {schema: activeSchema} : {}),
+                ...(activeDatabaseName ? {database: activeDatabaseName} : {}),
+            },
+            promptTables,
+            i18n.language,
+        ).then((values) => {
+            if (cancelled || values.length === 0) return;
+            rememberStarters(startersKey, values);
+            setGeneratedStarters(values);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [
+        activeConnectionId,
+        activeDatabaseName,
+        activeSchema,
+        connectionName,
+        i18n.language,
+        promptTables,
+        settings.aiProvider,
+        showEmptyState,
+        startersKey,
+        suggestStarters,
+    ]);
+
+    const starterPrompts = generatedStarters ?? localStarters;
 
     const submit = async () => {
         if (!input.trim() || sending) return;
@@ -309,15 +390,7 @@ export function ChatPanel() {
                                     'The assistant inspects the schema with read-only tools and shows every query it runs.',
                             })}
                         </p>
-                        {[
-                            t('chat.starter.tables', {
-                                defaultValue: 'Which tables should I start with?',
-                            }),
-                            t('chat.starter.slow', {
-                                defaultValue: 'Why might my last query be slow?',
-                            }),
-                            t('chat.starter.indexes', {defaultValue: 'Which indexes are missing?'}),
-                        ].map((prompt) => (
+                        {starterPrompts.map((prompt) => (
                             <button
                                 key={prompt}
                                 type="button"

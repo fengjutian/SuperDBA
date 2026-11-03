@@ -2778,6 +2778,14 @@
       "slow": "我上一条查询为什么慢？",
       "indexes": "缺哪些索引？"
     },
+    "local": {
+      "noTables": "这个数据库里有哪些表？",
+      "singleTable": "「{{table}}」表里通常存什么？",
+      "singleColumns": "「{{table}}」有哪些列？",
+      "indexes": "「{{table}}」缺哪些索引？",
+      "manyTables": "这 {{count}} 张表里，我应该先看哪些？",
+      "relations": "「{{table}}」和「{{table2}}」是什么关系？"
+    },
     "working": "正在收集证据…",
     "configureProvider": "请先在「设置 → AI」中选择一个 AI 服务商。",
     "placeholder": "提问，或粘贴一条查询…",

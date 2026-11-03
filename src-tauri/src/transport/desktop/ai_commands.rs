@@ -140,3 +140,17 @@ pub async fn chat_cancel(app: AppHandle, request_id: String) -> Result<Value, St
     )
     .await
 }
+
+#[tauri::command]
+pub async fn chat_suggest_starters(
+    app: AppHandle,
+    request: crate::application::chat::ChatSuggestStartersRequest,
+) -> Result<Value, String> {
+    execute(
+        &app,
+        AiCommand::Chat(crate::application::chat::ChatCommand::SuggestStarters(
+            request,
+        )),
+    )
+    .await
+}

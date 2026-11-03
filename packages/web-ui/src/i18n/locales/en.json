@@ -2947,6 +2947,14 @@
       "slow": "Why might my last query be slow?",
       "indexes": "Which indexes are missing?"
     },
+    "local": {
+      "noTables": "What tables are in this database?",
+      "singleTable": "What does the \"{{table}}\" table hold?",
+      "singleColumns": "What columns does \"{{table}}\" have?",
+      "indexes": "Which indexes does \"{{table}}\" lack?",
+      "manyTables": "Of these {{count}} tables, which should I look at first?",
+      "relations": "How are \"{{table}}\" and \"{{table2}}\" related?"
+    },
     "working": "Gathering evidence…",
     "configureProvider": "Select an AI provider in Settings → AI to start chatting.",
     "placeholder": "Ask a question or paste a query…",

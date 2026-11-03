@@ -2,6 +2,7 @@ import {useCallback, useEffect, useRef, useState} from 'react';
 import {useSuperDBAClient} from './useSuperDBAClient';
 import {useSettings} from './useSettings';
 import {reduceChatStream, type ChatStreamState} from '@/utils/chat';
+import {sanitizeGeneratedStarters} from '@/utils/chatStarters';
 import type {
     ChatContext,
     ChatEvent,
@@ -129,8 +130,7 @@ export function useChatAgent() {
         }
     }, [client]);
 
-    const send = useCallback(
-        async (message: string, context: ChatContext) => {
+    const send = useCallback(        async (message: string, context: ChatContext) => {
             const trimmed = message.trim();
             if (!trimmed || sending) return;
             const provider = settings.aiProvider;
@@ -169,6 +169,38 @@ export function useChatAgent() {
         [client, refreshSessions, sending, session?.id, settings.aiModel, settings.aiProvider],
     );
 
+    /**
+     * Model-written opening questions for an empty conversation.
+     *
+     * Failures resolve to an empty list: the panel keeps its local questions,
+     * so this never surfaces an error of its own.
+     */
+    const suggestStarters = useCallback(
+        async (
+            context: ChatContext,
+            tables: string[],
+            language: string,
+        ): Promise<string[]> => {
+            const provider = settings.aiProvider;
+            if (!provider || tables.length === 0) return [];
+            try {
+                const values = await client.call('chat_suggest_starters', {
+                    request: {
+                        provider,
+                        model: settings.aiModel ?? '',
+                        language,
+                        context,
+                        tables,
+                    },
+                });
+                return sanitizeGeneratedStarters(values);
+            } catch {
+                return [];
+            }
+        },
+        [client, settings.aiModel, settings.aiProvider],
+    );
+
     return {
         sessions,
         session,
@@ -177,6 +209,7 @@ export function useChatAgent() {
         stream,
         error,
         send,
+        suggestStarters,
         cancel,
         openSession,
         startNewSession,
