@@ -62,6 +62,15 @@ pub const TOOLS: &[ToolSpec] = &[
         chat: true,
     },
     ToolSpec {
+        name: "describe_tables",
+        mcp_description: "",
+        chat_description:
+            "Describe a batch of up to five tables for cross-table schema and index analysis.",
+        read_only: true,
+        mcp: false,
+        chat: true,
+    },
+    ToolSpec {
         name: "run_query",
         mcp_description: "Execute a SQL query on a specific connection. If the query already contains a LIMIT clause, it will be respected.",
         chat_description: "Run one SQL statement and return at most 50 rows. A write or DDL statement is queued for the user's approval before it executes.",

@@ -1,8 +1,8 @@
 //! AI Activity audit log.
 //!
-//! Records every MCP tool call to a JSON Lines file. The MCP subprocess is
-//! the only writer; the main Tauri app is the reader. No IPC required —
-//! both processes touch the same files.
+//! Records every MCP and in-app AI chat tool call to a JSON Lines file. The
+//! MCP subprocess and the main application share the same append-only files,
+//! so activity from both surfaces is available in one audit trail.
 //!
 //! Storage layout under the application config directory:
 //!   - `ai_activity.jsonl` — active log (append-only, one event per line)

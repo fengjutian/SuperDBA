@@ -17,8 +17,10 @@ fn surfaces_expose_the_expected_tools() {
         HashSet::from([
             "list_tables",
             "describe_table",
+            "describe_tables",
             "run_query",
-            "explain_query"
+            "explain_query",
+            "diagnose_query"
         ])
     );
 
@@ -53,6 +55,7 @@ fn every_surface_tool_has_a_description() {
 fn read_only_policy_is_centralised() {
     assert!(is_read_only("list_tables"));
     assert!(is_read_only("describe_table"));
+    assert!(is_read_only("describe_tables"));
     assert!(is_read_only("explain_query"));
     assert!(!is_read_only("run_query"));
     // Unknown tools fail closed.

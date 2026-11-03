@@ -10,9 +10,11 @@ use super::store;
 use super::tools;
 use super::{
     clear_cancelled, emit_chat_event, is_cancelled, ChatContext, ChatMessage, ChatRole,
-    ChatSendRequest, ChatSession, ChatToolCall, MAX_MODEL_CALLS_PER_TURN,
+    ChatSendRequest, ChatSession, ChatToolCall, ChatToolStatus, MAX_MODEL_CALLS_PER_TURN,
 };
+use crate::ai_activity::AiActivityEvent;
 use crate::application::ai::resolve_model;
+use crate::config::{DEFAULT_AI_AUDIT_ENABLED, DEFAULT_AI_AUDIT_MAX_ENTRIES};
 use crate::runtime::{state::ApplicationState, RuntimeContext};
 use serde_json::{json, Value};
 use uuid::Uuid;
@@ -227,6 +229,11 @@ async fn execute_calls(
     calls: &[ProviderToolCall],
 ) -> Vec<ChatToolCall> {
     let mut executed = Vec::with_capacity(calls.len());
+    let config = crate::application::persistence::load_config(runtime);
+    let audit_enabled = config.ai_audit_enabled.unwrap_or(DEFAULT_AI_AUDIT_ENABLED);
+    let audit_max_entries = config
+        .ai_audit_max_entries
+        .unwrap_or(DEFAULT_AI_AUDIT_MAX_ENTRIES) as usize;
     for call in calls {
         if is_cancelled(web_session_id, request_id) {
             break;
@@ -252,12 +259,22 @@ async fn execute_calls(
             chat: context,
         };
         let outcome = tools::execute(&tool, &call.name, &call.arguments).await;
+        let duration_ms = started.elapsed().as_millis() as u64;
+        if audit_enabled {
+            let event = build_audit_event(chat_session_id, context, call, &outcome, duration_ms);
+            if let Err(error) = crate::ai_activity::append_and_rotate_in(
+                runtime.paths.config_dir(),
+                &event,
+                audit_max_entries,
+            ) {
+                log::warn!("Failed to write the AI chat audit event: {error}");
+            }
+        }
         let (result, truncated) = bound_result(outcome.result, MAX_TOOL_RESULT_BYTES);
         let mut summary = outcome.summary;
         if truncated {
             summary.push_str(" (output truncated)");
         }
-        let duration_ms = started.elapsed().as_millis() as u64;
         log::debug!(
             "AI chat tool {} on {:?} finished in {} ms with {:?}",
             call.name,
@@ -289,6 +306,55 @@ async fn execute_calls(
         });
     }
     executed
+}
+
+pub(super) fn build_audit_event(
+    chat_session_id: &str,
+    context: &ChatContext,
+    call: &ProviderToolCall,
+    outcome: &tools::ToolOutcome,
+    duration_ms: u64,
+) -> AiActivityEvent {
+    let query = call
+        .arguments
+        .get("sql")
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    let query_kind = query
+        .as_deref()
+        .map(crate::ai_activity::classify_query_kind)
+        .map(str::to_string);
+    let rows = outcome
+        .result
+        .get("rowCount")
+        .or_else(|| outcome.result.get("affectedRows"))
+        .or_else(|| outcome.result.get("total"))
+        .and_then(Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok());
+    let status = match outcome.status {
+        ChatToolStatus::Ok => "success",
+        ChatToolStatus::Error => "error",
+        ChatToolStatus::Denied => "denied",
+        ChatToolStatus::Pending => "pending",
+    };
+
+    AiActivityEvent {
+        id: crate::ai_activity::new_uuid(),
+        session_id: chat_session_id.to_string(),
+        timestamp: crate::ai_activity::now_iso8601(),
+        tool: call.name.clone(),
+        connection_id: context.connection_id.clone(),
+        connection_name: context.connection_name.clone(),
+        database: context.database.clone(),
+        query,
+        query_kind,
+        duration_ms,
+        status: status.to_string(),
+        rows,
+        error: (outcome.status != ChatToolStatus::Ok).then(|| outcome.summary.clone()),
+        client_hint: Some("SuperDBA chat".to_string()),
+        approval_id: None,
+    }
 }
 
 fn push_assistant(session: &mut ChatSession, content: String, reasoning: Option<String>) -> usize {
@@ -337,7 +403,8 @@ pub(crate) fn system_prompt(context: &ChatContext) -> String {
          \n\
          Rules:\n\
          - Gather evidence with the tools before answering schema or data questions. Never invent table or column names.\n\
-         - Use `list_tables` and `describe_table` to inspect structure, `run_query` for read-only SELECTs, and `explain_query` for plans.\n\
+         - Use paginated `list_tables` and `describe_tables` batches to inspect large schemas; use `describe_table` for one table, `run_query` for read-only SELECTs, and `explain_query` for plans.\n\
+         - For database-wide requests, work through every page and batch before answering. Keep a compact running synthesis, avoid repeating completed batches, and combine the evidence into one final analysis.\n\
          - Read-only statements run immediately. A single write or DDL statement is sent to the user for approval before it runs: explain the impact in one sentence first, and never try to batch several statements.\n\
          - Keep answers short and concrete. Put SQL in fenced ```sql blocks.\n\
          - Cite what you observed (row counts, columns, plan nodes) instead of guessing.\n\

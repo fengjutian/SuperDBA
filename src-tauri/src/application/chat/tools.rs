@@ -16,7 +16,8 @@ use serde_json::{json, Value};
 use std::time::{Duration, Instant};
 use uuid::Uuid;
 
-pub const MAX_TABLES: usize = 200;
+pub const MAX_TABLES_PER_PAGE: usize = 50;
+pub const MAX_TABLES_PER_BATCH: usize = 5;
 pub const MAX_ROWS: u32 = 50;
 pub const DEFAULT_ROWS: u32 = 20;
 /// How long a chat tool waits for the user to approve a write.
@@ -100,7 +101,9 @@ fn chat_input_schema(name: &str) -> Value {
         "list_tables" => json!({
             "type": "object",
             "properties": {
-                "schema": {"type": "string", "description": "Schema to inspect. Defaults to the active schema."}
+                "schema": {"type": "string", "description": "Schema to inspect. Defaults to the active schema."},
+                "offset": {"type": "integer", "minimum": 0, "description": "Zero-based table offset. Defaults to 0."},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 50, "description": "Tables to return in this page. Defaults to 50."}
             },
             "additionalProperties": false
         }),
@@ -111,6 +114,21 @@ fn chat_input_schema(name: &str) -> Value {
                 "schema": {"type": "string", "description": "Schema that owns the table. Defaults to the active schema."}
             },
             "required": ["table"],
+            "additionalProperties": false
+        }),
+        "describe_tables" => json!({
+            "type": "object",
+            "properties": {
+                "tables": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "minItems": 1,
+                    "maxItems": 5,
+                    "description": "Table names to inspect together."
+                },
+                "schema": {"type": "string", "description": "Schema that owns the tables. Defaults to the active schema."}
+            },
+            "required": ["tables"],
             "additionalProperties": false
         }),
         "run_query" => json!({
@@ -152,11 +170,22 @@ fn chat_input_schema(name: &str) -> Value {
 struct ListTablesArgs {
     #[serde(default)]
     schema: Option<String>,
+    #[serde(default)]
+    offset: usize,
+    #[serde(default)]
+    limit: Option<usize>,
 }
 
 #[derive(Deserialize)]
 struct DescribeTableArgs {
     table: String,
+    #[serde(default)]
+    schema: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct DescribeTablesArgs {
+    tables: Vec<String>,
     #[serde(default)]
     schema: Option<String>,
 }
@@ -195,7 +224,15 @@ pub async fn execute(tool: &ToolCallContext<'_>, name: &str, arguments: &Value) 
                 Err(error) => return ToolOutcome::error(format!("Invalid arguments: {error}")),
             };
             let schema = args.schema.or_else(|| tool.chat.schema.clone());
-            list_tables(tool, connection_id, schema, tool.chat.database.clone()).await
+            list_tables(
+                tool,
+                connection_id,
+                schema,
+                tool.chat.database.clone(),
+                args.offset,
+                args.limit.unwrap_or(MAX_TABLES_PER_PAGE),
+            )
+            .await
         }
         "describe_table" => {
             let args: DescribeTableArgs = match serde_json::from_value(arguments.clone()) {
@@ -214,6 +251,15 @@ pub async fn execute(tool: &ToolCallContext<'_>, name: &str, arguments: &Value) 
                 tool.chat.database.clone(),
             )
             .await
+        }
+        "describe_tables" => {
+            let args: DescribeTablesArgs = match serde_json::from_value(arguments.clone()) {
+                Ok(args) => args,
+                Err(error) => return ToolOutcome::error(format!("Invalid arguments: {error}")),
+            };
+            let schema = args.schema.or_else(|| tool.chat.schema.clone());
+            describe_tables(tool, connection_id, args.tables, schema, tool.chat.database.clone())
+                .await
         }
         "run_query" => {
             let args: RunQueryArgs = match serde_json::from_value(arguments.clone()) {
@@ -238,6 +284,8 @@ async fn list_tables(
     connection_id: &str,
     schema: Option<String>,
     database: Option<String>,
+    offset: usize,
+    limit: usize,
 ) -> ToolOutcome {
     match metadata::get_tables(
         tool.runtime,
@@ -250,24 +298,85 @@ async fn list_tables(
     {
         Ok(tables) => {
             let total = tables.len();
+            let limit = limit.clamp(1, MAX_TABLES_PER_PAGE);
             let names = tables
                 .into_iter()
-                .take(MAX_TABLES)
+                .skip(offset)
+                .take(limit)
                 .map(|table| table.name)
                 .collect::<Vec<_>>();
-            let truncated = total > names.len();
-            let summary = if truncated {
-                format!("{total} tables (showing the first {MAX_TABLES})")
+            let next_offset = offset
+                .saturating_add(names.len())
+                .then_some(offset.saturating_add(names.len()))
+                .filter(|next| *next < total);
+            let summary = if let Some(next) = next_offset {
+                format!("{} of {total} tables (next offset: {next})", names.len())
             } else {
-                format!("{total} tables")
+                format!("{} of {total} tables", names.len())
             };
             ToolOutcome::ok(
                 summary,
-                json!({"tables": names, "total": total, "truncated": truncated}),
+                json!({
+                    "tables": names,
+                    "total": total,
+                    "offset": offset,
+                    "limit": limit,
+                    "nextOffset": next_offset,
+                    "hasMore": next_offset.is_some(),
+                }),
             )
         }
         Err(error) => ToolOutcome::error(format!("Failed to list tables: {error}")),
     }
+}
+
+async fn describe_tables(
+    tool: &ToolCallContext<'_>,
+    connection_id: &str,
+    tables: Vec<String>,
+    schema: Option<String>,
+    database: Option<String>,
+) -> ToolOutcome {
+    if tables.is_empty() || tables.len() > MAX_TABLES_PER_BATCH {
+        return ToolOutcome::error(format!(
+            "`tables` must contain between 1 and {MAX_TABLES_PER_BATCH} names."
+        ));
+    }
+    if tables.iter().any(|table| table.trim().is_empty()) {
+        return ToolOutcome::error("Table names must not be empty.");
+    }
+
+    let mut results = Vec::with_capacity(tables.len());
+    let mut failures = 0;
+    for table in tables {
+        let outcome = describe_table(
+            tool,
+            connection_id,
+            table.clone(),
+            schema.clone(),
+            database.clone(),
+        )
+        .await;
+        if outcome.status == ChatToolStatus::Ok {
+            results.push(outcome.result);
+        } else {
+            failures += 1;
+            results.push(json!({"table": table, "error": outcome.summary}));
+        }
+    }
+
+    ToolOutcome::ok(
+        format!(
+            "{} tables described{}",
+            results.len(),
+            if failures == 0 {
+                String::new()
+            } else {
+                format!(", {failures} failed")
+            }
+        ),
+        json!({"tables": results, "count": results.len(), "failures": failures}),
+    )
 }
 
 async fn describe_table(

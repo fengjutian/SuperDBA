@@ -1,9 +1,10 @@
-use super::agent::{bound_result, system_prompt};
-use super::provider;
+use super::agent::{bound_result, build_audit_event, system_prompt};
+use super::provider::{self, ProviderToolCall};
 use super::store;
-use super::tools::{classify_statement, is_single_read_only_statement, StatementClass};
+use super::tools::{self, classify_statement, is_single_read_only_statement, StatementClass};
 use super::{
     cancellation_key, ChatContext, ChatMessage, ChatRole, ChatSession, ChatToolCall, ChatToolStatus,
+    MAX_MODEL_CALLS_PER_TURN,
 };
 use serde_json::json;
 
@@ -137,6 +138,60 @@ fn cancellation_keys_are_scoped_to_the_transport_session() {
 }
 
 #[test]
+fn chat_tool_audit_event_captures_sql_context_and_result() {
+    let context = ChatContext {
+        connection_id: Some("connection-1".to_string()),
+        connection_name: Some("Production".to_string()),
+        database: Some("app".to_string()),
+        ..ChatContext::default()
+    };
+    let call = ProviderToolCall {
+        id: "call-1".to_string(),
+        name: "run_query".to_string(),
+        arguments: json!({"sql": "SELECT * FROM users", "limit": 20}),
+    };
+    let outcome = tools::ToolOutcome {
+        status: ChatToolStatus::Ok,
+        summary: "2 rows returned in 4 ms".to_string(),
+        result: json!({"rowCount": 2}),
+    };
+
+    let event = build_audit_event("chat-session", &context, &call, &outcome, 4);
+
+    assert_eq!(event.session_id, "chat-session");
+    assert_eq!(event.tool, "run_query");
+    assert_eq!(event.connection_id.as_deref(), Some("connection-1"));
+    assert_eq!(event.connection_name.as_deref(), Some("Production"));
+    assert_eq!(event.database.as_deref(), Some("app"));
+    assert_eq!(event.query.as_deref(), Some("SELECT * FROM users"));
+    assert_eq!(event.query_kind.as_deref(), Some("read"));
+    assert_eq!(event.status, "success");
+    assert_eq!(event.rows, Some(2));
+    assert_eq!(event.error, None);
+    assert_eq!(event.client_hint.as_deref(), Some("SuperDBA chat"));
+}
+
+#[test]
+fn chat_tool_audit_event_records_denials_as_errors() {
+    let call = ProviderToolCall {
+        id: "call-2".to_string(),
+        name: "run_query".to_string(),
+        arguments: json!({"sql": "DROP TABLE users"}),
+    };
+    let outcome = tools::ToolOutcome {
+        status: ChatToolStatus::Denied,
+        summary: "The statement was denied".to_string(),
+        result: json!({"denied": true}),
+    };
+
+    let event = build_audit_event("chat-session", &ChatContext::default(), &call, &outcome, 1);
+
+    assert_eq!(event.query_kind.as_deref(), Some("ddl"));
+    assert_eq!(event.status, "denied");
+    assert_eq!(event.error.as_deref(), Some("The statement was denied"));
+}
+
+#[test]
 fn bounded_results_drop_rows_before_previews() {
     let rows = (0..10)
         .map(|_| json!(["aaaaaaaaaaaaaaaaaaaaaaaaaaaa"]))
@@ -173,6 +228,9 @@ fn system_prompt_carries_connection_context() {
     assert!(prompt.contains("Schema: public"));
     assert!(prompt.contains("SELECT * FROM orders"));
     assert!(prompt.contains("read-only"));
+    assert!(prompt.contains("describe_tables"));
+    assert!(prompt.contains("every page and batch"));
+    assert!(MAX_MODEL_CALLS_PER_TURN > 6);
 }
 
 #[test]
