@@ -2366,12 +2366,12 @@
   },
   "aiActivity": {
     "title": "AI 活动",
-    "description": "MCP 工具调用的审计日志,以及等待批准的查询。仅本地存储。",
+    "description": "DBA 对话和 MCP 工具调用的审计日志,以及等待批准的查询。仅本地存储。",
     "tabs": {
       "events": "事件",
       "sessions": "会话"
     },
-    "empty": "暂无 MCP 活动。",
+    "empty": "暂无 AI 或 MCP 活动。",
     "eventsCount_other": "{{count}} 个事件",
     "blockedCount_other": "{{count}} 个被阻止",
     "errorsCount_other": "{{count}} 个错误",

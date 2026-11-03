@@ -258,8 +258,14 @@ pub async fn execute(tool: &ToolCallContext<'_>, name: &str, arguments: &Value) 
                 Err(error) => return ToolOutcome::error(format!("Invalid arguments: {error}")),
             };
             let schema = args.schema.or_else(|| tool.chat.schema.clone());
-            describe_tables(tool, connection_id, args.tables, schema, tool.chat.database.clone())
-                .await
+            describe_tables(
+                tool,
+                connection_id,
+                args.tables,
+                schema,
+                tool.chat.database.clone(),
+            )
+            .await
         }
         "run_query" => {
             let args: RunQueryArgs = match serde_json::from_value(arguments.clone()) {
@@ -305,10 +311,8 @@ async fn list_tables(
                 .take(limit)
                 .map(|table| table.name)
                 .collect::<Vec<_>>();
-            let next_offset = offset
-                .saturating_add(names.len())
-                .then_some(offset.saturating_add(names.len()))
-                .filter(|next| *next < total);
+            let page_end = offset.saturating_add(names.len());
+            let next_offset = (page_end < total).then_some(page_end);
             let summary = if let Some(next) = next_offset {
                 format!("{} of {total} tables (next offset: {next})", names.len())
             } else {

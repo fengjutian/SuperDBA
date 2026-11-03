@@ -3,8 +3,8 @@ use super::provider::{self, ProviderToolCall};
 use super::store;
 use super::tools::{self, classify_statement, is_single_read_only_statement, StatementClass};
 use super::{
-    cancellation_key, ChatContext, ChatMessage, ChatRole, ChatSession, ChatToolCall, ChatToolStatus,
-    MAX_MODEL_CALLS_PER_TURN,
+    cancellation_key, ChatContext, ChatMessage, ChatRole, ChatSession, ChatToolCall,
+    ChatToolStatus, MAX_MODEL_CALLS_PER_TURN,
 };
 use serde_json::json;
 
@@ -164,7 +164,7 @@ fn chat_tool_audit_event_captures_sql_context_and_result() {
     assert_eq!(event.connection_name.as_deref(), Some("Production"));
     assert_eq!(event.database.as_deref(), Some("app"));
     assert_eq!(event.query.as_deref(), Some("SELECT * FROM users"));
-    assert_eq!(event.query_kind.as_deref(), Some("read"));
+    assert_eq!(event.query_kind.as_deref(), Some("select"));
     assert_eq!(event.status, "success");
     assert_eq!(event.rows, Some(2));
     assert_eq!(event.error, None);

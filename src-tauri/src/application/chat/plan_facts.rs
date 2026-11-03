@@ -40,9 +40,7 @@ pub fn extract(output: &Value) -> PlanFacts {
                 .unwrap_or_default();
             if !payload.trim().is_empty() {
                 match serde_json::from_str::<Value>(payload) {
-                    Ok(parsed) => {
-                        walk(&parsed, &mut facts, &mut relations, &mut full_scans, 0)
-                    }
+                    Ok(parsed) => walk(&parsed, &mut facts, &mut relations, &mut full_scans, 0),
                     Err(_) => scan_text(payload, &mut facts, &mut relations, &mut full_scans),
                 }
             }
@@ -155,7 +153,10 @@ fn scan_text(
     for line in text.lines().map(str::trim).filter(|line| !line.is_empty()) {
         facts.node_count += 1;
         let upper = line.to_ascii_uppercase();
-        if upper.contains("SCAN ") && !upper.contains("USING INDEX") && !upper.contains("USING COVERING INDEX") {
+        if upper.contains("SCAN ")
+            && !upper.contains("USING INDEX")
+            && !upper.contains("USING COVERING INDEX")
+        {
             if let Some(name) = token_after(line, "SCAN ") {
                 relations.insert(name.clone());
                 full_scans.insert(format!("{name} (SCAN)"));

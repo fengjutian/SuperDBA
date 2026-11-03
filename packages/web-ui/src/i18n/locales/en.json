@@ -2530,12 +2530,12 @@
   },
   "aiActivity": {
     "title": "AI Activity",
-    "description": "Audit log of every MCP tool call, plus the queries waiting for your approval. Stored locally — never sent anywhere.",
+    "description": "Audit log of DBA chat and MCP tool calls, plus the queries waiting for your approval. Stored locally — never sent anywhere.",
     "tabs": {
       "events": "Events",
       "sessions": "Sessions"
     },
-    "empty": "No MCP activity yet.",
+    "empty": "No AI or MCP activity yet.",
     "eventsCount_one": "{{count}} event",
     "eventsCount_other": "{{count}} events",
     "blockedCount_one": "{{count}} blocked",
