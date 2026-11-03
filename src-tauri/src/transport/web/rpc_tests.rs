@@ -471,6 +471,10 @@ fn chat_contract_fixture(command: crate::application::chat::ChatCommand) -> Valu
         ChatCommand::ListSessions => serde_json::json!([summary]),
         ChatCommand::GetSession { .. } | ChatCommand::Send(_) => session,
         ChatCommand::Cancel { .. } | ChatCommand::DeleteSession { .. } => Value::Null,
+        ChatCommand::SuggestStarters(_) => serde_json::json!([
+            "Which tables should I start with?",
+            "Which indexes are missing?"
+        ]),
     }
 }
 

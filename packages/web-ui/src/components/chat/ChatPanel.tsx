@@ -227,7 +227,15 @@ export function ChatPanel() {
         [promptTables, t],
     );
 
-    const [generatedStarters, setGeneratedStarters] = useState<string[] | null>(null);
+    /**
+     * Last model answer, tagged with the scope it was written for. Tagging
+     * keeps a previous connection's questions off the screen while the new
+     * scope loads, without writing state from the effect body.
+     */
+    const [generatedStarters, setGeneratedStarters] = useState<{
+        key: string;
+        values: string[];
+    } | null>(null);
     const startersKey = useMemo(
         () =>
             starterCacheKey(
@@ -245,12 +253,7 @@ export function ChatPanel() {
     // paints the local set immediately and this effect only swaps it in later.
     useEffect(() => {
         if (!showEmptyState) return;
-        const cached = cachedStarters(startersKey);
-        if (cached) {
-            setGeneratedStarters(cached);
-            return;
-        }
-        setGeneratedStarters(null);
+        if (cachedStarters(startersKey)) return;
         if (!settings.aiProvider || promptTables.length === 0) return;
         let cancelled = false;
         void suggestStarters(
@@ -265,7 +268,7 @@ export function ChatPanel() {
         ).then((values) => {
             if (cancelled || values.length === 0) return;
             rememberStarters(startersKey, values);
-            setGeneratedStarters(values);
+            setGeneratedStarters({key: startersKey, values});
         });
         return () => {
             cancelled = true;
@@ -283,7 +286,10 @@ export function ChatPanel() {
         suggestStarters,
     ]);
 
-    const starterPrompts = generatedStarters ?? localStarters;
+    const starterPrompts =
+        (generatedStarters?.key === startersKey ? generatedStarters.values : null) ??
+        cachedStarters(startersKey) ??
+        localStarters;
 
     const submit = async () => {
         if (!input.trim() || sending) return;

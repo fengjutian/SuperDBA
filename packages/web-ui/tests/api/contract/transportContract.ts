@@ -1244,6 +1244,18 @@ async function handleRequest(
             },
         },
         chat_cancel: {request: {requestId: 'request-contract'}, response: null},
+        chat_suggest_starters: {
+            request: {
+                request: {
+                    provider: 'openai',
+                    model: 'gpt-contract',
+                    language: 'en',
+                    context: {connectionId: 'contract-connection', schema: 'public'},
+                    tables: ['users', 'orders'],
+                },
+            },
+            response: ['Which tables should I start with?', 'Which indexes are missing?'],
+        },
         chat_delete_session: {request: {sessionId: 'chat-contract'}, response: null},
         get_mcp_status: {
             request: null,
