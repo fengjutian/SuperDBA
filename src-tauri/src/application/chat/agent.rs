@@ -168,6 +168,15 @@ pub async fn run_turn(
 
         let index = push_assistant(&mut session, reply.content, reply.reasoning);
         if reply.tool_calls.is_empty() {
+            if final_report {
+                emit_batch_progress(
+                    runtime,
+                    web_session_id,
+                    &request_id,
+                    &session.id,
+                    MAX_MODEL_CALLS_PER_TURN,
+                );
+            }
             persist(runtime, &session).await?;
             emit_finished(runtime, web_session_id, &request_id, &session.id);
             clear_cancelled(web_session_id, &request_id);
@@ -193,18 +202,12 @@ pub async fn run_turn(
             ));
         } else if is_batch_boundary(completed_calls) {
             persist(runtime, &session).await?;
-            emit_chat_event(
+            emit_batch_progress(
                 runtime,
                 web_session_id,
-                json!({
-                    "type": "batchProgress",
-                    "requestId": request_id,
-                    "sessionId": session.id,
-                    "completedBatch": completed_calls / MODEL_CALLS_PER_BATCH,
-                    "totalBatches": super::MAX_MODEL_CALL_BATCHES,
-                    "completedCalls": completed_calls,
-                    "totalCalls": MAX_MODEL_CALLS_PER_TURN,
-                }),
+                &request_id,
+                &session.id,
+                completed_calls,
             );
             log::debug!(
                 "AI chat session {} completed a {}-call batch; continuing automatically ({}/{})",
@@ -221,6 +224,28 @@ pub async fn run_turn(
     emit_finished(runtime, web_session_id, &request_id, &session.id);
     clear_cancelled(web_session_id, &request_id);
     Ok(session)
+}
+
+fn emit_batch_progress(
+    runtime: &RuntimeContext,
+    web_session_id: Option<Uuid>,
+    request_id: &str,
+    session_id: &str,
+    completed_calls: usize,
+) {
+    emit_chat_event(
+        runtime,
+        web_session_id,
+        json!({
+            "type": "batchProgress",
+            "requestId": request_id,
+            "sessionId": session_id,
+            "completedBatch": completed_calls / MODEL_CALLS_PER_BATCH,
+            "totalBatches": super::MAX_MODEL_CALL_BATCHES,
+            "completedCalls": completed_calls,
+            "totalCalls": MAX_MODEL_CALLS_PER_TURN,
+        }),
+    );
 }
 
 pub(crate) fn is_batch_boundary(completed_calls: usize) -> bool {
