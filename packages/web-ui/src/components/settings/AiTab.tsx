@@ -828,6 +828,52 @@ export function AiTab() {
                     </SettingSection>
                 )}
 
+                <SettingSection
+                    title={t('settings.ai.chatBatching', {defaultValue: 'DBA chat batching'})}
+                    description={t('settings.ai.chatBatchingHelp', {
+                        defaultValue: 'Control automatic continuation for long analyses.',
+                    })}
+                >
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        {([
+                            [
+                                'aiChatCallsPerBatch',
+                                'settings.ai.callsPerBatch',
+                                'Model calls per batch',
+                                32,
+                                16,
+                            ],
+                            [
+                                'aiChatMaxBatches',
+                                'settings.ai.maxBatches',
+                                'Maximum automatic batches',
+                                8,
+                                4,
+                            ],
+                        ] as const).map(([key, label, defaultLabel, max, fallback]) => (
+                            <label key={key} className="space-y-1 text-xs text-secondary">
+                                <span>{t(label, {defaultValue: defaultLabel})}</span>
+                                <input
+                                    type="number"
+                                    min={1}
+                                    max={max}
+                                    value={settings[key] ?? fallback}
+                                    onChange={(event) =>
+                                        void updateSetting(
+                                            key,
+                                            Math.min(
+                                                max,
+                                                Math.max(1, Number(event.target.value) || 1),
+                                            ),
+                                        )
+                                    }
+                                    className="w-full rounded border border-default bg-base px-2 py-1.5 text-primary focus:border-focus focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                                />
+                            </label>
+                        ))}
+                    </div>
+                </SettingSection>
+
                 {/* Prompt customization */}
                 <SettingSection
                     title={t('settings.ai.promptCustomization')}

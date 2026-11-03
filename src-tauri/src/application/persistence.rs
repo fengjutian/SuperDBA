@@ -356,6 +356,8 @@ fn merge_config(existing: &mut AppConfig, update: AppConfig) {
         ai_audit_enabled,
         ai_audit_max_entries,
         ai_session_gap_minutes,
+        ai_chat_calls_per_batch,
+        ai_chat_max_batches,
         mcp_output_format,
         mcp_readonly_default,
         mcp_readonly_connections,

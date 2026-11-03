@@ -213,6 +213,8 @@ pub struct AppConfig {
     /// Inactivity gap (in minutes) after which a new MCP session id is minted.
     /// Default: 10.
     pub ai_session_gap_minutes: Option<u32>,
+    pub ai_chat_calls_per_batch: Option<u32>,
+    pub ai_chat_max_batches: Option<u32>,
 
     // ----- MCP Tool Output -----
     /// Default text encoding for MCP tool results: `"json"` or `"toon"`.
@@ -364,6 +366,10 @@ pub fn get_cached_config() -> AppConfig {
 pub const DEFAULT_AI_AUDIT_ENABLED: bool = true;
 pub const DEFAULT_AI_AUDIT_MAX_ENTRIES: u32 = 5000;
 pub const DEFAULT_AI_SESSION_GAP_MINUTES: u32 = 10;
+pub const DEFAULT_AI_CHAT_CALLS_PER_BATCH: u32 = 16;
+pub const DEFAULT_AI_CHAT_MAX_BATCHES: u32 = 4;
+pub const MAX_AI_CHAT_CALLS_PER_BATCH: u32 = 32;
+pub const MAX_AI_CHAT_BATCHES: u32 = 8;
 pub const DEFAULT_MCP_OUTPUT_FORMAT: &str = "json";
 pub const DEFAULT_MCP_READONLY_DEFAULT: bool = false;
 pub const DEFAULT_MCP_APPROVAL_MODE: &str = "writes_only";

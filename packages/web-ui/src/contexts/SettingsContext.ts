@@ -75,6 +75,8 @@ export interface Settings {
     aiOllamaPort?: number;
     aiCustomOpenaiUrl?: string;
     aiCustomOpenaiModel?: string;
+    aiChatCallsPerBatch?: number;
+    aiChatMaxBatches?: number;
     autoCheckUpdatesOnStartup?: boolean;
     /** Last plugin release shown in a startup notification, keyed by plugin id. */
     notifiedPluginVersions?: Record<string, string>;
@@ -245,6 +247,8 @@ export const DEFAULT_SETTINGS: Settings = {
     aiOllamaPort: 11434,
     aiCustomOpenaiUrl: '',
     aiCustomOpenaiModel: '',
+    aiChatCallsPerBatch: 16,
+    aiChatMaxBatches: 4,
     loggingEnabled: true,
     maxLogEntries: 1000,
     copyFormat: 'csv',

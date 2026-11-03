@@ -10,12 +10,14 @@ use super::store;
 use super::tools;
 use super::{
     clear_cancelled, emit_chat_event, is_cancelled, ChatContext, ChatMessage, ChatRole,
-    ChatSendRequest, ChatSession, ChatToolCall, ChatToolStatus, MAX_MODEL_CALLS_PER_TURN,
-    MODEL_CALLS_PER_BATCH,
+    ChatSendRequest, ChatSession, ChatToolCall, ChatToolStatus,
 };
 use crate::ai_activity::AiActivityEvent;
 use crate::application::ai::resolve_model;
-use crate::config::{DEFAULT_AI_AUDIT_ENABLED, DEFAULT_AI_AUDIT_MAX_ENTRIES};
+use crate::config::{
+    DEFAULT_AI_AUDIT_ENABLED, DEFAULT_AI_AUDIT_MAX_ENTRIES, DEFAULT_AI_CHAT_CALLS_PER_BATCH,
+    DEFAULT_AI_CHAT_MAX_BATCHES, MAX_AI_CHAT_BATCHES, MAX_AI_CHAT_CALLS_PER_BATCH,
+};
 use crate::runtime::{state::ApplicationState, RuntimeContext};
 use serde_json::{json, Value};
 use uuid::Uuid;
@@ -43,6 +45,7 @@ pub async fn run_turn(
     }
 
     let config = crate::application::persistence::load_config(runtime);
+    let limits = batch_limits(&config);
     let ollama_port = config.ai_ollama_port.unwrap_or(11434);
     let model = resolve_model(&request.provider, &request.model, &config, ollama_port).await?;
 
@@ -86,7 +89,7 @@ pub async fn run_turn(
         }),
     );
 
-    for round in 0..MAX_MODEL_CALLS_PER_TURN {
+    for round in 0..limits.total_calls {
         if is_cancelled(web_session_id, &request_id) {
             let index = push_assistant(&mut session, String::new(), None);
             session.messages[index].notice = Some("Stopped by the user.".to_string());
@@ -96,7 +99,7 @@ pub async fn run_turn(
             return Ok(session);
         }
 
-        let final_report = round + 1 == MAX_MODEL_CALLS_PER_TURN;
+        let final_report = round + 1 == limits.total_calls;
         let request_prompt = if final_report {
             format!(
                 "{system_prompt}\nFinal batch instruction:\n- Do not call tools. Summarize completed coverage, evidence-backed findings, unfinished scope, and the exact next step for a follow-up."
@@ -104,7 +107,7 @@ pub async fn run_turn(
         } else {
             system_prompt.clone()
         };
-        let model_messages = messages_for_model(&session.messages);
+        let model_messages = messages_for_model(&session.messages, limits.calls_per_batch);
         let request_tools = if final_report {
             &[]
         } else {
@@ -174,7 +177,8 @@ pub async fn run_turn(
                     web_session_id,
                     &request_id,
                     &session.id,
-                    MAX_MODEL_CALLS_PER_TURN,
+                    limits,
+                    limits.total_calls,
                 );
             }
             persist(runtime, &session).await?;
@@ -196,25 +200,26 @@ pub async fn run_turn(
         session.messages[index].tool_calls = calls;
 
         let completed_calls = round + 1;
-        if completed_calls == MAX_MODEL_CALLS_PER_TURN {
+        if completed_calls == limits.total_calls {
             session.messages[index].notice = Some(format!(
-                "Stopped after {MAX_MODEL_CALLS_PER_TURN} model calls across automatic batches. Ask a follow-up to continue from the saved analysis."
+                "Stopped after {} model calls across automatic batches. Ask a follow-up to continue from the saved analysis.", limits.total_calls
             ));
-        } else if is_batch_boundary(completed_calls) {
+        } else if is_batch_boundary(completed_calls, limits.calls_per_batch) {
             persist(runtime, &session).await?;
             emit_batch_progress(
                 runtime,
                 web_session_id,
                 &request_id,
                 &session.id,
+                limits,
                 completed_calls,
             );
             log::debug!(
                 "AI chat session {} completed a {}-call batch; continuing automatically ({}/{})",
                 session.id,
-                MODEL_CALLS_PER_BATCH,
+                limits.calls_per_batch,
                 completed_calls,
-                MAX_MODEL_CALLS_PER_TURN,
+                limits.total_calls,
             );
         }
         session.updated_at = crate::ai_activity::now_iso8601();
@@ -231,6 +236,7 @@ fn emit_batch_progress(
     web_session_id: Option<Uuid>,
     request_id: &str,
     session_id: &str,
+    limits: BatchLimits,
     completed_calls: usize,
 ) {
     emit_chat_event(
@@ -240,24 +246,50 @@ fn emit_batch_progress(
             "type": "batchProgress",
             "requestId": request_id,
             "sessionId": session_id,
-            "completedBatch": completed_calls / MODEL_CALLS_PER_BATCH,
-            "totalBatches": super::MAX_MODEL_CALL_BATCHES,
+            "completedBatch": completed_calls / limits.calls_per_batch,
+            "totalBatches": limits.max_batches,
             "completedCalls": completed_calls,
-            "totalCalls": MAX_MODEL_CALLS_PER_TURN,
+            "totalCalls": limits.total_calls,
         }),
     );
 }
 
-pub(crate) fn is_batch_boundary(completed_calls: usize) -> bool {
-    completed_calls > 0 && completed_calls % MODEL_CALLS_PER_BATCH == 0
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct BatchLimits {
+    pub calls_per_batch: usize,
+    pub max_batches: usize,
+    pub total_calls: usize,
 }
 
-pub(crate) fn messages_for_model(messages: &[ChatMessage]) -> Vec<ChatMessage> {
+pub(crate) fn batch_limits(config: &crate::config::AppConfig) -> BatchLimits {
+    let calls_per_batch = config
+        .ai_chat_calls_per_batch
+        .unwrap_or(DEFAULT_AI_CHAT_CALLS_PER_BATCH)
+        .clamp(1, MAX_AI_CHAT_CALLS_PER_BATCH) as usize;
+    let max_batches = config
+        .ai_chat_max_batches
+        .unwrap_or(DEFAULT_AI_CHAT_MAX_BATCHES)
+        .clamp(1, MAX_AI_CHAT_BATCHES) as usize;
+    BatchLimits {
+        calls_per_batch,
+        max_batches,
+        total_calls: calls_per_batch * max_batches,
+    }
+}
+
+pub(crate) fn is_batch_boundary(completed_calls: usize, calls_per_batch: usize) -> bool {
+    calls_per_batch > 0 && completed_calls > 0 && completed_calls % calls_per_batch == 0
+}
+
+pub(crate) fn messages_for_model(
+    messages: &[ChatMessage],
+    calls_per_batch: usize,
+) -> Vec<ChatMessage> {
     let tool_turns = messages
         .iter()
         .filter(|message| !message.tool_calls.is_empty())
         .count();
-    let compact_before = tool_turns.saturating_sub(MODEL_CALLS_PER_BATCH);
+    let compact_before = tool_turns.saturating_sub(calls_per_batch.max(1));
     let mut seen_tool_turns = 0;
     messages
         .iter()

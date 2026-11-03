@@ -1,12 +1,12 @@
 use super::agent::{
-    bound_result, build_audit_event, is_batch_boundary, messages_for_model, system_prompt,
+    batch_limits, bound_result, build_audit_event, is_batch_boundary, messages_for_model,
+    system_prompt,
 };
 use super::provider::{self, ProviderToolCall};
 use super::store;
 use super::tools::{self, classify_statement, is_single_read_only_statement, StatementClass};
 use super::{
-    cancellation_key, ChatContext, ChatMessage, ChatRole, ChatSession, ChatToolCall,
-    ChatToolStatus, MAX_MODEL_CALLS_PER_TURN, MODEL_CALLS_PER_BATCH,
+    cancellation_key, ChatContext, ChatMessage, ChatRole, ChatSession, ChatToolCall, ChatToolStatus,
 };
 use serde_json::json;
 
@@ -232,21 +232,36 @@ fn system_prompt_carries_connection_context() {
     assert!(prompt.contains("read-only"));
     assert!(prompt.contains("describe_tables"));
     assert!(prompt.contains("every page and batch"));
-    assert!(MAX_MODEL_CALLS_PER_TURN > MODEL_CALLS_PER_BATCH);
+    assert!(batch_limits(&crate::config::AppConfig::default()).total_calls > 16);
 }
 
 #[test]
 fn long_turns_checkpoint_at_batch_boundaries() {
-    assert!(!is_batch_boundary(0));
-    assert!(!is_batch_boundary(MODEL_CALLS_PER_BATCH - 1));
-    assert!(is_batch_boundary(MODEL_CALLS_PER_BATCH));
-    assert!(is_batch_boundary(MODEL_CALLS_PER_BATCH * 2));
+    assert!(!is_batch_boundary(0, 16));
+    assert!(!is_batch_boundary(15, 16));
+    assert!(is_batch_boundary(16, 16));
+    assert!(is_batch_boundary(32, 16));
+}
+
+#[test]
+fn chat_batch_limits_use_defaults_and_clamp_saved_values() {
+    let defaults = batch_limits(&crate::config::AppConfig::default());
+    assert_eq!((defaults.calls_per_batch, defaults.max_batches), (16, 4));
+
+    let config = crate::config::AppConfig {
+        ai_chat_calls_per_batch: Some(100),
+        ai_chat_max_batches: Some(0),
+        ..Default::default()
+    };
+    let clamped = batch_limits(&config);
+    assert_eq!((clamped.calls_per_batch, clamped.max_batches), (32, 1));
+    assert_eq!(clamped.total_calls, 32);
 }
 
 #[test]
 fn old_tool_results_are_compacted_only_for_model_replay() {
     let mut messages = Vec::new();
-    for index in 0..=MODEL_CALLS_PER_BATCH {
+    for index in 0..=16 {
         let mut assistant = message(ChatRole::Assistant, "Checking.");
         assistant.id = format!("message-{index}");
         assistant.tool_calls.push(ChatToolCall {
@@ -261,7 +276,7 @@ fn old_tool_results_are_compacted_only_for_model_replay() {
         messages.push(assistant);
     }
 
-    let replay = messages_for_model(&messages);
+    let replay = messages_for_model(&messages, 16);
     assert_eq!(
         messages[0].tool_calls[0].result,
         Some(json!({"rows": [[0]]}))
