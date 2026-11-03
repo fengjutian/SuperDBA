@@ -60,6 +60,10 @@ pub struct ChatMessage {
     pub id: String,
     pub role: ChatRole,
     pub content: String,
+    /// Reasoning returned by providers with interleaved thinking (MiniMax).
+    /// Replayed to the provider on later turns but never rendered as an answer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reasoning: Option<String>,
     pub created_at: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tool_calls: Vec<ChatToolCall>,

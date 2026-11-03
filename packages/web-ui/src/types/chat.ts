@@ -24,6 +24,8 @@ export interface ChatMessage {
     id: string;
     role: ChatRole;
     content: string;
+    /** Provider thinking, replayed to the model; not shown as an answer. */
+    reasoning?: string;
     createdAt: string;
     toolCalls?: ChatToolCall[];
     toolCallId?: string;

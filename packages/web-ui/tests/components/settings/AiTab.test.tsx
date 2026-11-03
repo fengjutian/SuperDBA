@@ -2,12 +2,14 @@ import {fireEvent, render, screen, waitFor} from '@testing-library/react';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 import {AiTab} from '@/components/settings/AiTab';
 
-const {invoke, updateSetting} = vi.hoisted(() => ({
+const {invoke, updateSetting, showToast} = vi.hoisted(() => ({
     invoke: vi.fn(),
     updateSetting: vi.fn(),
+    showToast: vi.fn(),
 }));
 vi.unmock('lucide-react');
 vi.mock('@tauri-apps/api/core', () => ({invoke}));
+vi.mock('@/hooks/useToast', () => ({useToast: () => ({showToast})}));
 vi.mock('@/hooks/useSettings', () => ({
     useSettings: () => ({
         settings: {aiEnabled: true, aiProvider: 'openrouter', aiModel: ''},
@@ -79,6 +81,40 @@ describe('AiTab proxy configuration', () => {
         fireEvent.click(screen.getByRole('button', {name: 'settings.network.modeInherit'}));
         expect(screen.queryByPlaceholderText('127.0.0.1')).not.toBeInTheDocument();
         expect(updateSetting).toHaveBeenLastCalledWith('aiProviderProxies', {});
+    });
+});
+
+describe('AiTab model refresh', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        invoke.mockImplementation(async (cmd: string) => {
+            if (cmd === 'check_ai_key_status') return {configured: false, fromEnv: false};
+            if (cmd === 'get_ai_models') return {openrouter: ['openrouter/auto']};
+            return '';
+        });
+        updateSetting.mockResolvedValue(undefined);
+    });
+
+    it('confirms a refresh with a toast and keeps a single request in flight', async () => {
+        render(<AiTab />);
+        const refresh = await screen.findByRole('button', {name: 'settings.ai.refresh'});
+
+        fireEvent.click(refresh);
+        fireEvent.click(refresh);
+
+        await waitFor(() =>
+            expect(showToast).toHaveBeenCalledWith('settings.ai.refreshSuccess', {
+                kind: 'success',
+            }),
+        );
+        expect(showToast).toHaveBeenCalledTimes(1);
+        const forcedRefreshes = invoke.mock.calls.filter(
+            (call) =>
+                call[0] === 'get_ai_models' &&
+                (call[1] as {forceRefresh?: boolean} | undefined)?.forceRefresh === true,
+        );
+        expect(forcedRefreshes).toHaveLength(1);
+        await waitFor(() => expect(refresh).toBeEnabled());
     });
 });
 

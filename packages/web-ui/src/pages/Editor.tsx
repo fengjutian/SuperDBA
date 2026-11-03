@@ -1,5 +1,5 @@
 import {toErrorMessage} from '@/utils/errors';
-import {useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, useId} from 'react';
+import {useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo} from 'react';
 import {useAutoRefresh} from '@/hooks/useAutoRefresh';
 import {hasPendingTableEdits, tableRefreshIdentity} from '@/utils/autoRefresh';
 import {useLocation, useNavigate} from 'react-router-dom';
@@ -8,20 +8,13 @@ import {
     buildDuplicatedTab,
     canDuplicateTab,
     canRenameTab,
-    getTabDisplayTitle,
-    getTabFullTitle,
     normalizeSmartQuotes,
     reconstructTableQuery,
     resolveTabPageSize,
 } from '@/utils/editor';
 import {shouldShowStatementSuccess} from '@/utils/resultPresentation';
 import {formatRowsForCopy, copyTextToClipboard} from '@/utils/clipboard';
-import {onActivationKey, isTypingTarget} from '@/utils/keyboardEvents';
-import {
-    formatResultForExport,
-    getLoadedRowsExportLimit,
-    type ResultExportFormat,
-} from '@/utils/resultExport';
+import {isTypingTarget} from '@/utils/keyboardEvents';
 import {serializePkKey, buildPkMap} from '@/utils/dataGrid';
 import {
     createGridHistory,
@@ -35,11 +28,9 @@ import {
     clonePendingInsertions,
     type GridPendingSnapshot,
 } from '@/utils/gridUndo';
-import {TONE_SOFT_BG_CLASS, TONE_TEXT_CLASS} from '@/utils/tones';
 import {buildKeylessUpdatePlan, resolveRowIdentity} from '@/utils/rowIdentity';
 import {
     getTableDataChangeScope,
-    isMultiDatabaseCapable,
     usesMultiDatabaseLayout,
     resolveHistoryDatabase,
     resolveFlatMultiDbTabDatabase,
@@ -56,6 +47,8 @@ import {useClickOutside} from '@/hooks/useClickOutside';
 import {DANGEROUS_QUERY_I18N} from '@/hooks/useDangerousQueryGuard';
 import {useProductionGuard} from '@/hooks/useProductionGuard';
 import {useQueryGuards} from '@/hooks/useQueryGuards';
+import {useDetachedResultWindows} from '@/hooks/useDetachedResultWindows';
+import {useTabStripDragReorder} from '@/hooks/useTabStripDragReorder';
 import {
     generateTempId,
     initializeNewRow,
@@ -79,9 +72,7 @@ import {
     Bookmark,
     X,
     Database,
-    Table as TableIcon,
     FileCode,
-    FolderOpen,
     Network,
     ChevronLeft,
     ChevronRight,
@@ -96,8 +87,6 @@ import {
     Undo2,
     Redo2,
     Check,
-    BookOpen,
-    UsersRound,
     Pencil,
     Hash,
     Loader2,
@@ -129,7 +118,7 @@ import {QueryParamsModal} from '@/components/modals/QueryParamsModal';
 import {ErrorModal} from '@/components/modals/ErrorModal';
 import {VisualQueryBuilder} from '@/components/ui/VisualQueryBuilder';
 import {ContextMenu} from '@/components/ui/ContextMenu';
-import {ExportProgressModal, type ExportStatus} from '@/components/modals/ExportProgressModal';
+import {ExportProgressModal} from '@/components/modals/ExportProgressModal';
 import {
     splitQueries,
     splitStatements,
@@ -178,6 +167,7 @@ import type {
     ResultsSessionRequest,
     ResultsSessionSnapshot,
 } from '@/platform/secondaryWindowSessions';
+import {EditorTabStrip} from '@/components/layout/EditorTabStrip';
 import {SqlEditorWrapper} from '@/components/ui/SqlEditorWrapper';
 import {NotebookView} from '@/components/notebook/NotebookView';
 import {UserManagementView} from '@/components/users/UserManagementView';
@@ -236,20 +226,10 @@ import {
 } from '@/utils/sqlFile';
 import {RelatedRecordsPanel} from '@/components/ui/RelatedRecordsPanel';
 import {getTabScrollState, getAdjacentTabIndex, isFocusedPane} from '@/utils/tabScroll';
-import {computeAutoScrollSpeed} from '@/utils/notebookDnd';
-import {buildExportFileName} from '@/utils/exportFileName';
 import clsx from 'clsx';
 import {useSuperDBAClient} from '@/hooks/useSuperDBAClient';
+import {useResultExport} from '@/hooks/useResultExport';
 import {createRequestId} from '@/api/errors';
-import {downloadGeneratedFile, downloadTextFile} from '@/utils/fileDownloads';
-
-const LOADED_ROWS_EXPORT_MIME_TYPES: Record<ResultExportFormat, string> = {
-    csv: 'text/csv',
-    json: 'application/json',
-    ndjson: 'application/x-ndjson',
-    markdown: 'text/markdown',
-    html: 'text/html',
-};
 
 const CHEVRON_SELECT_STYLE: React.CSSProperties = {
     backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
@@ -354,20 +334,6 @@ export const Editor = ({commandScopeId}: EditorProps) => {
         message: string;
     }>({isOpen: false, message: ''});
 
-    const [exportState, setExportState] = useState<{
-        isOpen: boolean;
-        status: ExportStatus;
-        rowsProcessed: number;
-        fileName: string;
-        errorMessage?: string;
-        warningMessage?: string;
-    }>({
-        isOpen: false,
-        status: 'exporting',
-        rowsProcessed: 0,
-        fileName: '',
-    });
-
     const [activeFkQuery, setActiveFkQuery] = useState<{
         fk: ForeignKey;
         value: unknown;
@@ -400,23 +366,6 @@ export const Editor = ({commandScopeId}: EditorProps) => {
         });
         return () => {
             unlisten.then((f) => f());
-        };
-    }, [client]);
-
-    useEffect(() => {
-        let disposed = false;
-        let unsubscribe: (() => void) | undefined;
-        void client
-            .subscribe('export_progress', ({rows_processed: rowsProcessed}) => {
-                setExportState((prev) => ({...prev, rowsProcessed}));
-            })
-            .then((stop) => {
-                if (disposed) stop();
-                else unsubscribe = stop;
-            });
-        return () => {
-            disposed = true;
-            unsubscribe?.();
         };
     }, [client]);
 
@@ -505,15 +454,6 @@ export const Editor = ({commandScopeId}: EditorProps) => {
     // in split view every pane mounts its own Editor
     const editorRootRef = useRef<HTMLDivElement>(null);
     const [isResultsCollapsed, setIsResultsCollapsed] = useState(false);
-    // Ids of tabs whose results are detached into their own separate windows (one
-    // window per tab). Each window keeps showing its tab even when the user
-    // switches tabs in the main window.
-    const [detachedTabIds, setDetachedTabIds] = useState<Set<string>>(() => new Set());
-    // Mirror of detachedTabIds for use inside callbacks/refs without re-creating
-    // them or reading stale closures. Kept in sync alongside tabsRef below.
-    const detachedTabIdsRef = useRef(detachedTabIds);
-    const resultSessionIdsRef = useRef(new Map<string, string>());
-    const resultTabIdsBySessionRef = useRef(new Map<string, string>());
     const isDragging = useRef(false);
     const rafRef = useRef<number | null>(null);
     const editorsRef = useRef<Record<string, Parameters<OnMount>[0]>>({});
@@ -537,7 +477,7 @@ export const Editor = ({commandScopeId}: EditorProps) => {
         hasSelection: false,
         statementCount: 0,
     });
-    // The label only distinguishes ≤1 from >1 statements, so bail out of count
+    // The label only distinguishes 鈮? from >1 statements, so bail out of count
     // changes that can't affect it (typing a ';' mid-way through a script) —
     // each accepted update re-renders this whole page component.
     const handleRunContextChange = useCallback((context: RunContext) => {
@@ -599,6 +539,26 @@ export const Editor = ({commandScopeId}: EditorProps) => {
     const [csvDelimiter, setCsvDelimiter] = useState(settings.csvDelimiter ?? ',');
     const [csvIncludeHeaders, setCsvIncludeHeaders] = useState(settings.csvIncludeHeaders ?? true);
 
+    const {
+        detachedTabIds,
+        detachedTabIdsRef,
+        resultSessionIdsRef,
+        resultTabIdsBySessionRef,
+        handleDetachResults,
+        handleReattachResults,
+        forgetDetachedTab,
+    } = useDetachedResultWindows({
+        tabs,
+        activeTab,
+        connectionId: activeConnectionId,
+        copyFormat,
+        csvDelimiter,
+        csvIncludeHeaders,
+        publishRouteEvent: platform.publishRouteEvent,
+        openResultsWindow,
+        closeResultsWindow,
+    });
+
     const activeTabType = activeTab?.type;
     const activeTabQuery = activeTab?.query;
     const isTableTab = activeTab?.type === 'table';
@@ -611,14 +571,6 @@ export const Editor = ({commandScopeId}: EditorProps) => {
     const resultChart = useResultChartState(resultChartEnabled ? activeTab.id : null);
     const showResultChart = resultChartEnabled && resultChart.view === 'chart';
     const isMultiDb = usesMultiDatabaseLayout(activeCapabilities, selectedDatabases);
-    const tabStripId = useId();
-    // Full name behind a truncated tab title (tooltip and accessible name).
-    const tabFullTitle = (tab: Tab) =>
-        getTabFullTitle(
-            tab,
-            tabs,
-            tab.type === 'console' && isMultiDb ? tab.schema || selectedDatabases[0] : undefined,
-        );
 
     const handleOpenSqlFile = useCallback(async () => {
         try {
@@ -835,114 +787,19 @@ export const Editor = ({commandScopeId}: EditorProps) => {
         [tabs, activeTabId, setActiveTabId],
     );
 
-    // Tab reordering via native HTML5 drag-and-drop. `dropPos` is a gap index
-    // into `tabs` (0 = before the first tab, tabs.length = after the last);
-    // `dropIndicatorLeft` is its pixel offset within the scroll container, used
-    // to render the insertion line.
-    const [dragTabId, setDragTabId] = useState<string | null>(null);
-    const [dropPos, setDropPos] = useState<number | null>(null);
-    const [dropIndicatorLeft, setDropIndicatorLeft] = useState<number | null>(null);
-    const autoScrollRafRef = useRef<number | null>(null);
-    const autoScrollSpeedRef = useRef(0);
-
-    const stopTabAutoScroll = useCallback(() => {
-        if (autoScrollRafRef.current !== null) {
-            cancelAnimationFrame(autoScrollRafRef.current);
-            autoScrollRafRef.current = null;
-        }
-        autoScrollSpeedRef.current = 0;
-    }, []);
-
-    // rAF loop so the tab strip keeps scrolling while the cursor is held near an
-    // edge, even when no further dragover events fire (native DnD doesn't
-    // auto-scroll the container on its own).
-    const stepTabAutoScroll = useCallback(() => {
-        const tick = () => {
-            const el = tabScrollRef.current;
-            const speed = autoScrollSpeedRef.current;
-            if (!el || speed === 0) {
-                autoScrollRafRef.current = null;
-                return;
-            }
-            el.scrollLeft += speed;
-            autoScrollRafRef.current = requestAnimationFrame(tick);
-        };
-        tick();
-    }, []);
-
-    useEffect(() => stopTabAutoScroll, [stopTabAutoScroll]);
-
-    const handleTabDragStart = useCallback((e: React.DragEvent<HTMLDivElement>, tabId: string) => {
-        e.dataTransfer.effectAllowed = 'move';
-        // WebKitGTK (and Firefox) won't start a drag with an empty data store.
-        e.dataTransfer.setData('text/plain', tabId);
-        setDragTabId(tabId);
-    }, []);
-
-    const handleTabDragEnd = useCallback(() => {
-        setDragTabId(null);
-        setDropPos(null);
-        setDropIndicatorLeft(null);
-        stopTabAutoScroll();
-    }, [stopTabAutoScroll]);
-
-    const handleTabDragOver = useCallback(
-        (index: number) => (e: React.DragEvent<HTMLDivElement>) => {
-            if (!dragTabId) return;
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            // Left half of the tab drops before it, right half drops after it.
-            const target = e.currentTarget;
-            const rect = target.getBoundingClientRect();
-            const after = e.clientX > rect.left + rect.width / 2;
-            setDropPos(after ? index + 1 : index);
-            setDropIndicatorLeft(
-                after ? target.offsetLeft + target.offsetWidth : target.offsetLeft,
-            );
-        },
-        [dragTabId],
-    );
-
-    // Drive edge auto-scroll from the scroll container, and fall back to
-    // "drop after the last tab" when hovering empty space past the last tab.
-    const handleTabsContainerDragOver = useCallback(
-        (e: React.DragEvent<HTMLDivElement>) => {
-            if (!dragTabId) return;
-            const container = tabScrollRef.current;
-            if (!container) return;
-            e.preventDefault();
-            const containerRect = container.getBoundingClientRect();
-            const speed = computeAutoScrollSpeed(
-                {top: containerRect.left, bottom: containerRect.right},
-                e.clientX,
-            );
-            autoScrollSpeedRef.current = speed;
-            if (speed !== 0 && autoScrollRafRef.current === null) {
-                autoScrollRafRef.current = requestAnimationFrame(stepTabAutoScroll);
-            }
-            if (e.target === container) {
-                const lastTab = container.children[tabs.length - 1] as HTMLElement | undefined;
-                setDropPos(tabs.length);
-                setDropIndicatorLeft(lastTab ? lastTab.offsetLeft + lastTab.offsetWidth : 0);
-            }
-        },
-        [dragTabId, tabs.length, stepTabAutoScroll],
-    );
-
-    const handleTabsDrop = useCallback(
-        (e: React.DragEvent<HTMLDivElement>) => {
-            e.preventDefault();
-            stopTabAutoScroll();
-            const fromTabId = dragTabId;
-            const insertAt = dropPos;
-            setDragTabId(null);
-            setDropPos(null);
-            setDropIndicatorLeft(null);
-            if (fromTabId === null || insertAt === null) return;
-            reorderTab(fromTabId, insertAt);
-        },
-        [dragTabId, dropPos, stopTabAutoScroll, reorderTab],
-    );
+    const {
+        dragTabId,
+        dropIndicatorLeft,
+        handleTabDragStart,
+        handleTabDragEnd,
+        handleTabDragOver,
+        handleTabsContainerDragOver,
+        handleTabsDrop,
+    } = useTabStripDragReorder({
+        tabScrollRef,
+        tabCount: tabs.length,
+        onReorder: reorderTab,
+    });
 
     const processingRef = useRef<string | null>(null);
     const pendingExecutionsRef = useRef<Record<string, {sql: string; page: number}>>({});
@@ -1023,7 +880,7 @@ export const Editor = ({commandScopeId}: EditorProps) => {
         activeTabIdRef.current = activeTabId;
         activeConnectionIdRef.current = activeConnectionId;
         detachedTabIdsRef.current = detachedTabIds;
-    }, [tabs, activeTabId, activeConnectionId, detachedTabIds]);
+    }, [tabs, activeTabId, activeConnectionId, detachedTabIds, detachedTabIdsRef]);
 
     const requestTabClosure = useCallback((tabIds: string[], action: () => void) => {
         // EditorProvider releases a closed tab's session once it leaves the list.
@@ -1645,6 +1502,7 @@ export const Editor = ({commandScopeId}: EditorProps) => {
         },
         [
             client,
+            detachedTabIdsRef,
             clearEntryScrollTops,
             activeConnectionId,
             updateTab,
@@ -2130,6 +1988,7 @@ export const Editor = ({commandScopeId}: EditorProps) => {
         },
         [
             activeTab,
+            detachedTabIdsRef,
             activeConnectionId,
             activeSchema,
             activeDriver,
@@ -2139,83 +1998,6 @@ export const Editor = ({commandScopeId}: EditorProps) => {
             getAutoRefreshSchedule,
         ],
     );
-
-    // --- Detached results windows (one per detached tab) ---
-    const handleDetachResults = useCallback(async () => {
-        if (!activeTab) return;
-        const tabId = activeTab.id;
-        const sessionId = crypto.randomUUID();
-        resultSessionIdsRef.current.set(tabId, sessionId);
-        resultTabIdsBySessionRef.current.set(sessionId, tabId);
-        try {
-            await openResultsWindow(sessionId, `${activeTab.title} — Query Results`);
-            setDetachedTabIds((prev) => new Set(prev).add(tabId));
-        } catch (e) {
-            resultSessionIdsRef.current.delete(tabId);
-            resultTabIdsBySessionRef.current.delete(sessionId);
-            console.error('Failed to detach results', e);
-        }
-    }, [activeTab, openResultsWindow]);
-
-    const handleReattachResults = useCallback(
-        async (tabId: string) => {
-            const sessionId = resultSessionIdsRef.current.get(tabId) ?? tabId;
-            try {
-                await closeResultsWindow(sessionId);
-            } catch (e) {
-                console.error('Failed to close results window', e);
-            }
-            resultSessionIdsRef.current.delete(tabId);
-            resultTabIdsBySessionRef.current.delete(sessionId);
-            setDetachedTabIds((prev) => {
-                const next = new Set(prev);
-                next.delete(tabId);
-                return next;
-            });
-        },
-        [closeResultsWindow],
-    );
-
-    // Push each detached tab's result state to its window whenever the tabs
-    // change.
-    useEffect(() => {
-        if (detachedTabIds.size === 0) return;
-        for (const id of detachedTabIds) {
-            const tab = tabs.find((t) => t.id === id);
-            const sessionId = resultSessionIdsRef.current.get(id);
-            if (tab && sessionId) {
-                void platform.publishRouteEvent<ResultsSessionSnapshot>(RESULTS_SYNC_EVENT, {
-                    sessionId,
-                    payload: buildSyncPayload(tab, {
-                        connectionId: activeConnectionId,
-                        copyFormat,
-                        csvDelimiter,
-                        csvIncludeHeaders,
-                    }),
-                });
-            }
-        }
-    }, [
-        tabs,
-        detachedTabIds,
-        activeConnectionId,
-        copyFormat,
-        csvDelimiter,
-        csvIncludeHeaders,
-        platform,
-    ]);
-
-    // If a detached tab is closed in the main window, close its orphaned window.
-    // Closing the window emits RESULTS_CLOSED_EVENT, whose listener owns pruning
-    // detachedTabIds — so this effect stays side-effect-only (no setState here).
-    useEffect(() => {
-        for (const id of detachedTabIds) {
-            if (!tabs.some((t) => t.id === id)) {
-                const sessionId = resultSessionIdsRef.current.get(id) ?? id;
-                void closeResultsWindow(sessionId).catch(() => {});
-            }
-        }
-    }, [closeResultsWindow, tabs, detachedTabIds]);
 
     // Reads every query page and formats the full result set for the
     // clipboard. Returns null when there is nothing to copy.
@@ -2498,12 +2280,7 @@ export const Editor = ({commandScopeId}: EditorProps) => {
                 if (!closedId) return;
                 resultTabIdsBySessionRef.current.delete(sessionId);
                 resultSessionIdsRef.current.delete(closedId);
-                setDetachedTabIds((prev) => {
-                    if (!prev.has(closedId)) return prev;
-                    const next = new Set(prev);
-                    next.delete(closedId);
-                    return next;
-                });
+                forgetDetachedTab(closedId);
             },
         );
 
@@ -2513,6 +2290,10 @@ export const Editor = ({commandScopeId}: EditorProps) => {
             closedP.then((u) => u());
         };
     }, [
+        detachedTabIdsRef,
+        resultSessionIdsRef,
+        resultTabIdsBySessionRef,
+        forgetDetachedTab,
         activeConnectionId,
         copyFormat,
         csvDelimiter,
@@ -2553,7 +2334,7 @@ export const Editor = ({commandScopeId}: EditorProps) => {
     // one statement out of several.
     const runTitle =
         runTarget === 'statement'
-            ? `${runButtonBase} · ${t('editor.runAll')} (${isMac ? 'Cmd+Shift+Enter' : 'Ctrl+Shift+Enter'})`
+            ? `${runButtonBase} 路 ${t('editor.runAll')} (${isMac ? 'Cmd+Shift+Enter' : 'Ctrl+Shift+Enter'})`
             : runButtonBase;
 
     const handleRunAll = useCallback(() => {
@@ -4670,200 +4451,46 @@ export const Editor = ({commandScopeId}: EditorProps) => {
         document.addEventListener('mouseup', stopResize);
     };
 
-    const cancelExport = useCallback(async () => {
+    const closeExportMenu = useCallback(() => setExportMenuOpen(false), []);
+
+    const {
+        exportState,
+        cancelExport,
+        closeExportModal,
+        handleExportCSV,
+        handleExportJSON,
+        handleExportNDJSON,
+        handleExportMarkdown,
+        handleExportHtml,
+    } = useResultExport({
+        tab: activeTab,
+        connectionId: activeConnectionId,
+        schema: activeSchema,
+        capabilities: activeCapabilities,
+        driver: activeDriver,
+        resultEntry: activeResultEntry,
+        exportResult: activeExportResult,
+        inTransaction: activeTab ? transactionTabIds.has(activeTab.id) : false,
+        csvDelimiter,
+        onExportStarted: closeExportMenu,
+    });
+
+    const handleNewConsoleTab = useCallback(() => {
+        addTab({
+            type: 'console',
+            ...(isMultiDb ? {schema: selectedDatabases[0]} : {}),
+        });
+    }, [addTab, isMultiDb, selectedDatabases]);
+
+    const handleNewNotebookTab = useCallback(async () => {
         if (!activeConnectionId) return;
-        try {
-            await client.call('cancel_export', {connectionId: activeConnectionId});
-            setExportState((prev) => ({
-                ...prev,
-                isOpen: false,
-            }));
-        } catch (e) {
-            console.error('Failed to cancel export', e);
-        }
-    }, [activeConnectionId, client]);
-
-    const closeExportModal = useCallback(() => {
-        setExportState((prev) => ({...prev, isOpen: false}));
-    }, []);
-
-    const getLoadedRowsWarning = (result: QueryResult): string | undefined => {
-        const limit = getLoadedRowsExportLimit(result);
-        if (!limit) return undefined;
-        const loaded = limit.loadedRows.toLocaleString();
-        return limit.totalRows === null
-            ? t('editor.exportLoadedRowsWarningUnknownTotal', {loaded})
-            : t('editor.exportLoadedRowsWarning', {
-                  loaded,
-                  total: limit.totalRows.toLocaleString(),
-              });
-    };
-
-    const handleExportLoadedRows = async (result: QueryResult, format: ResultExportFormat) => {
-        if (!activeTab) return;
-
-        const extension = format === 'markdown' ? 'md' : format;
-        try {
-            const warningMessage = getLoadedRowsWarning(result);
-
-            const fileName = buildExportFileName({
-                tableName: activeTab.type === 'table' ? activeTab.activeTable : null,
-                extension,
-            });
-            setExportState({
-                isOpen: true,
-                status: 'exporting',
-                rowsProcessed: result.rows.length,
-                fileName,
-                errorMessage: undefined,
-                warningMessage,
-            });
-            setExportMenuOpen(false);
-
-            const downloaded = await downloadTextFile(platform, {
-                fileName,
-                contents: formatResultForExport(result, format, csvDelimiter),
-                mimeType: LOADED_ROWS_EXPORT_MIME_TYPES[format],
-                filters: [
-                    {
-                        name: format === 'markdown' ? 'Markdown' : format.toUpperCase(),
-                        extensions: [extension],
-                    },
-                ],
-            });
-            if (!downloaded) {
-                setExportState((prev) => ({...prev, isOpen: false}));
-                return;
-            }
-
-            setExportState((prev) => ({
-                ...prev,
-                status: 'completed',
-            }));
-        } catch (e) {
-            setExportState((prev) => ({
-                ...prev,
-                status: 'error',
-                errorMessage: String(e),
-            }));
-        }
-    };
-
-    // HTML only exports the loaded grid (handleExportHtml), never the streaming exporter.
-    const handleExportCommon = async (format: Exclude<ResultExportFormat, 'html'>) => {
-        if (!activeTab || !activeConnectionId) return;
-
-        if (format === 'ndjson') {
-            if (!activeExportResult) return;
-            await handleExportLoadedRows(activeExportResult, 'ndjson');
-            return;
-        }
-
-        const extension = format === 'markdown' ? 'md' : format;
-        const multiResult = activeResultEntry?.result;
-        if (multiResult?.rows.length) {
-            await handleExportLoadedRows(multiResult, format);
-            return;
-        }
-
-        const effectiveSchema = activeCapabilities?.schemas === true ? activeTab.schema : undefined;
-        const tabForQuery = {...activeTab, schema: effectiveSchema};
-        const query =
-            activeTab.type === 'table' && activeTab.activeTable
-                ? reconstructTableQuery(
-                      tabForQuery,
-                      activeCapabilities ?? activeDriver ?? undefined,
-                  )
-                : activeTab.query;
-
-        if (!query || !query.trim()) return;
-
-        try {
-            const fileName = buildExportFileName({
-                tableName: activeTab.type === 'table' ? activeTab.activeTable : null,
-                extension,
-            });
-            const filter = {
-                name: format === 'markdown' ? 'Markdown' : format.toUpperCase(),
-                extensions: [extension],
-            };
-            const usesNativeSaveTarget =
-                platform.negotiation.environment === 'tauri' &&
-                platform.supports('chooseSaveTarget');
-            const target = usesNativeSaveTarget
-                ? await platform.chooseSaveTarget({
-                      suggestedName: fileName,
-                      filters: [filter],
-                  })
-                : null;
-            if (usesNativeSaveTarget && !target) return;
-
-            setExportState({
-                isOpen: true,
-                status: 'exporting',
-                rowsProcessed: 0,
-                fileName,
-                errorMessage: undefined,
-                warningMessage: undefined,
-            });
-            setExportMenuOpen(false);
-
-            // On multi-database connections (e.g. MySQL) scope the export to the
-            // selected database so the query runs against the database the user is
-            // viewing rather than the connection's primary database. The tab may not
-            // carry its own schema (e.g. a console query), so fall back to the active
-            // database — mirroring how execute_query resolves the schema. A
-            // schema-based multi-db tab (Postgres) carries its own `database`
-            // field instead, since `schema` there is a real Postgres schema, not
-            // the database name.
-            const targetDatabase = activeTab?.schema ?? activeSchema ?? undefined;
-            const databaseParam = activeTab?.database
-                ? {database: activeTab.database}
-                : isMultiDatabaseCapable(activeCapabilities) && targetDatabase
-                  ? {database: targetDatabase}
-                  : {};
-
-            const generated = await client.call(
-                'export_query_to_file',
-                {
-                    connectionId: activeConnectionId,
-                    query,
-                    ...(target ? {filePath: target.reference} : {}),
-                    format,
-                    csvDelimiter: format === 'csv' ? csvDelimiter : undefined,
-                    ...databaseParam,
-                    sessionId:
-                        activeTab && transactionTabIds.has(activeTab.id) ? activeTab.id : undefined,
-                },
-                {deadlineMs: 6 * 60 * 60 * 1000},
-            );
-            await downloadGeneratedFile(client, platform, generated);
-
-            // Success: update modal state instead of showing toast
-            setExportState((prev) => ({
-                ...prev,
-                status: 'completed',
-            }));
-        } catch (e) {
-            // Error: update modal state
-            setExportState((prev) => ({
-                ...prev,
-                status: 'error',
-                errorMessage: String(e),
-            }));
-        }
-    };
-
-    const handleExportCSV = () => handleExportCommon('csv');
-    const handleExportJSON = () => handleExportCommon('json');
-    const handleExportNDJSON = () => handleExportCommon('ndjson');
-    const handleExportMarkdown = () => handleExportCommon('markdown');
-
-    // Writes the grid already on screen. Never calls the streaming exporter.
-    const handleExportHtml = async () => {
-        if (!activeConnectionId || !activeExportResult) return;
-        await handleExportLoadedRows(activeExportResult, 'html');
-    };
+        const {notebookId} = await createNotebook('Notebook', activeConnectionId, client);
+        addTab({
+            type: 'notebook',
+            notebookId,
+            ...(isMultiDb ? {schema: selectedDatabases[0]} : {}),
+        });
+    }, [activeConnectionId, addTab, client, isMultiDb, selectedDatabases]);
 
     const handleRunDropdownToggle = useCallback(() => {
         if (!isRunDropdownOpen) {
@@ -4931,249 +4558,42 @@ export const Editor = ({commandScopeId}: EditorProps) => {
         <div ref={editorRootRef} className="flex flex-col h-full bg-base">
             {commandPaletteScopeBridge}
             {/* The tab bar follows the application theme; connection colors stay in the explorer. */}
-            <div className="flex items-center bg-elevated border-b border-default h-9 shrink-0">
-                <button
-                    onClick={() => scrollTabs('left')}
-                    disabled={!canScrollLeft}
-                    className="flex items-center justify-center w-7 h-full text-muted border-r border-default shrink-0 transition-colors disabled:opacity-30 disabled:cursor-not-allowed hover:enabled:text-primary hover:enabled:bg-surface-secondary"
-                >
-                    <ChevronLeft size={14} />
-                </button>
-                <button
-                    onClick={() => scrollTabs('right')}
-                    disabled={!canScrollRight}
-                    className="flex items-center justify-center w-7 h-full text-muted border-r border-default shrink-0 transition-colors disabled:opacity-30 disabled:cursor-not-allowed hover:enabled:text-primary hover:enabled:bg-surface-secondary"
-                >
-                    <ChevronRight size={14} />
-                </button>
-                <div
-                    ref={tabScrollRef}
-                    onScroll={updateScrollArrows}
-                    onDragOver={handleTabsContainerDragOver}
-                    onDrop={handleTabsDrop}
-                    className="flex flex-1 overflow-x-auto no-scrollbar h-full relative"
-                >
-                    {/* Always mounted, so a screen reader announces when the active tab opens a transaction. */}
-                    <span role="status" className="sr-only">
-                        {activeTabId && transactionTabIds.has(activeTabId)
-                            ? t('editor.transactionOpenHint')
-                            : ''}
-                    </span>
-                    {tabs.map((tab, index) => (
-                        <div
-                            key={tab.id}
-                            draggable
-                            onDragStart={(e) => handleTabDragStart(e, tab.id)}
-                            onDragEnd={handleTabDragEnd}
-                            onDragOver={handleTabDragOver(index)}
-                            role="button"
-                            tabIndex={0}
-                            title={tabFullTitle(tab)}
-                            aria-label={tabFullTitle(tab)}
-                            aria-describedby={
-                                [
-                                    tab.sourceFileDirty ? `${tabStripId}-dirty-${tab.id}` : null,
-                                    transactionTabIds.has(tab.id)
-                                        ? `${tabStripId}-transaction-${tab.id}`
-                                        : null,
-                                ]
-                                    .filter(Boolean)
-                                    .join(' ') || undefined
-                            }
-                            aria-current={activeTabId === tab.id ? 'true' : undefined}
-                            onClick={() => setActiveTabId(tab.id)}
-                            onKeyDown={onActivationKey(() => setActiveTabId(tab.id))}
-                            onContextMenu={(e) => handleTabContextMenu(e, tab.id)}
-                            onAuxClick={(e) => {
-                                if (e.button === 1) {
-                                    e.preventDefault();
-                                    handleCloseTab(tab.id);
-                                }
-                            }}
-                            className={clsx(
-                                'flex items-center gap-2 px-3 h-full border-r border-default cursor-pointer min-w-[140px] max-w-[220px] text-xs transition-all duration-150 group relative select-none focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus',
-                                activeTabId === tab.id
-                                    ? 'bg-accent-primary/10 text-primary font-medium'
-                                    : 'text-muted hover:bg-accent-primary/10 hover:text-secondary',
-                                dragTabId === tab.id && 'opacity-40',
-                            )}
-                        >
-                            {activeTabId === tab.id && (
-                                <div className="absolute top-0 left-0 right-0 h-[2px] rounded-b-sm bg-accent-primary shadow-[0_0_5px_color-mix(in_srgb,var(--accent-primary)_35%,transparent)]" />
-                            )}
-                            {tab.isLoading ? (
-                                // Running indicator: the type icon gives way to a spinner so
-                                // the tab whose query is executing stands out even when it is
-                                // not the active one.
-                                <span
-                                    className="flex shrink-0"
-                                    title={t('editor.executingQuery')}
-                                    aria-label={t('editor.executingQuery')}
-                                    role="status"
-                                >
-                                    <Loader2 size={12} className="animate-spin text-accent" />
-                                </span>
-                            ) : tab.type === 'table' ? (
-                                <TableIcon size={12} className="text-accent shrink-0" />
-                            ) : tab.type === 'query_builder' ? (
-                                <Network size={12} className="text-accent-secondary shrink-0" />
-                            ) : tab.type === 'notebook' ? (
-                                <BookOpen size={12} className="text-accent-warning shrink-0" />
-                            ) : tab.type === 'users' ? (
-                                <UsersRound size={12} className="text-accent-success shrink-0" />
-                            ) : (
-                                <FileCode size={12} className="text-accent-secondary shrink-0" />
-                            )}
-                            {editingTabId === tab.id ? (
-                                <input
-                                    autoCorrect="off"
-                                    autoCapitalize="off"
-                                    autoComplete="off"
-                                    spellCheck={false}
-                                    type="text"
-                                    draggable={false}
-                                    value={editingTabTitle}
-                                    autoFocus
-                                    onClick={(e) => e.stopPropagation()}
-                                    onChange={(e) => setEditingTabTitle(e.target.value)}
-                                    aria-label={t('editor.renameTab')}
-                                    onBlur={commitTabRename}
-                                    onKeyDown={(e) => {
-                                        e.stopPropagation();
-                                        if (e.key === 'Enter') commitTabRename();
-                                        if (e.key === 'Escape') setEditingTabId(null);
-                                    }}
-                                    className="flex-1 min-w-0 bg-surface-secondary border border-accent-primary/50 rounded px-1 py-0.5 text-xs text-primary focus:outline-none"
-                                />
-                            ) : (
-                                <span
-                                    className="truncate flex-1 flex items-center gap-1"
-                                    onDoubleClick={
-                                        canRenameTab(tab)
-                                            ? (e) => {
-                                                  e.stopPropagation();
-                                                  startTabRename(tab.id);
-                                              }
-                                            : undefined
-                                    }
-                                >
-                                    <span className="truncate" title={tab.sourceFilePath}>
-                                        {getTabDisplayTitle(tab, tabs)}
-                                        {tab.sourceFileDirty && (
-                                            // The tab's aria-label replaces its text, so the marker
-                                            // reaches screen readers as a description instead.
-                                            <>
-                                                <span aria-hidden="true"> •</span>
-                                                <span
-                                                    id={`${tabStripId}-dirty-${tab.id}`}
-                                                    className="sr-only"
-                                                >
-                                                    {t('editor.sqlFileUnsavedChanges')}
-                                                </span>
-                                            </>
-                                        )}
-                                    </span>
-                                    {tab.type === 'console' && isMultiDb && (
-                                        <span className="text-muted shrink-0">
-                                            ({resolveFlatMultiDbTabDatabase(tab, selectedDatabases)}
-                                            )
-                                        </span>
-                                    )}
-                                    {transactionTabIds.has(tab.id) && (
-                                        // This tab is holding a pooled connection open, and its
-                                        // uncommitted changes are invisible to every other tab.
-                                        <span
-                                            id={`${tabStripId}-transaction-${tab.id}`}
-                                            className={`shrink-0 px-1 rounded text-[9px] font-semibold uppercase tracking-wide ${TONE_SOFT_BG_CLASS.warning} ${TONE_TEXT_CLASS.warning}`}
-                                            title={t('editor.transactionOpenHint')}
-                                            aria-label={t('editor.transactionOpenHint')}
-                                        >
-                                            {t('editor.transactionOpen')}
-                                        </span>
-                                    )}
-                                </span>
-                            )}
-                            <button
-                                draggable={false}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleCloseTab(tab.id);
-                                }}
-                                aria-label={t('editor.closeTab')}
-                                className={clsx(
-                                    'p-0.5 rounded hover:bg-surface-secondary hover:text-primary hover:scale-110 transition-all duration-150 shrink-0',
-                                    activeTabId === tab.id
-                                        ? 'opacity-100'
-                                        : 'opacity-0 group-hover:opacity-100',
-                                )}
-                            >
-                                <X size={12} />
-                            </button>
-                            {tab.isLoading && (
-                                <div
-                                    className="absolute bottom-0 left-0 h-0.5 w-full animate-pulse"
-                                    style={{
-                                        backgroundImage:
-                                            'linear-gradient(90deg, transparent, var(--accent-primary), transparent)',
-                                    }}
-                                />
-                            )}
-                        </div>
-                    ))}
-                    {dragTabId && dropIndicatorLeft !== null && (
-                        <div
-                            className="absolute top-0 bottom-0 w-0.5 pointer-events-none z-10 bg-accent-primary"
-                            style={{left: dropIndicatorLeft}}
-                        />
-                    )}
-                </div>
-                <button
-                    onClick={() =>
-                        addTab({
-                            type: 'console',
-                            ...(isMultiDb ? {schema: selectedDatabases[0]} : {}),
-                        })
-                    }
-                    className="flex items-center justify-center w-9 h-full text-muted hover:text-primary hover:bg-surface-secondary border-l border-default transition-colors shrink-0"
-                    title={t('editor.newConsole')}
-                >
-                    <Plus size={16} />
-                </button>
-                <button
-                    onClick={handleOpenSqlFile}
-                    className="flex items-center justify-center w-9 h-full text-accent-info hover:text-primary hover:bg-surface-secondary border-l border-default transition-colors shrink-0"
-                    title={t('editor.openSqlFile')}
-                >
-                    <FolderOpen size={16} />
-                </button>
-                <button
-                    onClick={() => addTab({type: 'query_builder'})}
-                    className="flex items-center justify-center w-9 h-full text-accent-secondary hover:text-primary hover:bg-surface-secondary border-l border-default transition-colors shrink-0"
-                    title={t('editor.newVisualQuery')}
-                >
-                    <Network size={16} />
-                </button>
-                <button
-                    onClick={async () => {
-                        if (!activeConnectionId) return;
-                        const title = 'Notebook';
-                        const {notebookId} = await createNotebook(
-                            title,
-                            activeConnectionId,
-                            client,
-                        );
-                        addTab({
-                            type: 'notebook',
-                            notebookId,
-                            ...(isMultiDb ? {schema: selectedDatabases[0]} : {}),
-                        });
-                    }}
-                    className="flex items-center justify-center w-9 h-full text-accent-warning hover:text-primary hover:bg-surface-secondary border-l border-default transition-colors shrink-0"
-                    title={t('editor.newNotebook')}
-                >
-                    <BookOpen size={16} />
-                </button>
-            </div>
+            <EditorTabStrip
+                tabs={tabs}
+                activeTabId={activeTabId}
+                transactionTabIds={transactionTabIds}
+                isMultiDb={isMultiDb}
+                selectedDatabases={selectedDatabases}
+                scrollContainerRef={tabScrollRef}
+                canScrollLeft={canScrollLeft}
+                canScrollRight={canScrollRight}
+                onScrollTabs={updateScrollArrows}
+                onStepTabs={scrollTabs}
+                drag={{
+                    tabId: dragTabId,
+                    indicatorLeft: dropIndicatorLeft,
+                    onStart: handleTabDragStart,
+                    onEnd: handleTabDragEnd,
+                    onOver: handleTabDragOver,
+                    onContainerOver: handleTabsContainerDragOver,
+                    onDrop: handleTabsDrop,
+                }}
+                rename={{
+                    editingTabId,
+                    title: editingTabTitle,
+                    onTitleChange: setEditingTabTitle,
+                    onStart: startTabRename,
+                    onCommit: commitTabRename,
+                    onCancel: () => setEditingTabId(null),
+                }}
+                onSelectTab={setActiveTabId}
+                onCloseTab={handleCloseTab}
+                onContextMenu={handleTabContextMenu}
+                onNewConsole={handleNewConsoleTab}
+                onOpenSqlFile={handleOpenSqlFile}
+                onNewQueryBuilder={() => addTab({type: 'query_builder'})}
+                onNewNotebook={handleNewNotebookTab}
+            />
 
             {/* Toolbar — hidden for notebook and users tabs. A size container so buttons can
           collapse to icon-only in narrow split panes; the explicit z-index
@@ -5311,7 +4731,7 @@ export const Editor = ({commandScopeId}: EditorProps) => {
                             }}
                             disabled={!activeTab?.query?.trim()}
                             className="flex items-center gap-2 px-2 @[640px]:px-3 py-1.5 bg-surface-secondary hover:bg-surface text-primary rounded text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed border border-strong shrink-0"
-                            title={`${t('editor.formatSql')} (${isMac ? 'Shift+⌥+F' : 'Shift+Alt+F'})`}
+                            title={`${t('editor.formatSql')} (${isMac ? 'Shift+鈱?F' : 'Shift+Alt+F'})`}
                         >
                             <WrapText size={16} />
                             <span className="hidden @[640px]:inline whitespace-nowrap">
@@ -5331,7 +4751,7 @@ export const Editor = ({commandScopeId}: EditorProps) => {
                                     disabled={!canSaveSqlFile(activeTab)}
                                     title={
                                         activeTab.sourceFilePath
-                                            ? `${t('editor.saveSqlFile')} (${isMac ? '⌘S' : 'Ctrl+S'})\n${activeTab.sourceFilePath}`
+                                            ? `${t('editor.saveSqlFile')} (${isMac ? '鈱楽' : 'Ctrl+S'})\n${activeTab.sourceFilePath}`
                                             : t('editor.saveSqlFileAs')
                                     }
                                     className="flex items-center gap-2 px-2 @[640px]:px-3 py-1.5 rounded-l text-primary enabled:hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -5393,7 +4813,7 @@ export const Editor = ({commandScopeId}: EditorProps) => {
                                         </span>
                                         {activeTab.sourceFilePath && (
                                             <span className="text-xs text-muted">
-                                                {isMac ? '⌘S' : 'Ctrl+S'}
+                                                {isMac ? '鈱楽' : 'Ctrl+S'}
                                             </span>
                                         )}
                                     </button>
@@ -5954,7 +5374,7 @@ export const Editor = ({commandScopeId}: EditorProps) => {
                                                 })}
                                                 {activeTab.result.columns.length > 0 && (
                                                     <span className="hidden @[400px]:inline text-muted">
-                                                        {' · '}
+                                                        {' 路 '}
                                                         {t('editor.columnsCount', {
                                                             count: activeTab.result.columns.length,
                                                         })}

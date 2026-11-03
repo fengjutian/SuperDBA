@@ -1,0 +1,39 @@
+﻿            {/* The tab bar follows the application theme; connection colors stay in the explorer. */}
+            <EditorTabStrip
+                tabs={tabs}
+                activeTabId={activeTabId}
+                transactionTabIds={transactionTabIds}
+                isMultiDb={isMultiDb}
+                selectedDatabases={selectedDatabases}
+                scroll={{
+                    containerRef: tabScrollRef,
+                    canScrollLeft,
+                    canScrollRight,
+                    onScroll: updateScrollArrows,
+                    onStep: scrollTabs,
+                }}
+                drag={{
+                    tabId: dragTabId,
+                    indicatorLeft: dropIndicatorLeft,
+                    onStart: handleTabDragStart,
+                    onEnd: handleTabDragEnd,
+                    onOver: handleTabDragOver,
+                    onContainerOver: handleTabsContainerDragOver,
+                    onDrop: handleTabsDrop,
+                }}
+                rename={{
+                    editingTabId,
+                    title: editingTabTitle,
+                    onTitleChange: setEditingTabTitle,
+                    onStart: startTabRename,
+                    onCommit: commitTabRename,
+                    onCancel: () => setEditingTabId(null),
+                }}
+                onSelectTab={setActiveTabId}
+                onCloseTab={handleCloseTab}
+                onContextMenu={handleTabContextMenu}
+                onNewConsole={handleNewConsoleTab}
+                onOpenSqlFile={handleOpenSqlFile}
+                onNewQueryBuilder={() => addTab({type: 'query_builder'})}
+                onNewNotebook={handleNewNotebookTab}
+            />

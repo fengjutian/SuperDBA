@@ -117,6 +117,7 @@ pub(crate) fn append_message(session: &mut ChatSession, role: ChatRole, content:
         id: uuid::Uuid::new_v4().to_string(),
         role,
         content,
+        reasoning: None,
         created_at: now.clone(),
         tool_calls: Vec::new(),
         tool_call_id: None,

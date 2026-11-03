@@ -1,13 +1,14 @@
 //! Provider adapters for tool calling.
 //!
 //! Two wire formats are supported: the OpenAI chat-completions tool format
-//! (OpenAI, DeepSeek, OpenRouter, Requesty, custom OpenAI-compatible endpoints,
-//! and Ollama's native chat API) and the Anthropic Messages tool format.
-//! Providers that cannot call tools return a typed error instead of silently
-//! ignoring the tool definitions.
+//! (OpenAI, DeepSeek, MiniMax, OpenRouter, Requesty, custom OpenAI-compatible
+//! endpoints, and Ollama's native chat API) and the Anthropic Messages tool
+//! format. Providers that cannot call tools return a typed error instead of
+//! silently ignoring the tool definitions.
 
 use super::tools::ToolSchema;
 use super::{ChatMessage, ChatRole};
+use crate::ai::{minimax_endpoint_candidates, remember_minimax_endpoint, MiniMaxEndpoint};
 use crate::application::ai::get_api_key;
 use crate::config::AppConfig;
 use crate::credential_cache::CredentialCache;
@@ -25,12 +26,15 @@ pub struct ProviderToolCall {
 #[derive(Clone, Debug)]
 pub struct AssistantReply {
     pub content: String,
+    /// Provider-side reasoning that must be replayed with the assistant turn
+    /// (MiniMax interleaved thinking). Other providers ignore it.
+    pub reasoning: Option<String>,
     pub tool_calls: Vec<ProviderToolCall>,
     pub notice: Option<String>,
 }
 
 const UNSUPPORTED_TOOL_CALLING: &str =
-    "This provider does not support chat tools yet. Pick an OpenAI, Anthropic, DeepSeek, OpenRouter, Requesty, custom OpenAI-compatible, or Ollama model in Settings → AI.";
+    "This provider does not support chat tools yet. Pick an OpenAI, Anthropic, DeepSeek, MiniMax, OpenRouter, Requesty, custom OpenAI-compatible, or Ollama model in Settings → AI.";
 
 pub fn supports_tool_calling(provider: &str) -> bool {
     matches!(
@@ -38,6 +42,7 @@ pub fn supports_tool_calling(provider: &str) -> bool {
         "openai"
             | "anthropic"
             | "deepseek"
+            | "minimax"
             | "openrouter"
             | "requesty"
             | "custom-openai"
@@ -75,6 +80,12 @@ pub async fn complete(
                 .map_err(|error| format!("Anthropic request failed: {error}"))?;
             let value = decode_response(response, "Anthropic").await?;
             parse_anthropic(&value)
+        }
+        "minimax" => {
+            let api_key = get_api_key(runtime, cache, provider)?;
+            let client = crate::proxy::ai_http_client(provider)?;
+            let body = minimax_body(model, system, messages, tools);
+            minimax_complete(&client, &api_key, &body).await
         }
         "ollama" => {
             let client = crate::proxy::direct_http_client()?;
@@ -114,6 +125,56 @@ pub async fn complete(
             parse_openai(&value)
         }
     }
+}
+
+/// MiniMax exposes an OpenAI-compatible endpoint in two regions. Try the region
+/// that worked last time first, and remember whichever one answers.
+async fn minimax_complete(
+    client: &reqwest::Client,
+    api_key: &str,
+    body: &Value,
+) -> Result<AssistantReply, String> {
+    let mut errors = Vec::new();
+    for endpoint in minimax_endpoint_candidates() {
+        match post_minimax(client, api_key, endpoint, body).await {
+            Ok(reply) => {
+                remember_minimax_endpoint(endpoint);
+                return Ok(reply);
+            }
+            Err(error) => errors.push(error),
+        }
+    }
+    Err(format!("MiniMax request failed: {}", errors.join("; ")))
+}
+
+async fn post_minimax(
+    client: &reqwest::Client,
+    api_key: &str,
+    endpoint: MiniMaxEndpoint,
+    body: &Value,
+) -> Result<AssistantReply, String> {
+    let response = client
+        .post(format!("{}/chat/completions", endpoint.openai_base_url))
+        .header("Authorization", format!("Bearer {api_key}"))
+        .header("Content-Type", "application/json")
+        .json(body)
+        .send()
+        .await
+        .map_err(|error| format!("{}: {error}", endpoint.region))?;
+    if !response.status().is_success() {
+        let status = response.status();
+        let text = response.text().await.unwrap_or_default();
+        return Err(format!(
+            "{} ({status}): {}",
+            endpoint.region,
+            truncate(&text, 2000)
+        ));
+    }
+    let value = response
+        .json::<Value>()
+        .await
+        .map_err(|error| format!("Invalid MiniMax response: {error}"))?;
+    parse_openai(&value)
 }
 
 fn openai_endpoint(provider: &str, config: &AppConfig) -> Result<String, String> {
@@ -169,7 +230,7 @@ fn parse_arguments(value: &Value) -> Value {
     }
 }
 
-fn openai_messages(messages: &[ChatMessage]) -> Vec<Value> {
+fn openai_messages(messages: &[ChatMessage], include_reasoning: bool) -> Vec<Value> {
     let mut wire = Vec::new();
     for message in messages {
         match message.role {
@@ -201,6 +262,13 @@ fn openai_messages(messages: &[ChatMessage]) -> Vec<Value> {
                     Value::String(message.content.clone())
                 };
                 let mut entry = json!({"role": "assistant", "content": content});
+                if include_reasoning {
+                    if let Some(reasoning) =
+                        message.reasoning.as_deref().filter(|value| !value.is_empty())
+                    {
+                        entry["reasoning_content"] = Value::String(reasoning.to_string());
+                    }
+                }
                 if !calls.is_empty() {
                     entry["tool_calls"] = Value::Array(calls);
                 }
@@ -242,8 +310,27 @@ pub(super) fn openai_body(
     messages: &[ChatMessage],
     tools: &[ToolSchema],
 ) -> Value {
+    openai_body_with(model, system, messages, tools, false)
+}
+
+pub(super) fn minimax_body(
+    model: &str,
+    system: &str,
+    messages: &[ChatMessage],
+    tools: &[ToolSchema],
+) -> Value {
+    openai_body_with(model, system, messages, tools, true)
+}
+
+fn openai_body_with(
+    model: &str,
+    system: &str,
+    messages: &[ChatMessage],
+    tools: &[ToolSchema],
+    include_reasoning: bool,
+) -> Value {
     let mut wire = vec![json!({"role": "system", "content": system})];
-    wire.extend(openai_messages(messages));
+    wire.extend(openai_messages(messages, include_reasoning));
     let mut body = json!({
         "model": model,
         "messages": wire,
@@ -272,6 +359,11 @@ pub(super) fn parse_openai(value: &Value) -> Result<AssistantReply, String> {
         .and_then(Value::as_str)
         .unwrap_or_default()
         .to_string();
+    let reasoning = message
+        .get("reasoning_content")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
     let mut calls = Vec::new();
     if let Some(array) = message.get("tool_calls").and_then(Value::as_array) {
         for entry in array {
@@ -302,6 +394,7 @@ pub(super) fn parse_openai(value: &Value) -> Result<AssistantReply, String> {
     }
     Ok(AssistantReply {
         content,
+        reasoning,
         tool_calls: calls,
         notice: None,
     })
@@ -340,6 +433,7 @@ fn parse_ollama(value: &Value) -> Result<AssistantReply, String> {
     }
     Ok(AssistantReply {
         content,
+        reasoning: None,
         tool_calls: calls,
         notice: None,
     })
@@ -470,6 +564,7 @@ pub(super) fn parse_anthropic(value: &Value) -> Result<AssistantReply, String> {
     }
     Ok(AssistantReply {
         content: text,
+        reasoning: None,
         tool_calls: calls,
         notice: None,
     })

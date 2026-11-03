@@ -34,8 +34,11 @@ const MainLayoutContent = () => {
         pathname: location.pathname,
     });
 
+    // The top border separates the app shell from the window title bar above it:
+    // in light themes the tab strip and the native/host chrome share almost the
+    // same tone, so without a hairline the two read as one surface.
     return (
-        <div className="flex h-screen bg-base text-primary overflow-hidden">
+        <div className="flex h-screen bg-base text-primary overflow-hidden border-t border-default">
             {location.pathname !== '/editor' && (
                 <CommandPaletteScopeBridge scopeId={ROOT_COMMAND_SCOPE_ID} />
             )}

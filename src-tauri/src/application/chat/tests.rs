@@ -10,6 +10,7 @@ fn message(role: ChatRole, content: &str) -> ChatMessage {
         id: "message-1".to_string(),
         role,
         content: content.to_string(),
+        reasoning: None,
         created_at: "2026-11-03T00:00:00Z".to_string(),
         tool_calls: Vec::new(),
         tool_call_id: None,
@@ -185,20 +186,53 @@ fn anthropic_body_batches_tool_results_into_one_user_turn() {
 #[test]
 fn unsupported_providers_are_explicitly_unavailable() {
     assert!(!provider::supports_tool_calling("chatgpt"));
-    assert!(!provider::supports_tool_calling("minimax"));
+    assert!(provider::supports_tool_calling("minimax"));
     assert!(provider::supports_tool_calling("anthropic"));
     assert!(provider::supports_tool_calling("ollama"));
 }
 
 #[test]
+fn minimax_body_replays_reasoning_with_tool_turns() {
+    let mut assistant = message(ChatRole::Assistant, "Checking.");
+    assistant.reasoning = Some("I should list the tables first.".to_string());
+    assistant.tool_calls.push(ChatToolCall {
+        id: "call-1".to_string(),
+        name: "list_tables".to_string(),
+        arguments: json!({"schema": "public"}),
+        status: ChatToolStatus::Ok,
+        duration_ms: 5,
+        summary: "3 tables".to_string(),
+        result: Some(json!({"tables": ["users"]})),
+    });
+
+    let body = provider::minimax_body(
+        "MiniMax-M3.1-Flash",
+        "system",
+        &[message(ChatRole::User, "what tables?"), assistant],
+        &super::tools::definitions(),
+    );
+    let messages = body["messages"].as_array().unwrap();
+    assert_eq!(messages[2]["reasoning_content"], json!("I should list the tables first."));
+    assert_eq!(messages[2]["tool_calls"][0]["id"], json!("call-1"));
+    assert_eq!(messages[3]["role"], json!("tool"));
+    // The plain OpenAI wire format must not send the field back: DeepSeek and
+    // friends reject unknown reasoning fields.
+    let mut reasoning = message(ChatRole::Assistant, "");
+    reasoning.reasoning = Some("private chain of thought".to_string());
+    let plain = provider::openai_body("gpt-test", "system", &[reasoning], &[]);
+    assert!(plain["messages"][1].get("reasoning_content").is_none());
+}
+
+#[test]
 fn parses_openai_and_anthropic_tool_calls() {
     let openai = json!({
-        "choices": [{"message": {"content": null, "tool_calls": [
+        "choices": [{"message": {"content": null, "reasoning_content": "I will run a query", "tool_calls": [
             {"id": "call-1", "function": {"name": "run_query", "arguments": "{\"sql\":\"SELECT 1\"}"}}
         ]}}]
     });
     let reply = provider::parse_openai(&openai).unwrap();
     assert!(reply.content.is_empty());
+    assert_eq!(reply.reasoning.as_deref(), Some("I will run a query"));
     assert_eq!(reply.tool_calls[0].name, "run_query");
     assert_eq!(reply.tool_calls[0].arguments["sql"], json!("SELECT 1"));
 

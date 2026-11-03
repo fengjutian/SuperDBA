@@ -34,7 +34,7 @@ pub async fn run_turn(
     }
     if !provider::supports_tool_calling(&request.provider) {
         return Err(format!(
-            "The {} provider does not support chat tools yet. Pick an OpenAI, Anthropic, DeepSeek, OpenRouter, Requesty, custom OpenAI-compatible, or Ollama model in Settings → AI.",
+            "The {} provider does not support chat tools yet. Pick an OpenAI, Anthropic, DeepSeek, MiniMax, OpenRouter, Requesty, custom OpenAI-compatible, or Ollama model in Settings → AI.",
             request.provider
         ));
     }
@@ -87,7 +87,7 @@ pub async fn run_turn(
         let reply = match reply {
             Ok(reply) => reply,
             Err(error) => {
-                let index = push_assistant(&mut session, String::new());
+                let index = push_assistant(&mut session, String::new(), None);
                 session.messages[index].notice = Some(error.clone());
                 session.messages[index].content =
                     format!("The assistant could not answer: {error}");
@@ -96,7 +96,7 @@ pub async fn run_turn(
             }
         };
 
-        let index = push_assistant(&mut session, reply.content.clone());
+        let index = push_assistant(&mut session, reply.content.clone(), reply.reasoning);
         if reply.tool_calls.is_empty() {
             persist(runtime, &session).await?;
             return Ok(session);
@@ -162,12 +162,13 @@ async fn execute_calls(
     executed
 }
 
-fn push_assistant(session: &mut ChatSession, content: String) -> usize {
+fn push_assistant(session: &mut ChatSession, content: String, reasoning: Option<String>) -> usize {
     let now = crate::ai_activity::now_iso8601();
     session.messages.push(ChatMessage {
         id: Uuid::new_v4().to_string(),
         role: ChatRole::Assistant,
         content,
+        reasoning,
         created_at: now.clone(),
         tool_calls: Vec::new(),
         tool_call_id: None,

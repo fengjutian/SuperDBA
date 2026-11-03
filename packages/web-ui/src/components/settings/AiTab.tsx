@@ -1,4 +1,4 @@
-import {useState, useEffect, useCallback, useId, type ReactNode} from 'react';
+import {useState, useEffect, useCallback, useId, useRef, type ReactNode} from 'react';
 import {useTranslation, Trans} from 'react-i18next';
 import {
     CheckCircle2,
@@ -19,6 +19,7 @@ import {
 import clsx from 'clsx';
 import {useSettings} from '@/hooks/useSettings';
 import {useAlert} from '@/hooks/useAlert';
+import {useToast} from '@/hooks/useToast';
 import type {AiProvider} from '@/contexts/SettingsContext';
 import type {AiKeyStatus} from '@/types/ai';
 import {getProviderLabel} from '@/utils/settingsUI';
@@ -102,11 +103,16 @@ export function AiTab() {
     const platform = usePlatformCapabilities();
     const {settings, updateSetting} = useSettings();
     const {showAlert} = useAlert();
+    const {showToast} = useToast();
     const fieldId = useId();
     const [proxyDrafts, setProxyDrafts] = useState<Partial<Record<AiProvider, ProxyOverride>>>({});
 
     const [aiKeyStatus, setAiKeyStatus] = useState<Record<string, AiKeyStatus>>({});
     const [availableModels, setAvailableModels] = useState<Record<string, string[]>>({});
+    const [refreshingModels, setRefreshingModels] = useState(false);
+    // Guards against piling up one provider-refresh request (and its confirmation)
+    // per click while the previous one is still in flight.
+    const refreshingModelsRef = useRef(false);
     const [keyInput, setKeyInput] = useState('');
     const [editingKey, setEditingKey] = useState(false);
     const [showKey, setShowKey] = useState(false);
@@ -127,10 +133,9 @@ export function AiTab() {
                 });
                 setAvailableModels(models);
                 if (force) {
-                    showAlert(t('settings.ai.refreshSuccess'), {
-                        title: t('common.success'),
-                        kind: 'info',
-                    });
+                    // A refresh is a background action: confirm it with a toast so the
+                    // user is not blocked by a modal that reappears on every request.
+                    showToast(t('settings.ai.refreshSuccess'), {kind: 'success'});
                 }
             } catch (e) {
                 console.error('Failed to load AI models', e);
@@ -140,8 +145,20 @@ export function AiTab() {
                 });
             }
         },
-        [client, t, showAlert],
+        [client, t, showAlert, showToast],
     );
+
+    const refreshModels = useCallback(async () => {
+        if (refreshingModelsRef.current) return;
+        refreshingModelsRef.current = true;
+        setRefreshingModels(true);
+        try {
+            await loadModels(true);
+        } finally {
+            refreshingModelsRef.current = false;
+            setRefreshingModels(false);
+        }
+    }, [loadModels]);
 
     const checkKeys = useCallback(async () => {
         try {
@@ -711,12 +728,20 @@ export function AiTab() {
                                                         />
                                                     </div>
                                                     <button
-                                                        onClick={() => loadModels(true)}
-                                                        className="px-3 py-2 bg-surface-secondary hover:bg-surface-tertiary border border-default text-secondary hover:text-primary rounded-lg transition-colors"
+                                                        type="button"
+                                                        onClick={() => void refreshModels()}
+                                                        disabled={refreshingModels}
+                                                        aria-busy={refreshingModels}
+                                                        className="px-3 py-2 bg-surface-secondary hover:bg-surface-tertiary border border-default text-secondary hover:text-primary rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-60"
                                                         title={t('settings.ai.refresh')}
                                                         aria-label={t('settings.ai.refresh')}
                                                     >
-                                                        <RefreshCw size={18} />
+                                                        <RefreshCw
+                                                            size={18}
+                                                            className={clsx(
+                                                                refreshingModels && 'animate-spin',
+                                                            )}
+                                                        />
                                                     </button>
                                                 </div>
                                                 {!isModelValid && settings.aiModel && (

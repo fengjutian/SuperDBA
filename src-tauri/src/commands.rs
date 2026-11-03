@@ -8,25 +8,32 @@
 //! Do not add logic here: put it in `application/` and re-export it.
 
 pub use crate::application::cancellation::QueryCancellationState;
-pub(crate) use crate::application::cancellation::{
-    register_abort_handle, unregister_abort_handle, AbortHandleMap,
-};
 pub use crate::application::connection_params::{
     build_connection_url, resolve_connection_params, resolve_connection_params_with_id,
 };
-pub(crate) use crate::application::connection_params::{
-    params_for_pool_close, restore_runtime_connection_uri,
-};
-pub(crate) use crate::application::connection_groups::{
-    find_child_group, merge_groups, parse_group_path, reject_if_would_create_cycle,
-};
+pub(crate) use crate::application::connection_params::restore_runtime_connection_uri;
 pub use crate::application::driver_catalog::{
     get_active_connections, get_data_types, get_driver_manifest, get_registered_drivers,
 };
 pub use crate::application::file_access::{
     detect_blob_mime, detect_mime_type, get_file_stats, read_file_as_data_url,
 };
+
+// Only this module's tests still reach these through `super::*`; every other
+// call site imports them from `application::*` directly.
+#[cfg(test)]
+pub(crate) use crate::application::cancellation::{
+    register_abort_handle, unregister_abort_handle, AbortHandleMap,
+};
+#[cfg(test)]
+pub(crate) use crate::application::connection_groups::{
+    find_child_group, merge_groups, parse_group_path, reject_if_would_create_cycle,
+};
+#[cfg(test)]
+pub(crate) use crate::application::connection_params::params_for_pool_close;
+#[cfg(test)]
 pub(crate) use crate::application::queries::read_in_open_transaction;
+#[cfg(test)]
 pub(crate) use crate::application::sql_builder::{
     apply_ddl_database_override, apply_sql_builder_secrets, sql_builder_params,
 };

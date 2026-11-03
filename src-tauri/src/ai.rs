@@ -108,12 +108,12 @@ struct AiModelsCache {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct MiniMaxEndpoint {
-    region: &'static str,
-    openai_base_url: &'static str,
+pub(crate) struct MiniMaxEndpoint {
+    pub(crate) region: &'static str,
+    pub(crate) openai_base_url: &'static str,
 }
 
-const MINIMAX_ENDPOINTS: [MiniMaxEndpoint; 2] = [
+pub(crate) const MINIMAX_ENDPOINTS: [MiniMaxEndpoint; 2] = [
     MiniMaxEndpoint {
         region: "global",
         openai_base_url: "https://api.minimax.io/v1",
@@ -136,6 +136,23 @@ fn minimax_endpoint_order(preferred: usize) -> [usize; 2] {
         [1, 0]
     } else {
         [0, 1]
+    }
+}
+
+/// Regions to try, preferred first. Shared with the chat agent so both callers
+/// learn the same region from a successful request.
+pub(crate) fn minimax_endpoint_candidates() -> [MiniMaxEndpoint; 2] {
+    let preferred = MINIMAX_PREFERRED_ENDPOINT.load(Ordering::Relaxed);
+    minimax_endpoint_order(preferred).map(|index| MINIMAX_ENDPOINTS[index])
+}
+
+/// Remembers the endpoint that answered so later calls try it first.
+pub(crate) fn remember_minimax_endpoint(endpoint: MiniMaxEndpoint) {
+    if let Some(index) = MINIMAX_ENDPOINTS
+        .iter()
+        .position(|candidate| *candidate == endpoint)
+    {
+        MINIMAX_PREFERRED_ENDPOINT.store(index, Ordering::Relaxed);
     }
 }
 
