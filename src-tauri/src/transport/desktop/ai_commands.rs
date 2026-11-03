@@ -92,3 +92,42 @@ pub async fn export_ai_activity_csv() -> Result<String, String> {
 pub async fn export_ai_session_as_notebook(session_id: String) -> Result<NotebookExport, String> {
     crate::application::generic_exports::generate_ai_session_notebook(session_id).await
 }
+
+#[tauri::command]
+pub async fn chat_list_sessions(app: AppHandle) -> Result<Value, String> {
+    execute(
+        &app,
+        AiCommand::Chat(crate::application::chat::ChatCommand::ListSessions),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn chat_get_session(app: AppHandle, session_id: String) -> Result<Value, String> {
+    execute(
+        &app,
+        AiCommand::Chat(crate::application::chat::ChatCommand::GetSession { session_id }),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn chat_delete_session(app: AppHandle, session_id: String) -> Result<Value, String> {
+    execute(
+        &app,
+        AiCommand::Chat(crate::application::chat::ChatCommand::DeleteSession { session_id }),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn chat_send(
+    app: AppHandle,
+    request: crate::application::chat::ChatSendRequest,
+) -> Result<Value, String> {
+    execute(
+        &app,
+        AiCommand::Chat(crate::application::chat::ChatCommand::Send(request)),
+    )
+    .await
+}

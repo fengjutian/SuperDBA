@@ -15,7 +15,7 @@ use std::sync::{Arc, Mutex};
 
 use serde_json::Value;
 
-use crate::commands::AbortHandleMap;
+use crate::application::cancellation::AbortHandleMap;
 use crate::drivers::{mysql, postgres, sqlite};
 use crate::models::ConnectionParams;
 
@@ -120,7 +120,7 @@ where
     loop {
         let result = match session_id {
             Some(id) => {
-                crate::commands::read_in_open_transaction(
+                crate::application::queries::read_in_open_transaction(
                     driver.as_ref(),
                     params,
                     query,

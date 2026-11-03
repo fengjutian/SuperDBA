@@ -1,0 +1,189 @@
+//! Conversational DBA agent.
+//!
+//! A conversation is a durable [`ChatSession`] with a bounded, tool-using turn
+//! loop. Tool execution reuses the same application services as the editor, so
+//! authorization, cancellation, and dialect handling do not fork. M1 exposes
+//! read-only tools only: a write statement is rejected by the tool layer, not
+//! by the prompt.
+
+mod agent;
+mod provider;
+mod store;
+mod tools;
+
+#[cfg(test)]
+mod tests;
+
+use crate::runtime::{state::ApplicationState, RuntimeContext};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use uuid::Uuid;
+
+pub const MAX_MODEL_CALLS_PER_TURN: usize = 6;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ChatRole {
+    System,
+    User,
+    Assistant,
+    Tool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ChatToolStatus {
+    Pending,
+    Ok,
+    Error,
+    Denied,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatToolCall {
+    pub id: String,
+    pub name: String,
+    pub arguments: Value,
+    pub status: ChatToolStatus,
+    pub duration_ms: u64,
+    pub summary: String,
+    /// Bounded structured result. Kept so the conversation can be replayed to
+    /// the model on the next turn without re-running the tool.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<Value>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatMessage {
+    pub id: String,
+    pub role: ChatRole,
+    pub content: String,
+    pub created_at: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tool_calls: Vec<ChatToolCall>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_call_id: Option<String>,
+    /// Human-readable degradation note (provider without tool support, loop
+    /// limit reached, truncated tool output).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub notice: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatSession {
+    pub id: String,
+    pub title: String,
+    pub provider: String,
+    pub model: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub connection_id: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+    pub messages: Vec<ChatMessage>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatSessionSummary {
+    pub id: String,
+    pub title: String,
+    pub provider: String,
+    pub model: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub connection_id: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+    pub message_count: usize,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatContext {
+    #[serde(default)]
+    pub connection_id: Option<String>,
+    #[serde(default)]
+    pub connection_name: Option<String>,
+    #[serde(default)]
+    pub schema: Option<String>,
+    #[serde(default)]
+    pub database: Option<String>,
+    #[serde(default)]
+    pub selected_sql: Option<String>,
+    #[serde(default)]
+    pub last_result: Option<String>,
+    #[serde(default)]
+    pub last_plan: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatSendRequest {
+    pub provider: String,
+    #[serde(default)]
+    pub model: String,
+    #[serde(default)]
+    pub session_id: Option<String>,
+    pub message: String,
+    #[serde(default)]
+    pub context: ChatContext,
+}
+
+#[derive(Debug)]
+pub enum ChatCommand {
+    ListSessions,
+    GetSession { session_id: String },
+    DeleteSession { session_id: String },
+    Send(ChatSendRequest),
+}
+
+pub async fn execute(
+    runtime: &RuntimeContext,
+    state: &ApplicationState,
+    web_session_id: Option<Uuid>,
+    command: ChatCommand,
+) -> Result<Value, String> {
+    let config_dir = runtime.paths.config_dir().to_path_buf();
+    match command {
+        ChatCommand::ListSessions => {
+            let sessions = tokio::task::spawn_blocking(move || store::list(&config_dir))
+                .await
+                .map_err(|error| error.to_string())??;
+            serde_json::to_value(sessions).map_err(|error| error.to_string())
+        }
+        ChatCommand::GetSession { session_id } => {
+            let session =
+                tokio::task::spawn_blocking(move || store::load(&config_dir, &session_id))
+                    .await
+                    .map_err(|error| error.to_string())??;
+            serde_json::to_value(session).map_err(|error| error.to_string())
+        }
+        ChatCommand::DeleteSession { session_id } => {
+            tokio::task::spawn_blocking(move || store::delete(&config_dir, &session_id))
+                .await
+                .map_err(|error| error.to_string())??;
+            Ok(Value::Null)
+        }
+        ChatCommand::Send(request) => {
+            let session = agent::run_turn(runtime, state, web_session_id, request).await?;
+            serde_json::to_value(session).map_err(|error| error.to_string())
+        }
+    }
+}
+
+/// Builds a fresh conversation. The first user message becomes the title.
+pub(crate) fn new_session(provider: &str, model: &str, context: &ChatContext) -> ChatSession {
+    let now = crate::ai_activity::now_iso8601();
+    ChatSession {
+        id: Uuid::new_v4().to_string(),
+        title: "New conversation".to_string(),
+        provider: provider.to_string(),
+        model: model.to_string(),
+        connection_id: context.connection_id.clone(),
+        created_at: now.clone(),
+        updated_at: now,
+        messages: Vec::new(),
+    }
+}

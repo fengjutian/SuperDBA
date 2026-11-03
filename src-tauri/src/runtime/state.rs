@@ -1,12 +1,13 @@
 use crate::application::connection_files::ImportEnvelopeCache;
-use crate::commands::AbortHandleMap;
+use crate::application::cancellation::AbortHandleMap;
+use crate::application::cancellation::QueryCancellationState;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
 pub struct ApplicationState {
     pub pending_install: Arc<crate::plugins::deep_link::PendingInstall>,
-    pub query_cancellation: Arc<crate::commands::QueryCancellationState>,
+    pub query_cancellation: Arc<QueryCancellationState>,
     pub export_cancellation: Arc<crate::export::ExportCancellationState>,
     pub dump_cancellation: Arc<crate::dump_commands::DumpCancellationState>,
     pub credential_cache: Arc<crate::credential_cache::CredentialCache>,
@@ -45,7 +46,7 @@ impl Default for ApplicationState {
     fn default() -> Self {
         Self {
             pending_install: Arc::new(crate::plugins::deep_link::PendingInstall::default()),
-            query_cancellation: Arc::new(crate::commands::QueryCancellationState::default()),
+            query_cancellation: Arc::new(QueryCancellationState::default()),
             export_cancellation: Arc::new(crate::export::ExportCancellationState::default()),
             dump_cancellation: Arc::new(crate::dump_commands::DumpCancellationState::default()),
             credential_cache: Arc::new(crate::credential_cache::CredentialCache::default()),

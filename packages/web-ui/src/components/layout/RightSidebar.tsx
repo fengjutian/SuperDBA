@@ -8,6 +8,10 @@ const RowEditorPanel = lazy(() =>
     import('@/components/ui/RowEditorPanel').then((m) => ({default: m.RowEditorPanel})),
 );
 
+const ChatPanel = lazy(() =>
+    import('@/components/chat/ChatPanel').then((m) => ({default: m.ChatPanel})),
+);
+
 export const RightSidebar = () => {
     const {t} = useTranslation();
     const {isOpen, activePanel, rowEditorData, isPinned, close, togglePin, onChangeRef} =
@@ -46,6 +50,11 @@ export const RightSidebar = () => {
             </button>
 
             {/* Panel content */}
+            {activePanel === 'chat' && (
+                <Suspense fallback={<LoadingState />}>
+                    <ChatPanel />
+                </Suspense>
+            )}
             {activePanel === 'row-editor' && rowEditorData && (
                 <Suspense fallback={<LoadingState />}>
                     <RowEditorPanel

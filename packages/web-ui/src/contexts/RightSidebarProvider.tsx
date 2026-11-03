@@ -28,6 +28,11 @@ export const RightSidebarProvider = ({children}: {children: ReactNode}) => {
         });
     }, []);
 
+    const openChat = useCallback(() => {
+        setActivePanel('chat');
+        setIsOpen(true);
+    }, []);
+
     const close = useCallback(() => {
         setIsOpen(false);
         setActivePanel(null);
@@ -51,6 +56,7 @@ export const RightSidebarProvider = ({children}: {children: ReactNode}) => {
             isPinned,
             openRowEditor,
             updateRowEditorData,
+            openChat,
             close,
             toggle,
             setActivePanel,
@@ -64,6 +70,7 @@ export const RightSidebarProvider = ({children}: {children: ReactNode}) => {
             isPinned,
             openRowEditor,
             updateRowEditorData,
+            openChat,
             close,
             toggle,
             togglePin,

@@ -63,6 +63,7 @@ pub enum AiCommand {
         reason: Option<String>,
         edited_query: Option<String>,
     },
+    Chat(crate::application::chat::ChatCommand),
 }
 
 pub async fn execute(
@@ -180,6 +181,9 @@ pub async fn execute(
             )
             .await?;
             Ok(Value::Null)
+        }
+        AiCommand::Chat(command) => {
+            crate::application::chat::execute(runtime, state, web_session_id, command).await
         }
     }
 }

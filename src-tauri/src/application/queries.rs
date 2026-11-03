@@ -1,5 +1,5 @@
 use crate::drivers::driver_trait::{BatchProgressFn, DatabaseDriver};
-use crate::models::{BatchStatementResult, ExplainQueryOutput, QueryResult};
+use crate::models::{BatchStatementResult, ConnectionParams, ExplainQueryOutput, QueryResult};
 use crate::runtime::{state::ApplicationState, RuntimeContext};
 use serde::Serialize;
 use serde_json::Value;
@@ -67,18 +67,18 @@ pub struct QueryRequestScope<'a> {
 }
 
 struct QueryTaskRegistration {
-    handles: Arc<std::sync::Mutex<crate::commands::AbortHandleMap>>,
+    handles: Arc<std::sync::Mutex<super::cancellation::AbortHandleMap>>,
     slot: String,
     handle: Arc<AbortHandle>,
 }
 
 impl QueryTaskRegistration {
     fn new(
-        cancellation: &crate::commands::QueryCancellationState,
+        cancellation: &super::cancellation::QueryCancellationState,
         slot: String,
         handle: Arc<AbortHandle>,
     ) -> Self {
-        crate::commands::register_abort_handle(&cancellation.handles, slot.clone(), handle.clone());
+        super::cancellation::register_abort_handle(&cancellation.handles, slot.clone(), handle.clone());
         Self {
             handles: cancellation.handles.clone(),
             slot,
@@ -90,7 +90,7 @@ impl QueryTaskRegistration {
 impl Drop for QueryTaskRegistration {
     fn drop(&mut self) {
         self.handle.abort();
-        crate::commands::unregister_abort_handle(&self.handles, &self.slot, &self.handle);
+        super::cancellation::unregister_abort_handle(&self.handles, &self.slot, &self.handle);
     }
 }
 
@@ -248,7 +248,7 @@ impl QueryCommand {
 #[allow(clippy::too_many_arguments)]
 pub async fn execute_query(
     runtime: &RuntimeContext,
-    cancellation: &crate::commands::QueryCancellationState,
+    cancellation: &super::cancellation::QueryCancellationState,
     scope: QueryRequestScope<'_>,
     policy: QueryResponsePolicy,
     connection_id: String,
@@ -344,7 +344,7 @@ pub async fn execute_query(
 #[allow(clippy::too_many_arguments)]
 pub async fn execute_query_batch(
     runtime: &RuntimeContext,
-    cancellation: &crate::commands::QueryCancellationState,
+    cancellation: &super::cancellation::QueryCancellationState,
     scope: QueryRequestScope<'_>,
     policy: QueryResponsePolicy,
     connection_id: String,
@@ -458,7 +458,7 @@ pub async fn execute_query_batch(
 
 pub async fn explain_query_plan(
     runtime: &RuntimeContext,
-    cancellation: &crate::commands::QueryCancellationState,
+    cancellation: &super::cancellation::QueryCancellationState,
     scope: QueryRequestScope<'_>,
     connection_id: String,
     query: String,
@@ -519,7 +519,7 @@ pub async fn count_query(
     let result = match query_session_id.as_deref() {
         Some(id) => {
             let id = super::query_sessions::key(session_id, &connection_id, id);
-            crate::commands::read_in_open_transaction(
+            read_in_open_transaction(
                 driver.as_ref(),
                 &params,
                 &count_query,
@@ -571,7 +571,7 @@ pub async fn get_server_now(
 }
 
 pub fn cancel_query(
-    cancellation: &crate::commands::QueryCancellationState,
+    cancellation: &super::cancellation::QueryCancellationState,
     session_id: Option<Uuid>,
     connection_id: &str,
     query_request_id: Option<&str>,
@@ -580,7 +580,7 @@ pub fn cancel_query(
 }
 
 pub fn cancel_session_queries(
-    cancellation: &crate::commands::QueryCancellationState,
+    cancellation: &super::cancellation::QueryCancellationState,
     session_id: Uuid,
 ) {
     let prefix = format!("web-query:{session_id}:");
@@ -605,7 +605,7 @@ pub fn cancel_session_queries(
 }
 
 pub(crate) fn cancel_registered_queries(
-    cancellation: &crate::commands::QueryCancellationState,
+    cancellation: &super::cancellation::QueryCancellationState,
     session_id: Option<Uuid>,
     connection_id: &str,
     query_request_id: Option<&str>,
@@ -697,7 +697,7 @@ fn cancellation_slot(scope: QueryRequestScope<'_>, connection_id: &str) -> Strin
 }
 
 fn cancellation_slots_for_cancel(
-    state: &crate::commands::QueryCancellationState,
+    state: &super::cancellation::QueryCancellationState,
     session_id: Option<Uuid>,
     connection_id: &str,
     query_request_id: Option<&str>,
@@ -797,6 +797,38 @@ fn emit_event(
 
 fn json<T: Serialize>(value: T) -> Result<Value, String> {
     serde_json::to_value(value).map_err(|error| error.to_string())
+}
+
+/// Run a read on the connection pinned to `session_id`, inside its open
+/// transaction, so it sees the tab's uncommitted changes. A savepoint keeps a
+/// failing read from aborting the user's transaction.
+pub(crate) async fn read_in_open_transaction(
+    drv: &dyn DatabaseDriver,
+    params: &ConnectionParams,
+    query: &str,
+    limit: Option<u32>,
+    page: u32,
+    schema: Option<&str>,
+    session_id: &str,
+) -> Result<QueryResult, String> {
+    let batch = [
+        "SAVEPOINT superdba_read".to_string(),
+        query.to_string(),
+        "ROLLBACK TO SAVEPOINT superdba_read".to_string(),
+        "RELEASE SAVEPOINT superdba_read".to_string(),
+    ];
+    let (results, _) = drv
+        .execute_batch_in_session(params, &batch, limit, page, schema, Some(session_id), None)
+        .await?;
+    // With no transaction open (a stale badge) only the savepoint lines fail; the read still runs.
+    match results.into_iter().nth(1) {
+        Some(BatchStatementResult {
+            result: Some(result),
+            ..
+        }) => Ok(result),
+        Some(BatchStatementResult { error: Some(e), .. }) => Err(e),
+        _ => Err("The statement produced no result".to_string()),
+    }
 }
 
 #[cfg(test)]

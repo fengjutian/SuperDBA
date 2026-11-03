@@ -1,6 +1,6 @@
 use crate::ai_activity::{self, AiActivityEvent};
 use crate::ai_approval::{self, PendingApproval, PollOutcome};
-use crate::commands;
+use crate::application::connection_params;
 use crate::config::{
     self, AppConfig, DEFAULT_AI_AUDIT_ENABLED, DEFAULT_AI_AUDIT_MAX_ENTRIES,
     DEFAULT_AI_SESSION_GAP_MINUTES, DEFAULT_MCP_APPROVAL_MODE,
@@ -337,7 +337,7 @@ async fn resolve_db_params(
 
     let expanded = expand_ssh_params_for_mcp(&conn.params).await?;
     let expanded = expand_k8s_params_for_mcp(&expanded).await?;
-    let db_params = commands::resolve_connection_params(&expanded).map_err(|e| JsonRpcError {
+    let db_params = connection_params::resolve_connection_params(&expanded).map_err(|e| JsonRpcError {
         code: -32000,
         message: e,
         data: None,

@@ -30,6 +30,8 @@ devdiary
 /docs
 coverage
 plugins/**/target
+target-check/
+target-verify/
 .gitnexus
 .pi/
 .atl/

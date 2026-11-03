@@ -486,7 +486,7 @@ pub async fn apply_export_payload(
     let mut imported_plugin_secrets = std::mem::take(&mut payload.plugin_secrets);
     let mut plugin_secret_writes = Vec::new();
     let mut current_ssh: Vec<SshConnection> = load_json(&ssh_path(runtime))?;
-    crate::commands::merge_groups(&mut current.groups, payload.groups);
+    super::connection_groups::merge_groups(&mut current.groups, payload.groups);
     let tag_remap = crate::connection_tags::merge_imported_tags(&mut current.tags, payload.tags);
     let mut incoming = payload.connections;
     remap_tags(&mut current.connections, &mut incoming, &tag_remap);

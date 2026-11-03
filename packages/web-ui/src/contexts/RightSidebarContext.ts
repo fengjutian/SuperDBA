@@ -1,6 +1,6 @@
 import {createContext, type MutableRefObject} from 'react';
 
-export type RightSidebarPanel = 'row-editor' | null;
+export type RightSidebarPanel = 'row-editor' | 'chat' | null;
 
 export interface RowEditorPanelData {
     rowData: Record<string, unknown>;
@@ -35,6 +35,7 @@ export interface RightSidebarContextValue {
     // Stable action refs — identity never changes
     openRowEditor: (data: RowEditorPanelData) => void;
     updateRowEditorData: (data: Partial<RowEditorPanelData>) => void;
+    openChat: () => void;
     close: () => void;
     toggle: () => void;
     setActivePanel: (panel: RightSidebarPanel) => void;

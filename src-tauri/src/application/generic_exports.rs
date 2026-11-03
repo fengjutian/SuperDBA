@@ -2,7 +2,7 @@ use super::connection_files::GeneratedFile;
 use super::file_transfers::{FileTransferStore, MAX_FILE_TRANSFER_BYTES};
 use crate::ai_activity::{self, EventFilter};
 use crate::ai_notebook_export::{self, NotebookExport};
-use crate::commands::{register_abort_handle, unregister_abort_handle};
+use super::cancellation::{register_abort_handle, unregister_abort_handle};
 use crate::export::{ExportCancellationState, ExportFormat};
 use crate::logger::SharedLogBuffer;
 use crate::models::DatabaseSelection;
@@ -502,7 +502,7 @@ impl<W: Write> Write for LimitedWriter<W> {
 }
 
 struct ExportRegistration {
-    handles: Arc<std::sync::Mutex<crate::commands::AbortHandleMap>>,
+    handles: Arc<std::sync::Mutex<super::cancellation::AbortHandleMap>>,
     key: String,
     handle: Arc<tokio::task::AbortHandle>,
     completed: bool,
@@ -510,7 +510,7 @@ struct ExportRegistration {
 
 impl ExportRegistration {
     fn new(
-        handles: Arc<std::sync::Mutex<crate::commands::AbortHandleMap>>,
+        handles: Arc<std::sync::Mutex<super::cancellation::AbortHandleMap>>,
         key: String,
         handle: Arc<tokio::task::AbortHandle>,
     ) -> Self {

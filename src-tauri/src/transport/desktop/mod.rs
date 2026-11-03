@@ -566,6 +566,11 @@ pub fn run(args: crate::cli::Args, log_buffer: crate::logger::SharedLogBuffer) {
             ai_commands::export_ai_session_as_notebook,
             ai_commands::list_pending_approvals,
             ai_commands::decide_pending_approval,
+            // Conversational DBA agent
+            ai_commands::chat_list_sessions,
+            ai_commands::chat_get_session,
+            ai_commands::chat_delete_session,
+            ai_commands::chat_send,
             // Themes
             theme_packages::commands::preview_theme_document,
             theme_packages::commands::preview_local_theme_package,

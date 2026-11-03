@@ -1,0 +1,362 @@
+import {useMemo, useRef, useState, useEffect} from 'react';
+import Markdown from 'react-markdown';
+import {useTranslation} from 'react-i18next';
+import {
+    Bot,
+    ChevronDown,
+    ChevronRight,
+    MessageSquarePlus,
+    Send,
+    Trash2,
+    X,
+    Loader2,
+    Sparkles,
+    Wrench,
+} from 'lucide-react';
+import {useChatAgent} from '@/hooks/useChat';
+import {useDatabase} from '@/hooks/useDatabase';
+import {useRightSidebar} from '@/hooks/useRightSidebar';
+import {useSettings} from '@/hooks/useSettings';
+import {extractSqlBlock, formatToolResult} from '@/utils/chat';
+import type {ChatMessage, ChatToolCall} from '@/types/chat';
+
+function ToolCallRow({call}: {call: ChatToolCall}) {
+    const {t} = useTranslation();
+    const [open, setOpen] = useState(false);
+    const result = useMemo(() => formatToolResult(call.result), [call.result]);
+    const statusClass =
+        call.status === 'ok'
+            ? 'text-accent-success'
+            : call.status === 'denied'
+              ? 'text-accent-warning'
+              : 'text-accent-error';
+
+    return (
+        <div className="border border-default rounded-md bg-surface-secondary/60">
+            <button
+                type="button"
+                onClick={() => setOpen((value) => !value)}
+                aria-expanded={open}
+                className="w-full flex items-center gap-2 px-2 py-1.5 text-left text-xs hover:bg-surface-hover rounded-md"
+            >
+                {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                <Wrench size={12} className="text-muted" />
+                <span className="font-mono text-primary">{call.name}</span>
+                <span className={statusClass}>{call.status}</span>
+                <span className="text-muted truncate flex-1">{call.summary}</span>
+                <span className="text-muted tabular-nums">{call.durationMs} ms</span>
+            </button>
+            {open && (
+                <div className="px-3 pb-2 space-y-2">
+                    <div>
+                        <div className="text-[10px] uppercase tracking-wide text-muted mb-1">
+                            {t('chat.arguments', {defaultValue: 'Arguments'})}
+                        </div>
+                        <pre className="text-[11px] font-mono bg-base border border-default rounded p-2 overflow-x-auto max-h-40">
+                            {JSON.stringify(call.arguments, null, 2)}
+                        </pre>
+                    </div>
+                    {result && (
+                        <div>
+                            <div className="text-[10px] uppercase tracking-wide text-muted mb-1">
+                                {t('chat.result', {defaultValue: 'Result'})}
+                            </div>
+                            <pre className="text-[11px] font-mono bg-base border border-default rounded p-2 overflow-auto max-h-52">
+                                {result}
+                            </pre>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function MessageBubble({message}: {message: ChatMessage}) {
+    const {t} = useTranslation();
+    const sql = message.role === 'assistant' ? extractSqlBlock(message.content) : null;
+    const [copied, setCopied] = useState(false);
+
+    const copySql = async () => {
+        if (!sql) return;
+        await navigator.clipboard.writeText(sql);
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 1500);
+    };
+
+    if (message.role === 'user') {
+        return (
+            <div className="self-end max-w-[92%] rounded-lg bg-accent-primary/15 border border-accent-primary/30 px-3 py-2 text-sm text-primary whitespace-pre-wrap break-words">
+                {message.content}
+            </div>
+        );
+    }
+
+    return (
+        <div className="max-w-full space-y-2">
+            <div className="text-sm text-secondary [&_p]:mb-2 [&_p]:leading-relaxed [&_pre]:bg-surface-secondary [&_pre]:border [&_pre]:border-default [&_pre]:rounded [&_pre]:p-2 [&_pre]:overflow-x-auto [&_pre]:text-xs [&_code]:font-mono [&_code]:text-xs [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-accent-primary [&_a]:underline [&_strong]:text-primary">
+                <Markdown>{message.content}</Markdown>
+            </div>
+            {sql && (
+                <button
+                    type="button"
+                    onClick={copySql}
+                    className="text-[11px] text-accent-primary hover:underline"
+                >
+                    {copied
+                        ? t('chat.copied', {defaultValue: 'Copied'})
+                        : t('chat.copySql', {defaultValue: 'Copy SQL'})}
+                </button>
+            )}
+            {message.toolCalls && message.toolCalls.length > 0 && (
+                <div className="space-y-1">
+                    {message.toolCalls.map((call) => (
+                        <ToolCallRow key={call.id} call={call} />
+                    ))}
+                </div>
+            )}
+            {message.notice && (
+                <div className="text-[11px] text-accent-warning border border-accent-warning/30 rounded px-2 py-1">
+                    {message.notice}
+                </div>
+            )}
+        </div>
+    );
+}
+
+export function ChatPanel() {
+    const {t} = useTranslation();
+    const {close} = useRightSidebar();
+    const {activeConnectionId, activeSchema, activeDatabaseName, connections} = useDatabase();
+    const {settings} = useSettings();
+    const {
+        sessions,
+        session,
+        sending,
+        error,
+        send,
+        openSession,
+        startNewSession,
+        deleteSession,
+        setError,
+    } = useChatAgent();
+
+    const [input, setInput] = useState('');
+    const [showSessions, setShowSessions] = useState(false);
+    const scrollRef = useRef<HTMLDivElement>(null);
+
+    const messages = session?.messages ?? [];
+
+    useEffect(() => {
+        const node = scrollRef.current;
+        if (node) node.scrollTop = node.scrollHeight;
+    }, [messages.length, sending]);
+
+    const connectionName = connections.find((entry) => entry.id === activeConnectionId)?.name;
+
+    const submit = async () => {
+        if (!input.trim() || sending) return;
+        const message = input;
+        setInput('');
+        await send(message, {
+            ...(activeConnectionId ? {connectionId: activeConnectionId} : {}),
+            ...(connectionName ? {connectionName} : {}),
+            ...(activeSchema ? {schema: activeSchema} : {}),
+            ...(activeDatabaseName ? {database: activeDatabaseName} : {}),
+        });
+    };
+
+    const providerReady = Boolean(settings.aiProvider);
+
+    return (
+        <div className="flex flex-col h-full min-h-0">
+            <header className="flex items-center gap-2 px-3 py-2 border-b border-default">
+                <Bot size={16} className="text-accent-primary" />
+                <h2 className="text-sm font-semibold text-primary flex-1">
+                    {t('chat.title', {defaultValue: 'DBA chat'})}
+                </h2>
+                <button
+                    type="button"
+                    onClick={() => setShowSessions((value) => !value)}
+                    aria-label={t('chat.sessions', {defaultValue: 'Conversations'})}
+                    title={t('chat.sessions', {defaultValue: 'Conversations'})}
+                    aria-expanded={showSessions}
+                    className="p-1 rounded hover:bg-surface-hover text-muted hover:text-primary"
+                >
+                    <ChevronDown size={14} />
+                </button>
+                <button
+                    type="button"
+                    onClick={startNewSession}
+                    aria-label={t('chat.newSession', {defaultValue: 'New conversation'})}
+                    title={t('chat.newSession', {defaultValue: 'New conversation'})}
+                    className="p-1 rounded hover:bg-surface-hover text-muted hover:text-primary"
+                >
+                    <MessageSquarePlus size={14} />
+                </button>
+                <button
+                    type="button"
+                    onClick={close}
+                    aria-label={t('common.close', {defaultValue: 'Close'})}
+                    className="p-1 rounded hover:bg-surface-hover text-muted hover:text-primary"
+                >
+                    <X size={14} />
+                </button>
+            </header>
+
+            {showSessions && (
+                <div className="border-b border-default max-h-56 overflow-auto">
+                    {sessions.length === 0 ? (
+                        <p className="px-3 py-3 text-xs text-muted">
+                            {t('chat.noSessions', {defaultValue: 'No conversations yet.'})}
+                        </p>
+                    ) : (
+                        sessions.map((entry) => (
+                            <div
+                                key={entry.id}
+                                className="flex items-center gap-2 px-3 py-2 text-xs hover:bg-surface-hover"
+                            >
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        void openSession(entry.id);
+                                        setShowSessions(false);
+                                    }}
+                                    className="flex-1 text-left min-w-0"
+                                >
+                                    <div className="truncate text-primary">{entry.title}</div>
+                                    <div className="text-muted">
+                                        {entry.messageCount}{' '}
+                                        {t('chat.messages', {defaultValue: 'messages'})}
+                                    </div>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => void deleteSession(entry.id)}
+                                    aria-label={t('chat.deleteSession', {
+                                        defaultValue: 'Delete conversation',
+                                    })}
+                                    className="p-1 rounded text-muted hover:text-accent-error hover:bg-surface-secondary"
+                                >
+                                    <Trash2 size={12} />
+                                </button>
+                            </div>
+                        ))
+                    )}
+                </div>
+            )}
+
+            <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-3 py-3">
+                {messages.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-center gap-3 px-2">
+                        <Sparkles size={20} className="text-accent-primary" />
+                        <p className="text-sm text-primary">
+                            {t('chat.emptyTitle', {defaultValue: 'Ask about this database'})}
+                        </p>
+                        <p className="text-xs text-muted max-w-[240px]">
+                            {t('chat.emptyHint', {
+                                defaultValue:
+                                    'The assistant inspects the schema with read-only tools and shows every query it runs.',
+                            })}
+                        </p>
+                        {[
+                            t('chat.starter.tables', {
+                                defaultValue: 'Which tables should I start with?',
+                            }),
+                            t('chat.starter.slow', {
+                                defaultValue: 'Why might my last query be slow?',
+                            }),
+                            t('chat.starter.indexes', {defaultValue: 'Which indexes are missing?'}),
+                        ].map((prompt) => (
+                            <button
+                                key={prompt}
+                                type="button"
+                                onClick={() => setInput(prompt)}
+                                className="text-xs text-left border border-default rounded px-2 py-1.5 hover:bg-surface-hover text-secondary w-full"
+                            >
+                                {prompt}
+                            </button>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="flex flex-col gap-3">
+                        {messages
+                            .filter((message) => message.role !== 'system')
+                            .map((message) => (
+                                <MessageBubble key={message.id} message={message} />
+                            ))}
+                        {sending && (
+                            <div className="flex items-center gap-2 text-xs text-muted">
+                                <Loader2 size={12} className="animate-spin" />
+                                {t('chat.working', {defaultValue: 'Gathering evidence…'})}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {error && (
+                <div className="mx-3 mb-2 text-[11px] text-accent-error border border-accent-error/30 rounded px-2 py-1 flex items-start gap-2">
+                    <span className="flex-1">{error}</span>
+                    <button
+                        type="button"
+                        onClick={() => setError(null)}
+                        aria-label={t('common.dismiss', {defaultValue: 'Dismiss'})}
+                    >
+                        <X size={12} />
+                    </button>
+                </div>
+            )}
+
+            {!providerReady && (
+                <div className="mx-3 mb-2 text-[11px] text-accent-warning border border-accent-warning/30 rounded px-2 py-1">
+                    {t('chat.configureProvider', {
+                        defaultValue: 'Select an AI provider in Settings → AI to start chatting.',
+                    })}
+                </div>
+            )}
+
+            <footer className="border-t border-default p-2">
+                <div className="flex items-end gap-2">
+                    <textarea
+                        value={input}
+                        onChange={(event) => setInput(event.target.value)}
+                        onKeyDown={(event) => {
+                            if (event.key === 'Enter' && !event.shiftKey) {
+                                event.preventDefault();
+                                void submit();
+                            }
+                        }}
+                        rows={2}
+                        placeholder={t('chat.placeholder', {
+                            defaultValue: 'Ask a question or paste a query…',
+                        })}
+                        aria-label={t('chat.placeholder', {
+                            defaultValue: 'Ask a question or paste a query…',
+                        })}
+                        disabled={sending || !providerReady}
+                        className="flex-1 resize-none bg-base border border-default rounded-md px-2 py-1.5 text-xs text-primary placeholder:text-muted focus:outline-none focus:border-accent-primary disabled:opacity-60"
+                    />
+                    <button
+                        type="button"
+                        onClick={() => void submit()}
+                        disabled={sending || !input.trim() || !providerReady}
+                        aria-label={t('chat.send', {defaultValue: 'Send'})}
+                        className="p-2 rounded-md bg-accent-primary text-inverse disabled:opacity-40"
+                    >
+                        {sending ? (
+                            <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                            <Send size={14} />
+                        )}
+                    </button>
+                </div>
+                <p className="mt-1 text-[10px] text-muted">
+                    {t('chat.readOnlyHint', {
+                        defaultValue: 'Read-only tools. Writes stay in the editor.',
+                    })}
+                </p>
+            </footer>
+        </div>
+    );
+}

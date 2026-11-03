@@ -261,7 +261,7 @@ pub async fn execute(
             database,
         } => json(get_drop_table_sql(runtime, &connection_id, table, schema, database).await?),
         DatabaseObjectCommand::GetDataTypes { driver } => {
-            json(crate::commands::get_data_types(driver).await?)
+            json(super::driver_catalog::get_data_types(driver).await?)
         }
         DatabaseObjectCommand::MapInferredColumnTypes {
             driver,
@@ -763,7 +763,7 @@ async fn sql_builder_driver_and_params(
         return Ok((driver, saved.params));
     }
     crate::application::connections::bind_sql_builder_secrets(runtime, &mut saved);
-    let params = crate::commands::sql_builder_params(&saved, database);
+    let params = super::sql_builder::sql_builder_params(&saved, database);
     let driver = driver.bind_connection_params(&params).unwrap_or(driver);
     Ok((driver, params))
 }

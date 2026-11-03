@@ -52,6 +52,7 @@ import type {
     ApprovalDecisionPayload,
     PendingApproval,
 } from '@/types/ai';
+import type {ChatSendRequest, ChatSession, ChatSessionSummary} from '@/types/chat';
 import type {ImportPreview, ImportResolution, ImportSourceInfo} from '@/types/connectionImport';
 import type {RequestId} from './errors';
 import type {
@@ -1060,6 +1061,10 @@ export interface CommandMap {
     clear_ai_activity: CommandDefinition<undefined, void, 'sensitive'>;
     list_pending_approvals: CommandDefinition<undefined, PendingApproval[], 'sensitive'>;
     decide_pending_approval: CommandDefinition<ApprovalDecisionPayload, void, 'sensitive'>;
+    chat_list_sessions: CommandDefinition<undefined, ChatSessionSummary[], 'sensitive'>;
+    chat_get_session: CommandDefinition<{sessionId: string}, ChatSession, 'sensitive'>;
+    chat_delete_session: CommandDefinition<{sessionId: string}, void, 'sensitive'>;
+    chat_send: CommandDefinition<{request: ChatSendRequest}, ChatSession, 'sensitive'>;
 
     get_config: CommandDefinition<undefined, PersistedConfig, 'local-admin'>;
     save_config: CommandDefinition<{config: PersistedConfig}, void, 'local-admin'>;

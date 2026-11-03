@@ -211,6 +211,7 @@
     "deleteFkConfirm": "Delete foreign key \"{{name}}\"?",
     "sqliteFkError": "SQLite does not support dropping FKs via ALTER TABLE.",
     "mcpServer": "MCP Server",
+    "chat": "DBA chat",
     "routines": "Routines",
     "functions": "Functions",
     "procedures": "Procedures",
@@ -2931,5 +2932,29 @@
     "modes": { "light": "Light", "dark": "Dark", "high-contrast": "High contrast" },
     "importErrors": { "unrecognized": "Not a recognized VS Code theme.", "modeRequired": "Choose a mode explicitly, then preview again.", "includeOnly": "Include-only themes cannot be imported. Supply the actual colors.", "noSupportedData": "No supported colors or SQL token rules were found.", "invalidColor": "A supported color has an invalid value.", "invalidRules": "Invalid or excessive token rules." },
     "diagnostics": { "unsupportedKey": "Unsupported field", "unsupportedColor": "Unsupported color", "unsupportedScope": "Unsupported scope", "scopeApproximation": "Approximate SQL scope mapping", "unsupportedStyle": "Unsupported style", "ignoredInclude": "Include not loaded", "ignoredSemanticTokens": "Semantic tokens ignored", "unsupportedReference": "External reference not loaded", "unsupportedSetting": "Unsupported setting", "tokenAlphaFlattened": "Token opacity materialized against the base background", "modeApproximation": "Mode overridden or approximated", "diagnosticsTruncated": "Additional diagnostics omitted" }
+  },
+  "chat": {
+    "title": "DBA chat",
+    "sessions": "Conversations",
+    "newSession": "New conversation",
+    "noSessions": "No conversations yet.",
+    "messages": "messages",
+    "deleteSession": "Delete conversation",
+    "emptyTitle": "Ask about this database",
+    "emptyHint": "The assistant inspects the schema with read-only tools and shows every query it runs.",
+    "starter": {
+      "tables": "Which tables should I start with?",
+      "slow": "Why might my last query be slow?",
+      "indexes": "Which indexes are missing?"
+    },
+    "working": "Gathering evidence…",
+    "configureProvider": "Select an AI provider in Settings → AI to start chatting.",
+    "placeholder": "Ask a question or paste a query…",
+    "send": "Send",
+    "readOnlyHint": "Read-only tools. Writes stay in the editor.",
+    "arguments": "Arguments",
+    "result": "Result",
+    "copySql": "Copy SQL",
+    "copied": "Copied"
   }
 }

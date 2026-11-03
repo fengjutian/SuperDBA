@@ -719,11 +719,11 @@ fn persist_plugin_secrets(
 
 /// Secrets a plugin SQL builder may forward: the connection URI, the database
 /// password and the plugin-owned secrets. Never fails (see
-/// `commands::apply_sql_builder_secrets`); SSH secrets are skipped because the
-/// builders never open tunnels.
+/// `sql_builder::apply_sql_builder_secrets`); SSH secrets are skipped because
+/// the builders never open tunnels.
 pub(crate) fn bind_sql_builder_secrets(runtime: &RuntimeContext, connection: &mut SavedConnection) {
     let id = connection.id.clone();
-    crate::commands::apply_sql_builder_secrets(
+    super::sql_builder::apply_sql_builder_secrets(
         &mut connection.params,
         &id,
         |stored| {
@@ -1167,12 +1167,12 @@ fn create_group_path(
 ) -> Result<ConnectionGroup, String> {
     let mut file = load_file(runtime)?;
     validate_parent(&file, parent_id.as_deref())?;
-    let segments = crate::commands::parse_group_path(path)?;
+    let segments = super::connection_groups::parse_group_path(path)?;
     let mut current_parent = parent_id;
     let mut last = None;
     for name in segments {
         if let Some(existing) =
-            crate::commands::find_child_group(&file.groups, &name, &current_parent).cloned()
+            super::connection_groups::find_child_group(&file.groups, &name, &current_parent).cloned()
         {
             current_parent = Some(existing.id.clone());
             last = Some(existing);
@@ -1251,7 +1251,7 @@ fn move_group(
         return Err(format!("Group with ID {id} not found"));
     }
     validate_parent(&file, parent_id.as_deref())?;
-    crate::commands::reject_if_would_create_cycle(&file.groups, id, parent_id.as_deref())?;
+    super::connection_groups::reject_if_would_create_cycle(&file.groups, id, parent_id.as_deref())?;
     let group = file
         .groups
         .iter_mut()

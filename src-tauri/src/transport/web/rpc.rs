@@ -250,6 +250,10 @@ enum AiRpcCommand {
     ClearActivity,
     ListPendingApprovals,
     DecidePendingApproval,
+    ChatListSessions,
+    ChatGetSession,
+    ChatDeleteSession,
+    ChatSend,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -581,6 +585,12 @@ struct AiApprovalDecisionRequest {
     decision: String,
     reason: Option<String>,
     edited_query: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AiChatSendRequest {
+    request: crate::application::chat::ChatSendRequest,
 }
 
 #[derive(Debug, Deserialize)]
@@ -2220,6 +2230,10 @@ impl AiRpcCommand {
             "clear_ai_activity" => Self::ClearActivity,
             "list_pending_approvals" => Self::ListPendingApprovals,
             "decide_pending_approval" => Self::DecidePendingApproval,
+            "chat_list_sessions" => Self::ChatListSessions,
+            "chat_get_session" => Self::ChatGetSession,
+            "chat_delete_session" => Self::ChatDeleteSession,
+            "chat_send" => Self::ChatSend,
             _ => return None,
         })
     }
@@ -2655,6 +2669,26 @@ fn decode_ai_command(command: AiRpcCommand, body: &[u8]) -> Result<AiCommand, St
                 reason: request.reason,
                 edited_query: request.edited_query,
             }
+        }
+        AiRpcCommand::ChatListSessions => {
+            decode_empty_payload(body)?;
+            AiCommand::Chat(crate::application::chat::ChatCommand::ListSessions)
+        }
+        AiRpcCommand::ChatGetSession => {
+            let request: AiSessionRequest = decode_payload(body)?;
+            AiCommand::Chat(crate::application::chat::ChatCommand::GetSession {
+                session_id: request.session_id,
+            })
+        }
+        AiRpcCommand::ChatDeleteSession => {
+            let request: AiSessionRequest = decode_payload(body)?;
+            AiCommand::Chat(crate::application::chat::ChatCommand::DeleteSession {
+                session_id: request.session_id,
+            })
+        }
+        AiRpcCommand::ChatSend => {
+            let request: AiChatSendRequest = decode_payload(body)?;
+            AiCommand::Chat(crate::application::chat::ChatCommand::Send(request.request))
         }
     })
 }

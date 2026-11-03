@@ -210,6 +210,7 @@
     "deleteFkConfirm": "删除外键 \"{{name}}\"？",
     "sqliteFkError": "SQLite 不支持通过 ALTER TABLE 删除外键。",
     "mcpServer": "MCP 服务器",
+    "chat": "DBA 对话",
     "routines": "存储过程",
     "functions": "函数",
     "procedures": "存储过程",
@@ -2762,5 +2763,29 @@
     "groups": { "builtin": "内置 · 离线", "installed": "已安装主题包", "personal": "个人主题" }, "modes": { "light": "浅色", "dark": "深色", "high-contrast": "高对比度" },
     "importErrors": { "unrecognized": "无法识别此 VS Code 主题。", "modeRequired": "请选择模式，然后重新预览。", "includeOnly": "无法导入仅含 include 的主题。请提供实际颜色数据。", "noSupportedData": "未找到支持的颜色或 SQL 词法规则。", "invalidColor": "某个支持的颜色值无效。", "invalidRules": "词法规则无效或过多。" },
     "diagnostics": { "unsupportedKey": "不支持的字段", "unsupportedColor": "不支持的颜色", "unsupportedScope": "不支持的作用域", "scopeApproximation": "近似 SQL 作用域映射", "unsupportedStyle": "不支持的样式", "ignoredInclude": "未加载 include", "ignoredSemanticTokens": "已忽略语义词法标记", "unsupportedReference": "未加载外部引用", "unsupportedSetting": "不支持的设置", "tokenAlphaFlattened": "词法标记不透明度按基础背景计算", "modeApproximation": "模式已覆盖或近似转换", "diagnosticsTruncated": "已省略其他诊断信息" }
+  },
+  "chat": {
+    "title": "DBA 对话",
+    "sessions": "历史会话",
+    "newSession": "新建会话",
+    "noSessions": "还没有会话。",
+    "messages": "条消息",
+    "deleteSession": "删除会话",
+    "emptyTitle": "问问这个数据库",
+    "emptyHint": "助手会用只读工具查看表结构，并展示它执行的每一条查询。",
+    "starter": {
+      "tables": "我应该先看哪些表？",
+      "slow": "我上一条查询为什么慢？",
+      "indexes": "缺哪些索引？"
+    },
+    "working": "正在收集证据…",
+    "configureProvider": "请先在「设置 → AI」中选择一个 AI 服务商。",
+    "placeholder": "提问，或粘贴一条查询…",
+    "send": "发送",
+    "readOnlyHint": "仅只读工具；写操作仍在编辑器中执行。",
+    "arguments": "参数",
+    "result": "结果",
+    "copySql": "复制 SQL",
+    "copied": "已复制"
   }
 }

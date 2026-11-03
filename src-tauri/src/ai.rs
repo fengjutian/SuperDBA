@@ -382,7 +382,7 @@ async fn fetch_requesty_models() -> Vec<String> {
 ///
 /// This avoids hardcoding `/v1` so that providers using different
 /// version paths (e.g., Zhipu GLM's `/v4`) work correctly.
-fn build_api_url(base_url: &str, endpoint: &str) -> String {
+pub(crate) fn build_api_url(base_url: &str, endpoint: &str) -> String {
     let trimmed = base_url.trim_end_matches('/');
 
     // User already provided the full path
@@ -631,7 +631,7 @@ pub async fn get_models(
 
 // --- Shared helpers ---
 
-async fn resolve_model(
+pub(crate) async fn resolve_model(
     provider: &str,
     model: &str,
     app_config: &config::AppConfig,

@@ -1,6 +1,6 @@
 use super::connection_files::GeneratedFile;
 use super::file_transfers::{ClaimedUpload, FileTransferStore};
-use crate::commands::{register_abort_handle, unregister_abort_handle, AbortHandleMap};
+use super::cancellation::{register_abort_handle, unregister_abort_handle, AbortHandleMap};
 use crate::drivers::driver_trait::DatabaseDriver;
 use crate::drivers::{mysql, postgres, sqlite};
 use crate::dump_utils::DumpDialect;

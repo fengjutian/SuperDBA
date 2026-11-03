@@ -124,7 +124,7 @@ async fn ping_single_connection(app: &tauri::AppHandle, connection_id: &str) -> 
         crate::transport::desktop::commands::expand_k8s_connection_params(app, &expanded_params)
             .await?;
     let params =
-        crate::commands::resolve_connection_params_with_id(&expanded_params, connection_id)?;
+        crate::application::connection_params::resolve_connection_params_with_id(&expanded_params, connection_id)?;
 
     // Check if pool exists before attempting ping (avoid creating new pools).
     let is_builtin = matches!(params.driver.as_str(), "mysql" | "postgres" | "sqlite");
@@ -169,7 +169,7 @@ async fn handle_connection_failure(app: &tauri::AppHandle, connection_id: &str, 
         // SSH would only add a redundant keychain lookup that produces the same
         // result. If even tunnel-free resolution fails, fall back to the saved
         // params with just the connection_id set.
-        let close_params = match crate::commands::params_for_pool_close(
+        let close_params = match crate::application::connection_params::params_for_pool_close(
             &saved_conn.params,
             connection_id,
         ) {
