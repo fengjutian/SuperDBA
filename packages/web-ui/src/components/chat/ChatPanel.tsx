@@ -1,5 +1,4 @@
 import {useMemo, useRef, useState, useEffect, useCallback} from 'react';
-import Markdown from 'react-markdown';
 import {useTranslation} from 'react-i18next';
 import {
     ChevronDown,
@@ -14,6 +13,7 @@ import {
     Wrench,
 } from 'lucide-react';
 import {useChatAgent} from '@/hooks/useChat';
+import {ChatMarkdown} from '@/components/chat/ChatMarkdown';
 import {useDatabase} from '@/hooks/useDatabase';
 import {useEditor} from '@/hooks/useEditor';
 import {useRightSidebar} from '@/hooks/useRightSidebar';
@@ -102,9 +102,7 @@ function MessageBubble({
 
     return (
         <div className="max-w-full space-y-2">
-            <div className="text-sm text-secondary [&_p]:mb-2 [&_p]:leading-relaxed [&_pre]:bg-surface-secondary [&_pre]:border [&_pre]:border-default [&_pre]:rounded [&_pre]:p-2 [&_pre]:overflow-x-auto [&_pre]:text-xs [&_code]:font-mono [&_code]:text-xs [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-accent-primary [&_a]:underline [&_strong]:text-primary">
-                <Markdown>{message.content}</Markdown>
-            </div>
+            <ChatMarkdown content={message.content} />
             {sql && (
                 <div className="flex items-center gap-3">
                     <button
@@ -344,9 +342,7 @@ export function ChatPanel() {
                         {stream && (
                             <div className="max-w-full space-y-2">
                                 {stream.text ? (
-                                    <div className="text-sm text-secondary [&_p]:mb-2 [&_p]:leading-relaxed [&_pre]:bg-surface-secondary [&_pre]:border [&_pre]:border-default [&_pre]:rounded [&_pre]:p-2 [&_pre]:overflow-x-auto [&_pre]:text-xs [&_code]:font-mono [&_code]:text-xs [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-accent-primary [&_a]:underline [&_strong]:text-primary">
-                                        <Markdown>{stream.text}</Markdown>
-                                    </div>
+                                    <ChatMarkdown content={stream.text} />
                                 ) : (
                                     <div className="flex items-center gap-2 text-xs text-muted">
                                         <Loader2 size={12} className="animate-spin" />

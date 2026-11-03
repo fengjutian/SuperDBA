@@ -253,6 +253,59 @@ export function defineTransportContractSuite(
             ).resolves.toBeNull();
         });
 
+        it('preserves chat session, send, and cancel contracts', async () => {
+            const summary = {
+                id: 'chat-contract',
+                title: 'Contract chat',
+                provider: 'openai',
+                model: 'gpt-contract',
+                connectionId: 'contract-connection',
+                createdAt: '2026-08-22T00:00:00Z',
+                updatedAt: '2026-08-22T00:00:01Z',
+                messageCount: 1,
+            };
+            const session = {
+                id: 'chat-contract',
+                title: 'Contract chat',
+                provider: 'openai',
+                model: 'gpt-contract',
+                connectionId: 'contract-connection',
+                createdAt: '2026-08-22T00:00:00Z',
+                updatedAt: '2026-08-22T00:00:01Z',
+                messages: [
+                    {
+                        id: 'message-contract',
+                        role: 'user',
+                        content: 'hello',
+                        createdAt: '2026-08-22T00:00:00Z',
+                    },
+                ],
+            };
+            await expect(harness.transport.call('chat_list_sessions', undefined)).resolves.toEqual([
+                summary,
+            ]);
+            await expect(
+                harness.transport.call('chat_get_session', {sessionId: 'chat-contract'}),
+            ).resolves.toEqual(session);
+            await expect(
+                harness.transport.call('chat_send', {
+                    request: {
+                        provider: 'openai',
+                        model: 'gpt-contract',
+                        requestId: 'request-contract',
+                        message: 'hello',
+                        context: {connectionId: 'contract-connection'},
+                    },
+                }),
+            ).resolves.toEqual(session);
+            await expect(
+                harness.transport.call('chat_cancel', {requestId: 'request-contract'}),
+            ).resolves.toBeNull();
+            await expect(
+                harness.transport.call('chat_delete_session', {sessionId: 'chat-contract'}),
+            ).resolves.toBeNull();
+        });
+
         it('preserves local-admin MCP host configuration contracts', async () => {
             await expect(harness.transport.call('get_mcp_status', undefined)).resolves.toEqual([
                 {
@@ -956,10 +1009,7 @@ async function handleRequest(
         sendSuccess(response, ['public'], requestId);
         return;
     }
-    if (
-        command === 'get_ui_state' &&
-        body === JSON.stringify({keys: ['superdba_sidebar_width']})
-    ) {
+    if (command === 'get_ui_state' && body === JSON.stringify({keys: ['superdba_sidebar_width']})) {
         sendSuccess(response, {superdba_sidebar_width: 320}, requestId);
         return;
     }
@@ -1130,6 +1180,71 @@ async function handleRequest(
             request: {provider: 'openai'},
             response: null,
         },
+        chat_list_sessions: {
+            request: null,
+            response: [
+                {
+                    id: 'chat-contract',
+                    title: 'Contract chat',
+                    provider: 'openai',
+                    model: 'gpt-contract',
+                    connectionId: 'contract-connection',
+                    createdAt: '2026-08-22T00:00:00Z',
+                    updatedAt: '2026-08-22T00:00:01Z',
+                    messageCount: 1,
+                },
+            ],
+        },
+        chat_get_session: {
+            request: {sessionId: 'chat-contract'},
+            response: {
+                id: 'chat-contract',
+                title: 'Contract chat',
+                provider: 'openai',
+                model: 'gpt-contract',
+                connectionId: 'contract-connection',
+                createdAt: '2026-08-22T00:00:00Z',
+                updatedAt: '2026-08-22T00:00:01Z',
+                messages: [
+                    {
+                        id: 'message-contract',
+                        role: 'user',
+                        content: 'hello',
+                        createdAt: '2026-08-22T00:00:00Z',
+                    },
+                ],
+            },
+        },
+        chat_send: {
+            request: {
+                request: {
+                    provider: 'openai',
+                    model: 'gpt-contract',
+                    requestId: 'request-contract',
+                    message: 'hello',
+                    context: {connectionId: 'contract-connection'},
+                },
+            },
+            response: {
+                id: 'chat-contract',
+                title: 'Contract chat',
+                provider: 'openai',
+                model: 'gpt-contract',
+                connectionId: 'contract-connection',
+                createdAt: '2026-08-22T00:00:00Z',
+                updatedAt: '2026-08-22T00:00:01Z',
+                messages: [
+                    {
+                        id: 'message-contract',
+                        role: 'user',
+                        content: 'hello',
+                        createdAt: '2026-08-22T00:00:00Z',
+                    },
+                ],
+            },
+        },
+        chat_cancel: {request: {requestId: 'request-contract'}, response: null},
+        chat_delete_session: {request: {sessionId: 'chat-contract'}, response: null},
         get_mcp_status: {
             request: null,
             response: [

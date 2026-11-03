@@ -83,58 +83,69 @@ impl ToolOutcome {
 }
 
 pub fn definitions() -> Vec<ToolSchema> {
-    vec![
-        ToolSchema {
-            name: "list_tables",
-            description: "List tables in the active connection, optionally limited to one schema.",
-            input_schema: json!({
-                "type": "object",
-                "properties": {
-                    "schema": {"type": "string", "description": "Schema to inspect. Defaults to the active schema."}
-                },
-                "additionalProperties": false
-            }),
-        },
-        ToolSchema {
-            name: "describe_table",
-            description: "Describe one table: columns, indexes, and foreign keys.",
-            input_schema: json!({
-                "type": "object",
-                "properties": {
-                    "table": {"type": "string", "description": "Table name."},
-                    "schema": {"type": "string", "description": "Schema that owns the table. Defaults to the active schema."}
-                },
-                "required": ["table"],
-                "additionalProperties": false
-            }),
-        },
-        ToolSchema {
-            name: "run_query",
-            description: "Run one SQL statement and return at most 50 rows. A write or DDL statement is queued for the user's approval before it executes.",
-            input_schema: json!({
-                "type": "object",
-                "properties": {
-                    "sql": {"type": "string", "description": "A single SELECT or WITH statement."},
-                    "limit": {"type": "integer", "minimum": 1, "maximum": 50, "description": "Maximum rows to return. Defaults to 20."}
-                },
-                "required": ["sql"],
-                "additionalProperties": false
-            }),
-        },
-        ToolSchema {
-            name: "explain_query",
-            description: "Capture the database execution plan for a SQL statement without running it.",
-            input_schema: json!({
-                "type": "object",
-                "properties": {
-                    "sql": {"type": "string", "description": "Statement to explain."},
-                    "analyze": {"type": "boolean", "description": "Run the statement to collect runtime statistics. Defaults to false."}
-                },
-                "required": ["sql"],
-                "additionalProperties": false
-            }),
-        },
-    ]
+    use crate::application::tool_registry::{for_surface, ToolSurface};
+    for_surface(ToolSurface::Chat)
+        .map(|spec| ToolSchema {
+            name: spec.name,
+            description: spec.chat_description,
+            input_schema: chat_input_schema(spec.name),
+        })
+        .collect()
+}
+
+/// Chat wire schema for one registry tool: the connection is implicit (the
+/// active one), so only the table-specific arguments remain.
+fn chat_input_schema(name: &str) -> Value {
+    match name {
+        "list_tables" => json!({
+            "type": "object",
+            "properties": {
+                "schema": {"type": "string", "description": "Schema to inspect. Defaults to the active schema."}
+            },
+            "additionalProperties": false
+        }),
+        "describe_table" => json!({
+            "type": "object",
+            "properties": {
+                "table": {"type": "string", "description": "Table name."},
+                "schema": {"type": "string", "description": "Schema that owns the table. Defaults to the active schema."}
+            },
+            "required": ["table"],
+            "additionalProperties": false
+        }),
+        "run_query" => json!({
+            "type": "object",
+            "properties": {
+                "sql": {"type": "string", "description": "One SQL statement. Writes require approval."},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 50, "description": "Maximum rows to return. Defaults to 20."}
+            },
+            "required": ["sql"],
+            "additionalProperties": false
+        }),
+        "explain_query" => json!({
+            "type": "object",
+            "properties": {
+                "sql": {"type": "string", "description": "Statement to explain."},
+                "analyze": {"type": "boolean", "description": "Run the statement to collect runtime statistics. Defaults to false."}
+            },
+            "required": ["sql"],
+            "additionalProperties": false
+        }),
+        "diagnose_query" => json!({
+            "type": "object",
+            "properties": {
+                "sql": {"type": "string", "description": "Statement to diagnose."},
+                "analyze": {"type": "boolean", "description": "Run a read-only statement to collect runtime statistics. Defaults to false."}
+            },
+            "required": ["sql"],
+            "additionalProperties": false
+        }),
+        other => json!({
+            "type": "object",
+            "properties": {},
+            "_tool": other,
+        }),
+    }
 }
 
 #[derive(Deserialize)]
@@ -159,6 +170,13 @@ struct RunQueryArgs {
 
 #[derive(Deserialize)]
 struct ExplainQueryArgs {
+    sql: String,
+    #[serde(default)]
+    analyze: bool,
+}
+
+#[derive(Deserialize)]
+struct DiagnoseQueryArgs {
     sql: String,
     #[serde(default)]
     analyze: bool,

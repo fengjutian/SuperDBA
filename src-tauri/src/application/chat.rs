@@ -7,6 +7,7 @@
 //! by the prompt.
 
 mod agent;
+mod plan_facts;
 mod provider;
 mod store;
 mod stream;

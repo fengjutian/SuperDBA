@@ -196,6 +196,7 @@ impl ApplicationApi for FixtureApplication {
             crate::application::ai::AiCommand::GetSchemaContext { .. } => {
                 serde_json::json!("table values(id integer)")
             }
+            crate::application::ai::AiCommand::Chat(chat) => chat_contract_fixture(chat),
             _ => Value::Null,
         })
     }
@@ -436,6 +437,40 @@ impl ApplicationApi for FixtureApplication {
     ) -> Result<Value, ApplicationError> {
         self.record(context).await;
         Ok(Value::String(format!("{command:?}")))
+    }
+}
+
+fn chat_contract_fixture(command: crate::application::chat::ChatCommand) -> Value {
+    use crate::application::chat::ChatCommand;
+    let summary = serde_json::json!({
+        "id": "chat-contract",
+        "title": "Contract chat",
+        "provider": "openai",
+        "model": "gpt-contract",
+        "connectionId": "contract-connection",
+        "createdAt": "2026-08-22T00:00:00Z",
+        "updatedAt": "2026-08-22T00:00:01Z",
+        "messageCount": 1
+    });
+    let session = serde_json::json!({
+        "id": "chat-contract",
+        "title": "Contract chat",
+        "provider": "openai",
+        "model": "gpt-contract",
+        "connectionId": "contract-connection",
+        "createdAt": "2026-08-22T00:00:00Z",
+        "updatedAt": "2026-08-22T00:00:01Z",
+        "messages": [{
+            "id": "message-contract",
+            "role": "user",
+            "content": "hello",
+            "createdAt": "2026-08-22T00:00:00Z"
+        }]
+    });
+    match command {
+        ChatCommand::ListSessions => serde_json::json!([summary]),
+        ChatCommand::GetSession { .. } | ChatCommand::Send(_) => session,
+        ChatCommand::Cancel { .. } | ChatCommand::DeleteSession { .. } => Value::Null,
     }
 }
 

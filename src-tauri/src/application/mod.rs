@@ -28,6 +28,9 @@ pub mod query_sessions;
 pub mod records;
 pub mod sql_builder;
 pub mod themes;
+pub mod tool_registry;
+#[cfg(test)]
+mod tool_registry_tests;
 pub mod tunnels;
 pub mod ui_state;
 

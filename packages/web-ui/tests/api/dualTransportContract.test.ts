@@ -8,6 +8,35 @@ import {
     defineTransportContractSuite,
 } from './contract/transportContract';
 
+const chatSummary = {
+    id: 'chat-contract',
+    title: 'Contract chat',
+    provider: 'openai',
+    model: 'gpt-contract',
+    connectionId: 'contract-connection',
+    createdAt: '2026-08-22T00:00:00Z',
+    updatedAt: '2026-08-22T00:00:01Z',
+    messageCount: 1,
+};
+
+const chatSession = {
+    id: 'chat-contract',
+    title: 'Contract chat',
+    provider: 'openai',
+    model: 'gpt-contract',
+    connectionId: 'contract-connection',
+    createdAt: '2026-08-22T00:00:00Z',
+    updatedAt: '2026-08-22T00:00:01Z',
+    messages: [
+        {
+            id: 'message-contract',
+            role: 'user',
+            content: 'hello',
+            createdAt: '2026-08-22T00:00:00Z',
+        },
+    ],
+};
+
 defineTransportContractSuite('Tauri adapter mock', serializationFixture, async () => {
     vi.mocked(invoke).mockImplementation(async (command, request) => {
         if (command === 'is_debug_mode') {
@@ -96,6 +125,31 @@ defineTransportContractSuite('Tauri adapter mock', serializationFixture, async (
             return [];
         }
         if (command === 'decide_pending_approval') return null;
+        if (command === 'chat_list_sessions') return [chatSummary];
+        if (command === 'chat_get_session') {
+            expect(request).toEqual({sessionId: 'chat-contract'});
+            return chatSession;
+        }
+        if (command === 'chat_send') {
+            expect(request).toEqual({
+                request: {
+                    provider: 'openai',
+                    model: 'gpt-contract',
+                    requestId: 'request-contract',
+                    message: 'hello',
+                    context: {connectionId: 'contract-connection'},
+                },
+            });
+            return chatSession;
+        }
+        if (command === 'chat_cancel') {
+            expect(request).toEqual({requestId: 'request-contract'});
+            return null;
+        }
+        if (command === 'chat_delete_session') {
+            expect(request).toEqual({sessionId: 'chat-contract'});
+            return null;
+        }
         if (command === 'get_mcp_status') {
             expect(request).toBeUndefined();
             return [

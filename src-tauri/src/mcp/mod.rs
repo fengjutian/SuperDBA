@@ -337,11 +337,12 @@ async fn resolve_db_params(
 
     let expanded = expand_ssh_params_for_mcp(&conn.params).await?;
     let expanded = expand_k8s_params_for_mcp(&expanded).await?;
-    let db_params = connection_params::resolve_connection_params(&expanded).map_err(|e| JsonRpcError {
-        code: -32000,
-        message: e,
-        data: None,
-    })?;
+    let db_params =
+        connection_params::resolve_connection_params(&expanded).map_err(|e| JsonRpcError {
+            code: -32000,
+            message: e,
+            data: None,
+        })?;
     Ok((conn, db_params))
 }
 
@@ -720,80 +721,79 @@ async fn handle_read_resource(params: Option<Value>) -> Result<Value, JsonRpcErr
 
 fn handle_list_tools(config: &AppConfig) -> Result<Value, JsonRpcError> {
     let default_output_format = ToolOutputFormat::from_config(config).as_str();
-    let tools = vec![
-        Tool {
-            name: "list_connections".to_string(),
-            description: Some("List all saved database connections".to_string()),
-            input_schema: json!({
-                "type": "object",
-                "properties": {
-                    "output_format": output_format_schema(default_output_format)
-                }
-            }),
-        },
-        Tool {
-            name: "list_databases".to_string(),
-            description: Some("List all databases available for a connection".to_string()),
-            input_schema: json!({
-                "type": "object",
-                "properties": {
-                    "connection_id": { "type": "string", "description": "The ID or name of the connection" },
-                    "output_format": output_format_schema(default_output_format)
-                },
-                "required": ["connection_id"]
-            }),
-        },
-        Tool {
-            name: "list_tables".to_string(),
-            description: Some("List all tables in a database connection".to_string()),
-            input_schema: json!({
-                "type": "object",
-                "properties": {
-                    "connection_id": { "type": "string", "description": "The ID or name of the connection" },
-                    "schema": { "type": "string", "description": "Schema name (optional, defaults to 'public' for PostgreSQL)" },
-                    "database": { "type": "string", "description": "Database to use on a connection with several databases selected (optional, defaults to the first one)" },
-                    "output_format": output_format_schema(default_output_format)
-                },
-                "required": ["connection_id"]
-            }),
-        },
-        Tool {
-            name: "describe_table".to_string(),
-            description: Some(
-                "Get the full schema of a table: columns, indexes, and foreign keys".to_string(),
-            ),
-            input_schema: json!({
-                "type": "object",
-                "properties": {
-                    "connection_id": { "type": "string", "description": "The ID or name of the connection" },
-                    "table_name": { "type": "string", "description": "The name of the table to describe" },
-                    "schema": { "type": "string", "description": "Schema name (optional, defaults to 'public' for PostgreSQL)" },
-                    "database": { "type": "string", "description": "Database to use on a connection with several databases selected (optional, defaults to the first one)" },
-                    "output_format": output_format_schema(default_output_format)
-                },
-                "required": ["connection_id", "table_name"]
-            }),
-        },
-        Tool {
-            name: "run_query".to_string(),
-            description: Some("Execute a SQL query on a specific connection. If the query already contains a LIMIT clause, it will be respected.".to_string()),
-            input_schema: json!({
-                "type": "object",
-                "properties": {
-                    "connection_id": { "type": "string", "description": "The ID or name of the connection" },
-                    "query": { "type": "string", "description": "The SQL query to execute" },
-                    "database": { "type": "string", "description": "Database to use on a connection with several databases selected (optional, defaults to the first one)" },
-                    "limit": { "type": "integer", "description": "Maximum number of rows to return (default: 100). If the query already contains a LIMIT clause smaller than this value, the query's LIMIT takes precedence." },
-                    "output_format": output_format_schema(default_output_format)
-                },
-                "required": ["connection_id", "query"]
-            }),
-        },
-    ];
+    let tools = crate::application::tool_registry::for_surface(
+        crate::application::tool_registry::ToolSurface::Mcp,
+    )
+    .map(|spec| Tool {
+        name: spec.name.to_string(),
+        description: Some(spec.mcp_description.to_string()),
+        input_schema: mcp_input_schema(spec.name, default_output_format),
+    })
+    .collect::<Vec<_>>();
 
     Ok(json!({
         "tools": tools
     }))
+}
+
+/// MCP wire schema for one registry tool. MCP clients pass an explicit
+/// connection, and every tool accepts the configured output format.
+fn mcp_input_schema(name: &str, default_output_format: &str) -> Value {
+    match name {
+        "list_connections" => json!({
+            "type": "object",
+            "properties": {
+                "output_format": output_format_schema(default_output_format)
+            }
+        }),
+        "list_databases" => json!({
+            "type": "object",
+            "properties": {
+                "connection_id": { "type": "string", "description": "The ID or name of the connection" },
+                "output_format": output_format_schema(default_output_format)
+            },
+            "required": ["connection_id"]
+        }),
+        "list_tables" => json!({
+            "type": "object",
+            "properties": {
+                "connection_id": { "type": "string", "description": "The ID or name of the connection" },
+                "schema": { "type": "string", "description": "Schema name (optional, defaults to 'public' for PostgreSQL)" },
+                "database": { "type": "string", "description": "Database to use on a connection with several databases selected (optional, defaults to the first one)" },
+                "output_format": output_format_schema(default_output_format)
+            },
+            "required": ["connection_id"]
+        }),
+        "describe_table" => json!({
+            "type": "object",
+            "properties": {
+                "connection_id": { "type": "string", "description": "The ID or name of the connection" },
+                "table_name": { "type": "string", "description": "The name of the table to describe" },
+                "schema": { "type": "string", "description": "Schema name (optional, defaults to 'public' for PostgreSQL)" },
+                "database": { "type": "string", "description": "Database to use on a connection with several databases selected (optional, defaults to the first one)" },
+                "output_format": output_format_schema(default_output_format)
+            },
+            "required": ["connection_id", "table_name"]
+        }),
+        "run_query" => json!({
+            "type": "object",
+            "properties": {
+                "connection_id": { "type": "string", "description": "The ID or name of the connection" },
+                "query": { "type": "string", "description": "The SQL query to execute" },
+                "database": { "type": "string", "description": "Database to use on a connection with several databases selected (optional, defaults to the first one)" },
+                "limit": { "type": "integer", "description": "Maximum number of rows to return (default: 100). If the query already contains a LIMIT clause smaller than this value, the query's LIMIT takes precedence." },
+                "output_format": output_format_schema(default_output_format)
+            },
+            "required": ["connection_id", "query"]
+        }),
+        other => json!({
+            "type": "object",
+            "properties": {
+                "output_format": output_format_schema(default_output_format)
+            },
+            "_tool": other,
+        }),
+    }
 }
 
 async fn handle_call_tool(params: Option<Value>) -> Result<Value, JsonRpcError> {
@@ -1170,10 +1170,7 @@ async fn tool_run_query(
             data: None,
         })?;
 
-    let max_rows = args
-        .get("limit")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(100) as u32;
+    let max_rows = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(100) as u32;
 
     audit.connection_id = Some(conn_id.to_string());
     audit.query = Some(query.to_string());
@@ -1306,8 +1303,7 @@ async fn tool_run_query(
                         audit.query = Some(effective_query.clone());
                         audit.query_kind = Some(new_kind.to_string());
 
-                        if config::is_connection_readonly(config, &conn.id)
-                            && new_kind != "select"
+                        if config::is_connection_readonly(config, &conn.id) && new_kind != "select"
                         {
                             audit.status = "blocked_readonly".to_string();
                             let msg = "Edited query blocked by SuperDBA read-only mode. Enable writes for this connection in Settings → MCP → Read-only mode.".to_string();
@@ -1398,4 +1394,3 @@ async fn tool_run_query(
 
     tool_result(&result, format)
 }
-
