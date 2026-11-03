@@ -220,7 +220,7 @@ fn truncate(text: &str, limit: usize) -> String {
 }
 
 /// OpenAI tool arguments arrive as a JSON string; Ollama may send an object.
-fn parse_arguments(value: &Value) -> Value {
+pub(super) fn parse_arguments(value: &Value) -> Value {
     match value {
         Value::String(text) => {
             serde_json::from_str(text).unwrap_or_else(|_| json!({ "raw": text }))
@@ -263,8 +263,10 @@ fn openai_messages(messages: &[ChatMessage], include_reasoning: bool) -> Vec<Val
                 };
                 let mut entry = json!({"role": "assistant", "content": content});
                 if include_reasoning {
-                    if let Some(reasoning) =
-                        message.reasoning.as_deref().filter(|value| !value.is_empty())
+                    if let Some(reasoning) = message
+                        .reasoning
+                        .as_deref()
+                        .filter(|value| !value.is_empty())
                     {
                         entry["reasoning_content"] = Value::String(reasoning.to_string());
                     }
@@ -568,4 +570,224 @@ pub(super) fn parse_anthropic(value: &Value) -> Result<AssistantReply, String> {
         tool_calls: calls,
         notice: None,
     })
+}
+
+/// Result of a streaming turn.
+#[derive(Debug)]
+pub enum StreamOutcome {
+    Reply(AssistantReply),
+    /// The user stopped the turn after `text` had already streamed.
+    Cancelled(AssistantReply),
+}
+
+/// How long a stream read waits before re-checking the cancellation flag.
+const STREAM_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_millis(500);
+
+/// Streams a completion, forwarding text deltas through `on_text` and polling
+/// `is_cancelled` between chunks. Providers without a streaming adapter fall
+/// back to the buffered call and simply emit no deltas.
+#[allow(clippy::too_many_arguments)]
+pub async fn complete_streaming(
+    runtime: &RuntimeContext,
+    cache: &CredentialCache,
+    config: &AppConfig,
+    provider: &str,
+    model: &str,
+    system: &str,
+    messages: &[ChatMessage],
+    tools: &[ToolSchema],
+    on_text: &mut (dyn FnMut(&str) + Send),
+    is_cancelled: &(dyn Fn() -> bool + Send + Sync),
+) -> Result<StreamOutcome, String> {
+    if !supports_tool_calling(provider) {
+        return Err(UNSUPPORTED_TOOL_CALLING.to_string());
+    }
+    match provider {
+        "minimax" => Ok(StreamOutcome::Reply(
+            complete(
+                runtime, cache, config, provider, model, system, messages, tools,
+            )
+            .await?,
+        )),
+        "anthropic" => {
+            let api_key = get_api_key(runtime, cache, provider)?;
+            let client = crate::proxy::ai_http_client(provider)?;
+            let mut body = anthropic_body(model, system, messages, tools);
+            body["stream"] = json!(true);
+            let response = client
+                .post("https://api.anthropic.com/v1/messages")
+                .header("x-api-key", api_key)
+                .header("anthropic-version", "2023-06-01")
+                .header("content-type", "application/json")
+                .json(&body)
+                .send()
+                .await
+                .map_err(|error| format!("Anthropic request failed: {error}"))?;
+            let response = ensure_stream_response(response, "Anthropic").await?;
+            let mut state = super::stream::AnthropicStream::default();
+            let cancelled = consume_stream(response, is_cancelled, |line| {
+                let Some(data) = line.strip_prefix("data:") else {
+                    return Ok(true);
+                };
+                let data = data.trim();
+                if data.is_empty() {
+                    return Ok(true);
+                }
+                if let Ok(event) = serde_json::from_str::<Value>(data) {
+                    if let Some(delta) = state.apply(&event) {
+                        on_text(&delta);
+                    }
+                    if event.get("type").and_then(Value::as_str) == Some("message_stop") {
+                        return Ok(false);
+                    }
+                }
+                Ok(true)
+            })
+            .await?;
+            if cancelled {
+                return Ok(StreamOutcome::Cancelled(state.finish()));
+            }
+            Ok(StreamOutcome::Reply(state.finish()))
+        }
+        "ollama" => {
+            let client = crate::proxy::direct_http_client()?;
+            let port = config.ai_ollama_port.unwrap_or(11434);
+            let mut body = ollama_body(model, system, messages, tools);
+            body["stream"] = json!(true);
+            let response = client
+                .post(format!("http://localhost:{port}/api/chat"))
+                .json(&body)
+                .send()
+                .await
+                .map_err(|error| format!("Failed to connect to Ollama on port {port}: {error}"))?;
+            let response = ensure_stream_response(response, "Ollama").await?;
+            let mut state = super::stream::OllamaStream::default();
+            let cancelled = consume_stream(response, is_cancelled, |line| {
+                if let Ok(value) = serde_json::from_str::<Value>(line) {
+                    if let Some(message) = value.get("message") {
+                        if let Some(delta) = state.apply(message) {
+                            on_text(&delta);
+                        }
+                    }
+                    if value.get("done").and_then(Value::as_bool) == Some(true) {
+                        return Ok(false);
+                    }
+                }
+                Ok(true)
+            })
+            .await?;
+            if cancelled {
+                return Ok(StreamOutcome::Cancelled(state.finish()));
+            }
+            Ok(StreamOutcome::Reply(state.finish()))
+        }
+        _ => {
+            let api_key = get_api_key(runtime, cache, provider)?;
+            let client = crate::proxy::ai_http_client(provider)?;
+            let url = openai_endpoint(provider, config)?;
+            let mut body = openai_body(model, system, messages, tools);
+            body["stream"] = json!(true);
+            let mut request = client
+                .post(&url)
+                .header("Content-Type", "application/json")
+                .json(&body);
+            if !api_key.is_empty() {
+                request = request.header("Authorization", format!("Bearer {api_key}"));
+            }
+            if matches!(provider, "openrouter" | "requesty") {
+                request = request
+                    .header("HTTP-Referer", "https://github.com/SuperDBA/SuperDBA")
+                    .header("X-Title", "SuperDBA");
+            }
+            let response = request
+                .send()
+                .await
+                .map_err(|error| format!("{provider} request failed: {error}"))?;
+            let response = ensure_stream_response(response, provider).await?;
+            let mut state = super::stream::OpenAiStream::default();
+            let cancelled = consume_stream(response, is_cancelled, |line| {
+                let Some(data) = line.strip_prefix("data:") else {
+                    return Ok(true);
+                };
+                let data = data.trim();
+                if data == "[DONE]" {
+                    return Ok(false);
+                }
+                if data.is_empty() {
+                    return Ok(true);
+                }
+                if let Ok(chunk) = serde_json::from_str::<Value>(data) {
+                    if let Some(delta) = state.apply(&chunk) {
+                        on_text(&delta);
+                    }
+                }
+                Ok(true)
+            })
+            .await?;
+            if cancelled {
+                return Ok(StreamOutcome::Cancelled(state.finish()));
+            }
+            Ok(StreamOutcome::Reply(state.finish()))
+        }
+    }
+}
+
+async fn ensure_stream_response(
+    response: reqwest::Response,
+    label: &str,
+) -> Result<reqwest::Response, String> {
+    if !response.status().is_success() {
+        let status = response.status();
+        let text = response.text().await.unwrap_or_default();
+        return Err(format!(
+            "{label} error ({status}): {}",
+            truncate(&text, 2000)
+        ));
+    }
+    Ok(response)
+}
+
+/// Reads lines from a streaming HTTP response. Returns `Ok(true)` when the
+/// caller cancelled the turn.
+async fn consume_stream<F>(
+    response: reqwest::Response,
+    is_cancelled: &(dyn Fn() -> bool + Send + Sync),
+    mut on_line: F,
+) -> Result<bool, String>
+where
+    F: FnMut(&str) -> Result<bool, String> + Send,
+{
+    use futures::StreamExt;
+
+    let mut stream = Box::pin(response.bytes_stream());
+    let mut buffer = String::new();
+    loop {
+        if is_cancelled() {
+            return Ok(true);
+        }
+        match tokio::time::timeout(STREAM_POLL_INTERVAL, stream.next()).await {
+            Err(_) => continue,
+            Ok(None) => {
+                for line in super::stream::take_lines(&mut buffer) {
+                    if !on_line(&line)? {
+                        return Ok(false);
+                    }
+                }
+                let remainder = buffer.trim().to_string();
+                if !remainder.is_empty() {
+                    on_line(&remainder)?;
+                }
+                return Ok(false);
+            }
+            Ok(Some(Err(error))) => return Err(format!("The response stream failed: {error}")),
+            Ok(Some(Ok(bytes))) => {
+                buffer.push_str(&String::from_utf8_lossy(&bytes));
+                for line in super::stream::take_lines(&mut buffer) {
+                    if !on_line(&line)? {
+                        return Ok(false);
+                    }
+                }
+            }
+        }
+    }
 }

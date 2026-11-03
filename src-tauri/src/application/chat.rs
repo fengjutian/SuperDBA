@@ -9,6 +9,7 @@
 mod agent;
 mod provider;
 mod store;
+mod stream;
 mod tools;
 
 #[cfg(test)]
@@ -130,6 +131,9 @@ pub struct ChatSendRequest {
     pub model: String,
     #[serde(default)]
     pub session_id: Option<String>,
+    /// Client-generated id used to correlate progress events and cancellation.
+    #[serde(default)]
+    pub request_id: Option<String>,
     pub message: String,
     #[serde(default)]
     pub context: ChatContext,
@@ -141,6 +145,50 @@ pub enum ChatCommand {
     GetSession { session_id: String },
     DeleteSession { session_id: String },
     Send(ChatSendRequest),
+    Cancel { request_id: String },
+}
+
+/// Request ids that the user asked to stop. The flag is checked between stream
+/// chunks, before every tool call, and before every model call, so a cancelled
+/// turn persists its partial transcript instead of disappearing.
+static CANCELLED_REQUESTS: once_cell::sync::Lazy<
+    std::sync::Mutex<std::collections::HashSet<String>>,
+> = once_cell::sync::Lazy::new(Default::default);
+
+pub(crate) fn is_cancelled(request_id: &str) -> bool {
+    if request_id.is_empty() {
+        return false;
+    }
+    CANCELLED_REQUESTS
+        .lock()
+        .unwrap_or_else(|error| error.into_inner())
+        .contains(request_id)
+}
+
+pub(crate) fn clear_cancelled(request_id: &str) {
+    if request_id.is_empty() {
+        return;
+    }
+    CANCELLED_REQUESTS
+        .lock()
+        .unwrap_or_else(|error| error.into_inner())
+        .remove(request_id);
+}
+
+pub(crate) fn emit_chat_event(
+    runtime: &RuntimeContext,
+    web_session_id: Option<Uuid>,
+    payload: serde_json::Value,
+) {
+    let result = match web_session_id {
+        Some(session_id) => runtime
+            .events
+            .emit_to(session_id, "ai://chat-event", payload),
+        None => runtime.events.emit("ai://chat-event", payload),
+    };
+    if let Err(error) = result {
+        log::debug!("Failed to emit chat event: {error}");
+    }
 }
 
 pub async fn execute(
@@ -173,6 +221,13 @@ pub async fn execute(
         ChatCommand::Send(request) => {
             let session = agent::run_turn(runtime, state, web_session_id, request).await?;
             serde_json::to_value(session).map_err(|error| error.to_string())
+        }
+        ChatCommand::Cancel { request_id } => {
+            CANCELLED_REQUESTS
+                .lock()
+                .unwrap_or_else(|error| error.into_inner())
+                .insert(request_id);
+            Ok(Value::Null)
         }
     }
 }

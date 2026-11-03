@@ -237,6 +237,7 @@ impl WebEventBus {
             }
             "ai://pending_approval"
             | "ai://activity"
+            | "ai://chat-event"
             | "ssh-askpass://request"
             | "ssh-askpass://dismiss" => Some(AuthorizationLevel::Sensitive),
             "update-progress" | "update-installing" | "server://lifecycle" => {

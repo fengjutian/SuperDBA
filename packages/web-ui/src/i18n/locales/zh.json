@@ -2782,6 +2782,8 @@
     "configureProvider": "请先在「设置 → AI」中选择一个 AI 服务商。",
     "placeholder": "提问，或粘贴一条查询…",
     "send": "发送",
+    "stop": "停止",
+    "cancelled": "已停止。",
     "readOnlyHint": "仅只读工具；写操作仍在编辑器中执行。",
     "arguments": "参数",
     "result": "结果",

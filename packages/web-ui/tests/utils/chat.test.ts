@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {extractSqlBlock, formatToolResult} from '@/utils/chat';
+import {extractSqlBlock, formatToolResult, reduceChatStream} from '@/utils/chat';
 
 describe('chat utils', () => {
     describe('extractSqlBlock', () => {
@@ -37,6 +37,90 @@ describe('chat utils', () => {
 
         it('returns an empty string for undefined', () => {
             expect(formatToolResult(undefined)).toBe('');
+        });
+    });
+
+    describe('reduceChatStream', () => {
+        it('starts a draft from a started event', () => {
+            const state = reduceChatStream(null, {
+                type: 'started',
+                requestId: 'r1',
+                sessionId: 's1',
+            });
+            expect(state).toEqual({requestId: 'r1', text: '', tools: [], cancelled: false});
+        });
+
+        it('appends deltas in order', () => {
+            let state = reduceChatStream(null, {
+                type: 'started',
+                requestId: 'r1',
+                sessionId: 's1',
+            });
+            state = reduceChatStream(state, {
+                type: 'delta',
+                requestId: 'r1',
+                sessionId: 's1',
+                text: 'Hello',
+            });
+            state = reduceChatStream(state, {
+                type: 'delta',
+                requestId: 'r1',
+                sessionId: 's1',
+                text: ' world',
+            });
+            expect(state?.text).toBe('Hello world');
+        });
+
+        it('tracks tool lifecycle by call id', () => {
+            let state = reduceChatStream(null, {
+                type: 'toolStarted',
+                requestId: 'r1',
+                callId: 'c1',
+                name: 'list_tables',
+                arguments: {schema: 'public'},
+            });
+            expect(state?.tools[0]).toMatchObject({
+                id: 'c1',
+                name: 'list_tables',
+                status: 'pending',
+            });
+
+            state = reduceChatStream(state, {
+                type: 'toolFinished',
+                requestId: 'r1',
+                callId: 'c1',
+                name: 'list_tables',
+                status: 'ok',
+                durationMs: 12,
+                summary: '3 tables',
+            });
+            expect(state?.tools[0]).toMatchObject({
+                status: 'ok',
+                durationMs: 12,
+                summary: '3 tables',
+            });
+            expect(state?.tools).toHaveLength(1);
+        });
+
+        it('marks the draft cancelled without dropping partial text', () => {
+            let state = reduceChatStream(null, {
+                type: 'delta',
+                requestId: 'r1',
+                sessionId: 's1',
+                text: 'partial',
+            });
+            state = reduceChatStream(state, {
+                type: 'cancelled',
+                requestId: 'r1',
+                sessionId: 's1',
+            });
+            expect(state).toMatchObject({text: 'partial', cancelled: true});
+        });
+
+        it('ignores finished events without a draft', () => {
+            expect(
+                reduceChatStream(null, {type: 'finished', requestId: 'r1', sessionId: 's1'}),
+            ).toBeNull();
         });
     });
 });

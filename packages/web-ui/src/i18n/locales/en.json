@@ -2951,6 +2951,8 @@
     "configureProvider": "Select an AI provider in Settings → AI to start chatting.",
     "placeholder": "Ask a question or paste a query…",
     "send": "Send",
+    "stop": "Stop",
+    "cancelled": "Stopped.",
     "readOnlyHint": "Read-only tools. Writes stay in the editor.",
     "arguments": "Arguments",
     "result": "Result",

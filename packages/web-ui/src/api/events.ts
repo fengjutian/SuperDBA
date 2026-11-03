@@ -4,6 +4,7 @@ import type {AuthorizationLevel} from './contract';
 import type {SshAskpassRequest} from '@/types/askpass';
 import type {RequestId} from './errors';
 import type {AiActivityEvent, PendingApproval} from '@/types/ai';
+import type {ChatEvent} from '@/types/chat';
 
 export interface EventDefinition<Payload, Authorization extends AuthorizationLevel> {
     readonly payload: Payload;
@@ -57,6 +58,7 @@ export interface EventMap {
     'ssh-askpass://dismiss': EventDefinition<number, 'sensitive'>;
     'ai://pending_approval': EventDefinition<PendingApproval, 'sensitive'>;
     'ai://activity': EventDefinition<AiActivityEvent, 'sensitive'>;
+    'ai://chat-event': EventDefinition<ChatEvent, 'sensitive'>;
     'theme-catalog-changed': EventDefinition<null, 'session'>;
     'ui-state://changed': EventDefinition<{key: string; value: unknown}, 'session'>;
     'connection-metadata-invalidated': EventDefinition<
@@ -106,6 +108,7 @@ export const EVENT_AUTHORIZATION = {
     'ssh-askpass://dismiss': 'sensitive',
     'ai://pending_approval': 'sensitive',
     'ai://activity': 'sensitive',
+    'ai://chat-event': 'sensitive',
     'theme-catalog-changed': 'session',
     'ui-state://changed': 'session',
     'connection-metadata-invalidated': 'database',

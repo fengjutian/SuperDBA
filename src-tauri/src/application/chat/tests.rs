@@ -90,15 +90,19 @@ fn rejects_multi_statement_and_writes() {
 
 #[test]
 fn bounded_results_drop_rows_before_previews() {
+    let rows = (0..10)
+        .map(|_| json!(["aaaaaaaaaaaaaaaaaaaaaaaaaaaa"]))
+        .collect::<Vec<_>>();
     let value = json!({
         "columns": ["id"],
-        "rows": [[1], [2], [3], [4]],
-        "rowCount": 4,
+        "rows": rows,
+        "rowCount": 10,
     });
     let (bounded, truncated) = bound_result(value, 90);
     assert!(truncated);
     assert_eq!(bounded["truncated"], json!(true));
-    assert!(bounded["rows"].as_array().unwrap().len() < 4);
+    let rows = bounded["rows"].as_array().expect("rows stay structured");
+    assert!(rows.len() < 10);
 
     let (small, truncated) = bound_result(json!({"ok": true}), 1024);
     assert!(!truncated);
@@ -212,7 +216,10 @@ fn minimax_body_replays_reasoning_with_tool_turns() {
         &super::tools::definitions(),
     );
     let messages = body["messages"].as_array().unwrap();
-    assert_eq!(messages[2]["reasoning_content"], json!("I should list the tables first."));
+    assert_eq!(
+        messages[2]["reasoning_content"],
+        json!("I should list the tables first.")
+    );
     assert_eq!(messages[2]["tool_calls"][0]["id"], json!("call-1"));
     assert_eq!(messages[3]["role"], json!("tool"));
     // The plain OpenAI wire format must not send the field back: DeepSeek and
@@ -246,4 +253,75 @@ fn parses_openai_and_anthropic_tool_calls() {
     assert_eq!(reply.content, "Let me check.");
     assert_eq!(reply.tool_calls[0].id, "toolu_1");
     assert_eq!(reply.tool_calls[0].arguments["schema"], json!("public"));
+}
+
+mod stream_parsing {
+    use super::super::stream::{take_lines, AnthropicStream, OllamaStream, OpenAiStream};
+    use serde_json::json;
+
+    #[test]
+    fn take_lines_keeps_partial_tail() {
+        let mut buffer = String::from("data: one\ndata: tw");
+        let lines = take_lines(&mut buffer);
+        assert_eq!(lines, vec!["data: one".to_string()]);
+        assert_eq!(buffer, "data: tw");
+        buffer.push_str("o\n");
+        assert_eq!(take_lines(&mut buffer), vec!["data: two".to_string()]);
+        assert!(buffer.is_empty());
+    }
+
+    #[test]
+    fn openai_stream_assembles_text_and_fragmented_tools() {
+        let mut state = OpenAiStream::default();
+        assert_eq!(
+            state.apply(&json!({"choices": [{"delta": {"content": "Hel"}}]})),
+            Some("Hel".to_string())
+        );
+        state.apply(&json!({"choices": [{"delta": {"tool_calls": [{
+            "index": 0, "id": "call_1", "function": {"name": "run_query", "arguments": "{\"sql\":"}
+        }]}}]}));
+        state.apply(&json!({"choices": [{"delta": {"tool_calls": [{
+            "index": 0, "function": {"arguments": "\"SELECT 1\"}"}
+        }]}}]}));
+        let reply = state.finish();
+        assert_eq!(reply.content, "Hel");
+        assert_eq!(reply.tool_calls.len(), 1);
+        assert_eq!(reply.tool_calls[0].name, "run_query");
+        assert_eq!(reply.tool_calls[0].arguments["sql"], json!("SELECT 1"));
+    }
+
+    #[test]
+    fn anthropic_stream_assembles_text_and_tool_input() {
+        let mut state = AnthropicStream::default();
+        state.apply(
+            &json!({"type": "content_block_start", "index": 0, "content_block": {"type": "text"}}),
+        );
+        assert_eq!(
+            state.apply(&json!({"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "Checking"}})),
+            Some("Checking".to_string())
+        );
+        state.apply(&json!({"type": "content_block_start", "index": 1, "content_block": {"type": "tool_use", "id": "toolu_1", "name": "list_tables"}}));
+        state.apply(&json!({"type": "content_block_delta", "index": 1, "delta": {"type": "input_json_delta", "partial_json": "{\"schema\":"}}));
+        state.apply(&json!({"type": "content_block_delta", "index": 1, "delta": {"type": "input_json_delta", "partial_json": "\"public\"}"}}));
+        state.apply(&json!({"type": "content_block_stop", "index": 1}));
+        let reply = state.finish();
+        assert_eq!(reply.content, "Checking");
+        assert_eq!(reply.tool_calls[0].id, "toolu_1");
+        assert_eq!(reply.tool_calls[0].arguments["schema"], json!("public"));
+    }
+
+    #[test]
+    fn ollama_stream_reads_message_chunks() {
+        let mut state = OllamaStream::default();
+        assert_eq!(
+            state.apply(&json!({"content": "Hi"})),
+            Some("Hi".to_string())
+        );
+        state.apply(
+            &json!({"tool_calls": [{"function": {"name": "list_tables", "arguments": {}}}]}),
+        );
+        let reply = state.finish();
+        assert_eq!(reply.content, "Hi");
+        assert_eq!(reply.tool_calls[0].name, "list_tables");
+    }
 }

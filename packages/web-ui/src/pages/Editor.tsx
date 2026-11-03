@@ -43,7 +43,6 @@ import {
     speaksGenericSql,
     supportsExplain,
 } from '@/utils/driverCapabilities';
-import {useClickOutside} from '@/hooks/useClickOutside';
 import {DANGEROUS_QUERY_I18N} from '@/hooks/useDangerousQueryGuard';
 import {useProductionGuard} from '@/hooks/useProductionGuard';
 import {useQueryGuards} from '@/hooks/useQueryGuards';
@@ -132,7 +131,9 @@ import {
 import type {DialectInput} from '@/utils/sqlSplitter';
 import {resolveSqlSyntax} from '@/utils/sqlSyntax';
 import {canStripSqlComments, stripSqlComments} from '@/utils/stripSqlComments';
-import {resolveRunTarget, type RunContext} from '@/utils/runTarget';
+import {useRunTarget} from '@/hooks/useRunTarget';
+import {useEditorMenus} from '@/hooks/useEditorMenus';
+import {resolveRunTarget} from '@/utils/runTarget';
 import {
     createResultEntries,
     clearEntryScrollTops as clearScrollTopsForTab,
@@ -446,8 +447,6 @@ export const Editor = ({commandScopeId}: EditorProps) => {
     });
 
     const [showNewRowModal, setShowNewRowModal] = useState(false);
-    const [exportMenuOpen, setExportMenuOpen] = useState(false);
-    const [isSaveMenuOpen, setIsSaveMenuOpen] = useState(false);
     const [editorHeight, setEditorHeight] = useState(300);
     const editorHeightRef = useRef(300);
     // Root of this editor instance: the resize logic must stay scoped to it,
@@ -471,23 +470,6 @@ export const Editor = ({commandScopeId}: EditorProps) => {
     const [monacoInstance, setMonacoInstance] = useState<Monaco | null>(null);
 
     const [selectableQueries, setSelectableQueries] = useState<string[]>([]);
-    // What Run would execute right now, reported by the editor on every cursor,
-    // selection and content change.
-    const [runContext, setRunContext] = useState<RunContext>({
-        hasSelection: false,
-        statementCount: 0,
-    });
-    // The label only distinguishes 鈮? from >1 statements, so bail out of count
-    // changes that can't affect it (typing a ';' mid-way through a script) —
-    // each accepted update re-renders this whole page component.
-    const handleRunContextChange = useCallback((context: RunContext) => {
-        setRunContext((previous) =>
-            previous.hasSelection === context.hasSelection &&
-            previous.statementCount > 1 === context.statementCount > 1
-                ? previous
-                : context,
-        );
-    }, []);
     const [isQuerySelectionModalOpen, setIsQuerySelectionModalOpen] = useState(false);
     const {
         pending: dangerousQuery,
@@ -503,8 +485,6 @@ export const Editor = ({commandScopeId}: EditorProps) => {
         getRecentTabIds,
         setActiveTabId,
     });
-    const [isRunDropdownOpen, setIsRunDropdownOpen] = useState(false);
-    const [isDbDropdownOpen, setIsDbDropdownOpen] = useState(false);
     // Toolbar dropdowns close on outside mousedown instead of a fixed backdrop:
     // the toolbar is a CSS size container (@container), which would scope a
     // `fixed inset-0` backdrop to the toolbar itself.
@@ -512,15 +492,27 @@ export const Editor = ({commandScopeId}: EditorProps) => {
     const saveMenuRef = useRef<HTMLDivElement>(null);
     const exportMenuRef = useRef<HTMLDivElement>(null);
     const dbDropdownRef = useRef<HTMLDivElement>(null);
+
+    const {
+        isOpen: isMenuOpen,
+        toggle: toggleMenu,
+        close: closeMenu,
+    } = useEditorMenus({
+        run: runDropdownRef,
+        save: saveMenuRef,
+        export: exportMenuRef,
+        database: dbDropdownRef,
+    });
+    const isRunDropdownOpen = isMenuOpen('run');
+    const isSaveMenuOpen = isMenuOpen('save');
+    const exportMenuOpen = isMenuOpen('export');
+    const isDbDropdownOpen = isMenuOpen('database');
     const dataGridCommandTargetRef = useRef<DataGridCommandTarget>(null);
     const getResultCommands = useCallback(
         () => dataGridCommandTargetRef.current?.getResultCommands() ?? null,
         [],
     );
-    useClickOutside(runDropdownRef, () => setIsRunDropdownOpen(false), isRunDropdownOpen);
-    useClickOutside(saveMenuRef, () => setIsSaveMenuOpen(false), isSaveMenuOpen);
-    useClickOutside(exportMenuRef, () => setExportMenuOpen(false), exportMenuOpen);
-    useClickOutside(dbDropdownRef, () => setIsDbDropdownOpen(false), isDbDropdownOpen);
+
     const [isAiModalOpen, setIsAiModalOpen] = useState(false);
     const [isAiExplainModalOpen, setIsAiExplainModalOpen] = useState(false);
     const [isVisualExplainOpen, setIsVisualExplainOpen] = useState(false);
@@ -562,6 +554,13 @@ export const Editor = ({commandScopeId}: EditorProps) => {
     const activeTabType = activeTab?.type;
     const activeTabQuery = activeTab?.query;
     const isTableTab = activeTab?.type === 'table';
+
+    const {handleRunContextChange, runLabel, runButtonBase, runTitle} = useRunTarget({
+        tab: activeTab,
+        isTableTab,
+        runStatementUnderCursor: settings.runStatementUnderCursor !== false,
+        isMac,
+    });
     const isNotebookTab = activeTab?.type === 'notebook';
     // Users tabs render full-height like notebooks: no SQL toolbar, no results panel.
     const isUsersTab = activeTab?.type === 'users';
@@ -2306,36 +2305,6 @@ export const Editor = ({commandScopeId}: EditorProps) => {
         updateTab,
         platform,
     ]);
-
-    // Keep the Run button honest about its target: with no selection a pasted
-    // multi-statement script only runs the statement under the cursor, and a
-    // button that just reads "Run" gives no hint that the rest was skipped.
-    // handleRunButton below dispatches on the same resolveRunTarget call.
-    // Table and query-builder tabs always run their whole (generated) query;
-    // runContext also still describes the last SQL editor tab on a builder tab.
-    const runTarget =
-        isTableTab || activeTab?.type === 'query_builder'
-            ? 'whole'
-            : resolveRunTarget({
-                  hasSelection: runContext.hasSelection,
-                  statementCount: runContext.statementCount,
-                  runStatementUnderCursor: settings.runStatementUnderCursor !== false,
-              });
-
-    const runLabel =
-        runTarget === 'selection'
-            ? t('editor.runSelection')
-            : runTarget === 'statement'
-              ? t('editor.runStatement')
-              : t('editor.run');
-
-    const runButtonBase = `${runLabel} (${isMac ? 'Cmd+Enter' : 'Ctrl+Enter'})`;
-    // Surface the whole-script escape hatch exactly when the button would run
-    // one statement out of several.
-    const runTitle =
-        runTarget === 'statement'
-            ? `${runButtonBase} 路 ${t('editor.runAll')} (${isMac ? 'Cmd+Shift+Enter' : 'Ctrl+Shift+Enter'})`
-            : runButtonBase;
 
     const handleRunAll = useCallback(() => {
         if (!activeTab) return;
@@ -4451,7 +4420,7 @@ export const Editor = ({commandScopeId}: EditorProps) => {
         document.addEventListener('mouseup', stopResize);
     };
 
-    const closeExportMenu = useCallback(() => setExportMenuOpen(false), []);
+    const closeExportMenu = useCallback(() => closeMenu('export'), [closeMenu]);
 
     const {
         exportState,
@@ -4518,8 +4487,8 @@ export const Editor = ({commandScopeId}: EditorProps) => {
                 }
             }
         }
-        setIsRunDropdownOpen((prev) => !prev);
-    }, [isRunDropdownOpen, activeTab, activeDialect]);
+        toggleMenu('run');
+    }, [isRunDropdownOpen, activeTab, activeDialect, toggleMenu]);
 
     const commandPaletteScopeBridge = (
         <CommandPaletteScopeBridge
@@ -4644,7 +4613,7 @@ export const Editor = ({commandScopeId}: EditorProps) => {
                                                 <button
                                                     onClick={() => {
                                                         handleRunAll();
-                                                        setIsRunDropdownOpen(false);
+                                                        closeMenu('run');
                                                     }}
                                                     className="flex items-center gap-2 text-left px-4 py-2 text-xs font-medium text-secondary hover:text-primary hover:bg-surface-tertiary/50 border-b border-strong transition-colors"
                                                 >
@@ -4671,7 +4640,7 @@ export const Editor = ({commandScopeId}: EditorProps) => {
                                                             <button
                                                                 onClick={() => {
                                                                     runQuery(q, 1);
-                                                                    setIsRunDropdownOpen(false);
+                                                                    closeMenu('run');
                                                                 }}
                                                                 className="text-left px-4 py-2 text-xs font-mono text-secondary hover:text-primary flex-1 truncate"
                                                                 title={q}
@@ -4681,7 +4650,7 @@ export const Editor = ({commandScopeId}: EditorProps) => {
                                                             <button
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    setIsRunDropdownOpen(false);
+                                                                    closeMenu('run');
                                                                     setSaveQueryModal({
                                                                         isOpen: true,
                                                                         sql: q,
@@ -4731,7 +4700,7 @@ export const Editor = ({commandScopeId}: EditorProps) => {
                             }}
                             disabled={!activeTab?.query?.trim()}
                             className="flex items-center gap-2 px-2 @[640px]:px-3 py-1.5 bg-surface-secondary hover:bg-surface text-primary rounded text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed border border-strong shrink-0"
-                            title={`${t('editor.formatSql')} (${isMac ? 'Shift+鈱?F' : 'Shift+Alt+F'})`}
+                            title={`${t('editor.formatSql')} (${isMac ? 'Shift+⌘F' : 'Shift+Alt+F'})`}
                         >
                             <WrapText size={16} />
                             <span className="hidden @[640px]:inline whitespace-nowrap">
@@ -4751,7 +4720,7 @@ export const Editor = ({commandScopeId}: EditorProps) => {
                                     disabled={!canSaveSqlFile(activeTab)}
                                     title={
                                         activeTab.sourceFilePath
-                                            ? `${t('editor.saveSqlFile')} (${isMac ? '鈱楽' : 'Ctrl+S'})\n${activeTab.sourceFilePath}`
+                                            ? `${t('editor.saveSqlFile')} (${isMac ? '⌘S' : 'Ctrl+S'})\n${activeTab.sourceFilePath}`
                                             : t('editor.saveSqlFileAs')
                                     }
                                     className="flex items-center gap-2 px-2 @[640px]:px-3 py-1.5 rounded-l text-primary enabled:hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -4769,7 +4738,7 @@ export const Editor = ({commandScopeId}: EditorProps) => {
                                 </button>
                                 <div className="h-5 w-px bg-strong" />
                                 <button
-                                    onClick={() => setIsSaveMenuOpen((v) => !v)}
+                                    onClick={() => toggleMenu('save')}
                                     aria-haspopup="menu"
                                     aria-expanded={isSaveMenuOpen}
                                     aria-label={t('editor.saveOptions')}
@@ -4796,7 +4765,7 @@ export const Editor = ({commandScopeId}: EditorProps) => {
                                     <button
                                         role="menuitem"
                                         onClick={() => {
-                                            setIsSaveMenuOpen(false);
+                                            closeMenu('save');
                                             handleSaveSqlFile(activeTab);
                                         }}
                                         disabled={!canSaveSqlFile(activeTab)}
@@ -4813,14 +4782,14 @@ export const Editor = ({commandScopeId}: EditorProps) => {
                                         </span>
                                         {activeTab.sourceFilePath && (
                                             <span className="text-xs text-muted">
-                                                {isMac ? '鈱楽' : 'Ctrl+S'}
+                                                {isMac ? '⌘S' : 'Ctrl+S'}
                                             </span>
                                         )}
                                     </button>
                                     <button
                                         role="menuitem"
                                         onClick={() => {
-                                            setIsSaveMenuOpen(false);
+                                            closeMenu('save');
                                             handleSaveSqlFile(activeTab, true);
                                         }}
                                         className="flex items-center gap-2.5 text-left px-3 py-2 text-sm text-secondary hover:bg-surface-tertiary/50 hover:text-primary transition-colors"
@@ -4833,7 +4802,7 @@ export const Editor = ({commandScopeId}: EditorProps) => {
                                     <button
                                         role="menuitem"
                                         onClick={() => {
-                                            setIsSaveMenuOpen(false);
+                                            closeMenu('save');
                                             setSaveQueryModal({
                                                 isOpen: true,
                                                 sql: activeTab.query ?? '',
@@ -4854,7 +4823,7 @@ export const Editor = ({commandScopeId}: EditorProps) => {
 
                     <div ref={exportMenuRef} className="relative ml-auto shrink-0">
                         <button
-                            onClick={() => setExportMenuOpen(!exportMenuOpen)}
+                            onClick={() => toggleMenu('export')}
                             disabled={!canExportActiveResult}
                             aria-haspopup="menu"
                             aria-expanded={exportMenuOpen}
@@ -4941,7 +4910,7 @@ export const Editor = ({commandScopeId}: EditorProps) => {
                     {!isTableTab && isMultiDb && activeTab.type !== 'query_builder' && (
                         <div ref={dbDropdownRef} className="relative ml-1 @[560px]:ml-2 shrink-0">
                             <button
-                                onClick={() => setIsDbDropdownOpen((v) => !v)}
+                                onClick={() => toggleMenu('database')}
                                 className="flex items-center gap-1.5 px-2 py-1 bg-surface-secondary border border-strong rounded text-xs text-primary hover:bg-surface transition-colors h-[30px]"
                                 title={t('editor.activeDatabase')}
                             >
@@ -4958,7 +4927,7 @@ export const Editor = ({commandScopeId}: EditorProps) => {
                                             key={db}
                                             onClick={() => {
                                                 updateActiveTab(selectFlatMultiDbTabDatabase(db));
-                                                setIsDbDropdownOpen(false);
+                                                closeMenu('database');
                                             }}
                                             className={clsx(
                                                 'text-left px-3 py-1.5 text-xs hover:bg-surface transition-colors flex items-center gap-2',
@@ -5374,7 +5343,7 @@ export const Editor = ({commandScopeId}: EditorProps) => {
                                                 })}
                                                 {activeTab.result.columns.length > 0 && (
                                                     <span className="hidden @[400px]:inline text-muted">
-                                                        {' 路 '}
+                                                        {' · '}
                                                         {t('editor.columnsCount', {
                                                             count: activeTab.result.columns.length,
                                                         })}

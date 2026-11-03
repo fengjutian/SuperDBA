@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
 
+use crate::sync_ext::lock;
+
 /// Cached credential value.
 /// `Present` = keychain returned a value.
 /// `Absent`  = keychain confirmed no entry exists (NoEntry). Caching misses
@@ -53,7 +55,7 @@ pub fn get_db_password_cached(
     connection_id: &str,
 ) -> Result<String, String> {
     {
-        let guard = cache.db_passwords.lock().unwrap();
+        let guard = lock(&cache.db_passwords);
         match guard.get(connection_id) {
             Some(CacheEntry::Present(v)) => return Ok(v.clone()),
             Some(CacheEntry::Absent) => return Err("No entry".to_string()),
@@ -62,7 +64,7 @@ pub fn get_db_password_cached(
     }
     let result = crate::keychain_utils::get_db_password(connection_id, "");
     {
-        let mut guard = cache.db_passwords.lock().unwrap();
+        let mut guard = lock(&cache.db_passwords);
         guard.insert(
             connection_id.to_string(),
             match &result {
@@ -82,7 +84,7 @@ pub fn get_connection_uri_cached(
     load_from_keychain: bool,
 ) -> Result<Option<String>, String> {
     {
-        let guard = cache.connection_uris.lock().unwrap();
+        let guard = lock(&cache.connection_uris);
         match guard.get(connection_id) {
             Some(CacheEntry::Present(v)) => return Ok(Some(v.clone())),
             Some(CacheEntry::Absent) => return Ok(None),
@@ -94,7 +96,7 @@ pub fn get_connection_uri_cached(
     }
 
     let value = crate::keychain_utils::get_connection_uri(connection_id)?;
-    cache.connection_uris.lock().unwrap().insert(
+    lock(&cache.connection_uris).insert(
         connection_id.to_string(),
         CacheEntry::Present(value.clone()),
     );
@@ -109,7 +111,7 @@ pub fn get_plugin_secret_cached(
 ) -> Result<Option<String>, String> {
     let cache_key = plugin_secret_cache_key(connection_id, driver, key);
     {
-        let guard = cache.plugin_secrets.lock().unwrap();
+        let guard = lock(&cache.plugin_secrets);
         match guard.get(&cache_key) {
             Some(CacheEntry::Present(value)) => return Ok(Some(value.clone())),
             Some(CacheEntry::Absent) => return Ok(None),
@@ -118,7 +120,7 @@ pub fn get_plugin_secret_cached(
     }
 
     let value = crate::keychain_utils::get_plugin_secret(connection_id, driver, key)?;
-    cache.plugin_secrets.lock().unwrap().insert(
+    lock(&cache.plugin_secrets).insert(
         cache_key,
         match &value {
             Some(value) => CacheEntry::Present(value.clone()),
@@ -134,7 +136,7 @@ pub fn get_ssh_password_cached(
     connection_id: &str,
 ) -> Result<String, String> {
     {
-        let guard = cache.ssh_passwords.lock().unwrap();
+        let guard = lock(&cache.ssh_passwords);
         match guard.get(connection_id) {
             Some(CacheEntry::Present(v)) => return Ok(v.clone()),
             Some(CacheEntry::Absent) => return Err("No entry".to_string()),
@@ -143,7 +145,7 @@ pub fn get_ssh_password_cached(
     }
     let result = crate::keychain_utils::get_ssh_password(connection_id, "");
     {
-        let mut guard = cache.ssh_passwords.lock().unwrap();
+        let mut guard = lock(&cache.ssh_passwords);
         guard.insert(
             connection_id.to_string(),
             match &result {
@@ -161,7 +163,7 @@ pub fn get_ssh_key_passphrase_cached(
     connection_id: &str,
 ) -> Result<String, String> {
     {
-        let guard = cache.ssh_passphrases.lock().unwrap();
+        let guard = lock(&cache.ssh_passphrases);
         match guard.get(connection_id) {
             Some(CacheEntry::Present(v)) => return Ok(v.clone()),
             Some(CacheEntry::Absent) => return Err("No entry".to_string()),
@@ -170,7 +172,7 @@ pub fn get_ssh_key_passphrase_cached(
     }
     let result = crate::keychain_utils::get_ssh_key_passphrase(connection_id, "");
     {
-        let mut guard = cache.ssh_passphrases.lock().unwrap();
+        let mut guard = lock(&cache.ssh_passphrases);
         guard.insert(
             connection_id.to_string(),
             match &result {
@@ -185,7 +187,7 @@ pub fn get_ssh_key_passphrase_cached(
 /// Get AI API key: check cache first, fall through to keychain on miss.
 pub fn get_ai_key_cached(cache: &CredentialCache, provider: &str) -> Result<String, String> {
     {
-        let guard = cache.ai_keys.lock().unwrap();
+        let guard = lock(&cache.ai_keys);
         match guard.get(provider) {
             Some(CacheEntry::Present(v)) => return Ok(v.clone()),
             Some(CacheEntry::Absent) => return Err("No entry".to_string()),
@@ -200,7 +202,7 @@ pub fn get_ai_key_cached(cache: &CredentialCache, provider: &str) -> Result<Stri
                 Some(v) => CacheEntry::Present(v.clone()),
                 None => CacheEntry::Absent,
             };
-            cache.ai_keys.lock().unwrap().insert(provider.to_string(), entry);
+            lock(&cache.ai_keys).insert(provider.to_string(), entry);
             maybe.ok_or_else(|| "No entry".to_string())
         }
         // Transient failure (denied prompt, timeout, securityd error): do NOT
@@ -214,7 +216,7 @@ pub fn get_ai_key_cached(cache: &CredentialCache, provider: &str) -> Result<Stri
 // Call these AFTER the corresponding keychain_utils::set_* succeeds.
 
 pub fn set_db_password_cached(cache: &CredentialCache, connection_id: &str, password: &str) {
-    cache.db_passwords.lock().unwrap().insert(
+    lock(&cache.db_passwords).insert(
         connection_id.to_string(),
         CacheEntry::Present(password.to_string()),
     );
@@ -225,7 +227,7 @@ pub fn set_connection_uri_cached(
     connection_id: &str,
     connection_uri: &str,
 ) {
-    cache.connection_uris.lock().unwrap().insert(
+    lock(&cache.connection_uris).insert(
         connection_id.to_string(),
         CacheEntry::Present(connection_uri.to_string()),
     );
@@ -238,14 +240,14 @@ pub fn set_plugin_secret_cached(
     key: &str,
     value: &str,
 ) {
-    cache.plugin_secrets.lock().unwrap().insert(
+    lock(&cache.plugin_secrets).insert(
         plugin_secret_cache_key(connection_id, driver, key),
         CacheEntry::Present(value.to_string()),
     );
 }
 
 pub fn set_ssh_password_cached(cache: &CredentialCache, connection_id: &str, password: &str) {
-    cache.ssh_passwords.lock().unwrap().insert(
+    lock(&cache.ssh_passwords).insert(
         connection_id.to_string(),
         CacheEntry::Present(password.to_string()),
     );
@@ -256,7 +258,7 @@ pub fn set_ssh_key_passphrase_cached(
     connection_id: &str,
     passphrase: &str,
 ) {
-    cache.ssh_passphrases.lock().unwrap().insert(
+    lock(&cache.ssh_passphrases).insert(
         connection_id.to_string(),
         CacheEntry::Present(passphrase.to_string()),
     );
@@ -276,11 +278,11 @@ pub fn set_ai_key_cached(cache: &CredentialCache, provider: &str, key: &str) {
 // return NoEntry, caching Absent).
 
 pub fn invalidate_db_password(cache: &CredentialCache, connection_id: &str) {
-    cache.db_passwords.lock().unwrap().remove(connection_id);
+    lock(&cache.db_passwords).remove(connection_id);
 }
 
 pub fn invalidate_connection_uri(cache: &CredentialCache, connection_id: &str) {
-    cache.connection_uris.lock().unwrap().remove(connection_id);
+    lock(&cache.connection_uris).remove(connection_id);
 }
 
 pub fn invalidate_plugin_secret(
@@ -297,23 +299,23 @@ pub fn invalidate_plugin_secret(
 }
 
 pub fn invalidate_ssh_password(cache: &CredentialCache, connection_id: &str) {
-    cache.ssh_passwords.lock().unwrap().remove(connection_id);
+    lock(&cache.ssh_passwords).remove(connection_id);
 }
 
 pub fn invalidate_ssh_key_passphrase(cache: &CredentialCache, connection_id: &str) {
-    cache.ssh_passphrases.lock().unwrap().remove(connection_id);
+    lock(&cache.ssh_passphrases).remove(connection_id);
 }
 
 pub fn invalidate_ai_key(cache: &CredentialCache, provider: &str) {
-    cache.ai_keys.lock().unwrap().remove(provider);
+    lock(&cache.ai_keys).remove(provider);
 }
 
 /// Invalidate all cached credentials for a connection ID (e.g. on delete).
 pub fn invalidate_all_for_connection(cache: &CredentialCache, connection_id: &str) {
-    cache.db_passwords.lock().unwrap().remove(connection_id);
-    cache.connection_uris.lock().unwrap().remove(connection_id);
-    cache.ssh_passwords.lock().unwrap().remove(connection_id);
-    cache.ssh_passphrases.lock().unwrap().remove(connection_id);
+    lock(&cache.db_passwords).remove(connection_id);
+    lock(&cache.connection_uris).remove(connection_id);
+    lock(&cache.ssh_passwords).remove(connection_id);
+    lock(&cache.ssh_passphrases).remove(connection_id);
     let prefix = format!("{}\0", connection_id);
     cache
         .plugin_secrets

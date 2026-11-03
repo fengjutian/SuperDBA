@@ -9,8 +9,8 @@ use super::provider::{self, ProviderToolCall};
 use super::store;
 use super::tools;
 use super::{
-    ChatContext, ChatMessage, ChatRole, ChatSendRequest, ChatSession, ChatToolCall,
-    MAX_MODEL_CALLS_PER_TURN,
+    clear_cancelled, emit_chat_event, is_cancelled, ChatContext, ChatMessage, ChatRole,
+    ChatSendRequest, ChatSession, ChatToolCall, MAX_MODEL_CALLS_PER_TURN,
 };
 use crate::application::ai::resolve_model;
 use crate::runtime::{state::ApplicationState, RuntimeContext};
@@ -70,9 +70,30 @@ pub async fn run_turn(
 
     let system_prompt = system_prompt(&context);
     let tool_schemas = tools::definitions();
+    let request_id = request.request_id.clone().unwrap_or_default();
+    clear_cancelled(&request_id);
+
+    emit_chat_event(
+        runtime,
+        web_session_id,
+        json!({
+            "type": "started",
+            "requestId": request_id,
+            "sessionId": session.id,
+        }),
+    );
 
     for round in 0..MAX_MODEL_CALLS_PER_TURN {
-        let reply = provider::complete(
+        if is_cancelled(&request_id) {
+            let index = push_assistant(&mut session, String::new(), None);
+            session.messages[index].notice = Some("Stopped by the user.".to_string());
+            persist(runtime, &session).await?;
+            emit_cancelled(runtime, web_session_id, &request_id, &session.id);
+            clear_cancelled(&request_id);
+            return Ok(session);
+        }
+
+        let reply = provider::complete_streaming(
             runtime,
             &state.credential_cache,
             &config,
@@ -81,29 +102,70 @@ pub async fn run_turn(
             &system_prompt,
             &session.messages,
             &tool_schemas,
+            &mut |delta| {
+                emit_chat_event(
+                    runtime,
+                    web_session_id,
+                    json!({
+                        "type": "delta",
+                        "requestId": request_id,
+                        "sessionId": session.id,
+                        "text": delta,
+                    }),
+                );
+            },
+            &|| is_cancelled(&request_id),
         )
         .await;
 
         let reply = match reply {
-            Ok(reply) => reply,
+            Ok(provider::StreamOutcome::Reply(reply)) => reply,
+            Ok(provider::StreamOutcome::Cancelled(reply)) => {
+                let index = push_assistant(&mut session, reply.content, reply.reasoning);
+                session.messages[index].notice = Some("Stopped by the user.".to_string());
+                persist(runtime, &session).await?;
+                emit_cancelled(runtime, web_session_id, &request_id, &session.id);
+                clear_cancelled(&request_id);
+                return Ok(session);
+            }
             Err(error) => {
                 let index = push_assistant(&mut session, String::new(), None);
                 session.messages[index].notice = Some(error.clone());
                 session.messages[index].content =
                     format!("The assistant could not answer: {error}");
                 persist(runtime, &session).await?;
+                emit_chat_event(
+                    runtime,
+                    web_session_id,
+                    json!({
+                        "type": "failed",
+                        "requestId": request_id,
+                        "sessionId": session.id,
+                        "message": error,
+                    }),
+                );
+                clear_cancelled(&request_id);
                 return Ok(session);
             }
         };
 
-        let index = push_assistant(&mut session, reply.content.clone(), reply.reasoning);
+        let index = push_assistant(&mut session, reply.content, reply.reasoning);
         if reply.tool_calls.is_empty() {
             persist(runtime, &session).await?;
+            emit_finished(runtime, web_session_id, &request_id, &session.id);
+            clear_cancelled(&request_id);
             return Ok(session);
         }
 
-        let calls =
-            execute_calls(runtime, state, web_session_id, &context, &reply.tool_calls).await;
+        let calls = execute_calls(
+            runtime,
+            state,
+            web_session_id,
+            &context,
+            &request_id,
+            &reply.tool_calls,
+        )
+        .await;
         session.messages[index].tool_calls = calls;
 
         if round + 1 == MAX_MODEL_CALLS_PER_TURN {
@@ -115,7 +177,43 @@ pub async fn run_turn(
     }
 
     persist(runtime, &session).await?;
+    emit_finished(runtime, web_session_id, &request_id, &session.id);
+    clear_cancelled(&request_id);
     Ok(session)
+}
+
+fn emit_finished(
+    runtime: &RuntimeContext,
+    web_session_id: Option<Uuid>,
+    request_id: &str,
+    session_id: &str,
+) {
+    emit_chat_event(
+        runtime,
+        web_session_id,
+        json!({
+            "type": "finished",
+            "requestId": request_id,
+            "sessionId": session_id,
+        }),
+    );
+}
+
+fn emit_cancelled(
+    runtime: &RuntimeContext,
+    web_session_id: Option<Uuid>,
+    request_id: &str,
+    session_id: &str,
+) {
+    emit_chat_event(
+        runtime,
+        web_session_id,
+        json!({
+            "type": "cancelled",
+            "requestId": request_id,
+            "sessionId": session_id,
+        }),
+    );
 }
 
 async fn execute_calls(
@@ -123,10 +221,25 @@ async fn execute_calls(
     state: &ApplicationState,
     web_session_id: Option<Uuid>,
     context: &ChatContext,
+    request_id: &str,
     calls: &[ProviderToolCall],
 ) -> Vec<ChatToolCall> {
     let mut executed = Vec::with_capacity(calls.len());
     for call in calls {
+        if is_cancelled(request_id) {
+            break;
+        }
+        emit_chat_event(
+            runtime,
+            web_session_id,
+            json!({
+                "type": "toolStarted",
+                "requestId": request_id,
+                "callId": call.id,
+                "name": call.name,
+                "arguments": call.arguments,
+            }),
+        );
         let started = std::time::Instant::now();
         let outcome = tools::execute(
             runtime,
@@ -142,19 +255,33 @@ async fn execute_calls(
         if truncated {
             summary.push_str(" (output truncated)");
         }
+        let duration_ms = started.elapsed().as_millis() as u64;
         log::debug!(
             "AI chat tool {} on {:?} finished in {} ms with {:?}",
             call.name,
             context.connection_id,
-            started.elapsed().as_millis(),
+            duration_ms,
             outcome.status
+        );
+        emit_chat_event(
+            runtime,
+            web_session_id,
+            json!({
+                "type": "toolFinished",
+                "requestId": request_id,
+                "callId": call.id,
+                "name": call.name,
+                "status": outcome.status,
+                "durationMs": duration_ms,
+                "summary": summary,
+            }),
         );
         executed.push(ChatToolCall {
             id: call.id.clone(),
             name: call.name.clone(),
             arguments: call.arguments.clone(),
             status: outcome.status,
-            duration_ms: started.elapsed().as_millis() as u64,
+            duration_ms,
             summary,
             result: Some(result),
         });

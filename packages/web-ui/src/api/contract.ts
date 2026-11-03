@@ -1065,6 +1065,7 @@ export interface CommandMap {
     chat_get_session: CommandDefinition<{sessionId: string}, ChatSession, 'sensitive'>;
     chat_delete_session: CommandDefinition<{sessionId: string}, void, 'sensitive'>;
     chat_send: CommandDefinition<{request: ChatSendRequest}, ChatSession, 'sensitive'>;
+    chat_cancel: CommandDefinition<{requestId: string}, void, 'sensitive'>;
 
     get_config: CommandDefinition<undefined, PersistedConfig, 'local-admin'>;
     save_config: CommandDefinition<{config: PersistedConfig}, void, 'local-admin'>;

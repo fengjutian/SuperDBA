@@ -15,6 +15,8 @@ mod tests;
 pub use files::*;
 pub use schedule::*;
 
+use crate::runtime::RuntimeContext;
+use crate::sync_ext::lock;
 use chrono::{DateTime, Utc};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
@@ -23,7 +25,6 @@ use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use crate::runtime::RuntimeContext;
 
 use crate::config::DatabaseBackupPlan;
 use crate::dump_commands::{
@@ -137,18 +138,15 @@ struct ScheduleInputs {
 
 fn schedule_inputs(plan: &DatabaseBackupPlan) -> ScheduleInputs {
     let key = plan_key(plan);
-    let last_success = last_success_for(
-        plan,
-        entry_for(&RUNTIME_STATE.last_success.lock().unwrap(), &key),
-    );
-    let cancelled = entry_for(&RUNTIME_STATE.last_cancelled_at.lock().unwrap(), &key);
+    let last_success = last_success_for(plan, entry_for(&lock(&RUNTIME_STATE.last_success), &key));
+    let cancelled = entry_for(&lock(&RUNTIME_STATE.last_cancelled_at), &key);
     let settled_at = slot_settled_at(
         &plan.time,
         &plan.timezone,
         last_success.as_ref().map(|(at, _)| *at),
         cancelled,
     );
-    let last_failure = entry_for(&RUNTIME_STATE.last_failure_attempt_at.lock().unwrap(), &key);
+    let last_failure = entry_for(&lock(&RUNTIME_STATE.last_failure_attempt_at), &key);
     ScheduleInputs {
         last_success,
         settled_at,
@@ -258,16 +256,31 @@ where
     let target_path = dest_dir.join(&file_name);
     let target = target_path.display().to_string();
 
-    let staging = match tempfile::Builder::new().prefix(".pending-backup-").tempfile_in(dest_dir) {
+    let staging = match tempfile::Builder::new()
+        .prefix(".pending-backup-")
+        .tempfile_in(dest_dir)
+    {
         Ok(file) => file,
-        Err(error) => return failed(BackupOutcome::Error, format!("Failed to create backup file: {error}")),
+        Err(error) => {
+            return failed(
+                BackupOutcome::Error,
+                format!("Failed to create backup file: {error}"),
+            )
+        }
     };
     let result = dump(staging.path().display().to_string()).await;
-    let result = if cancel_requested.load(Ordering::SeqCst) { Err(DUMP_CANCELLED.to_string()) } else { result };
+    let result = if cancel_requested.load(Ordering::SeqCst) {
+        Err(DUMP_CANCELLED.to_string())
+    } else {
+        result
+    };
     match result {
         Ok(()) => {
             if let Err(error) = staging.persist(&target_path) {
-                return failed(BackupOutcome::Error, format!("Failed to publish database backup: {error}"));
+                return failed(
+                    BackupOutcome::Error,
+                    format!("Failed to publish database backup: {error}"),
+                );
             }
             let retention = if plan.retention > 0 {
                 plan.retention as usize
@@ -312,23 +325,21 @@ where
 /// failure: it settles the day's slot (see [`slot_settled_at`]) instead of
 /// arming the retry delay, so a cancelled scheduled run stays cancelled.
 fn record_report(key: &str, report: &BackupRunReport, finished_at: DateTime<Utc>) {
-    *RUNTIME_STATE.last_run_at.lock().unwrap() = Some(finished_at.to_rfc3339());
-    *RUNTIME_STATE.last_outcome.lock().unwrap() = Some(report.outcome.as_str().to_string());
-    *RUNTIME_STATE.last_error.lock().unwrap() = report.error.clone();
+    *lock(&RUNTIME_STATE.last_run_at) = Some(finished_at.to_rfc3339());
+    *lock(&RUNTIME_STATE.last_outcome) = Some(report.outcome.as_str().to_string());
+    *lock(&RUNTIME_STATE.last_error) = report.error.clone();
     match report.outcome {
         BackupOutcome::Success => {
             let file = report.file.clone().unwrap_or_default();
-            *RUNTIME_STATE.last_success.lock().unwrap() =
-                Some((key.to_string(), (finished_at, file)));
-            *RUNTIME_STATE.last_failure_attempt_at.lock().unwrap() = None;
+            *lock(&RUNTIME_STATE.last_success) = Some((key.to_string(), (finished_at, file)));
+            *lock(&RUNTIME_STATE.last_failure_attempt_at) = None;
         }
         BackupOutcome::Error => {
             // The previous successful run is kept, so it still counts.
-            *RUNTIME_STATE.last_failure_attempt_at.lock().unwrap() =
-                Some((key.to_string(), finished_at));
+            *lock(&RUNTIME_STATE.last_failure_attempt_at) = Some((key.to_string(), finished_at));
         }
         BackupOutcome::Cancelled => {
-            *RUNTIME_STATE.last_cancelled_at.lock().unwrap() = Some((key.to_string(), finished_at));
+            *lock(&RUNTIME_STATE.last_cancelled_at) = Some((key.to_string(), finished_at));
         }
     }
 }
@@ -341,14 +352,18 @@ pub async fn run_database_backup(
     run_exclusive(&RUNTIME_STATE.is_running, || async {
         let result = run_plan_once(runtime, cancellation_state, trigger).await;
         // Reset on every way out, so a cancel never leaks into the next run.
-        *RUNTIME_STATE.active_slot.lock().unwrap() = None;
+        *lock(&RUNTIME_STATE.active_slot) = None;
         RUNTIME_STATE.was_cancelled.store(false, Ordering::SeqCst);
         result
     })
     .await
 }
 
-async fn run_plan_once(runtime: &RuntimeContext, cancellation_state: &DumpCancellationState, trigger: &str) -> Result<String, String> {
+async fn run_plan_once(
+    runtime: &RuntimeContext,
+    cancellation_state: &DumpCancellationState,
+    trigger: &str,
+) -> Result<String, String> {
     let config = crate::application::persistence::load_config(runtime);
     let plan = config
         .database_backup_plan
@@ -364,7 +379,7 @@ async fn run_plan_once(runtime: &RuntimeContext, cancellation_state: &DumpCancel
     let dest_dir = PathBuf::from(&plan.destination_directory);
 
     let slot_key = db_backup_slot_key(&plan.connection_id);
-    *RUNTIME_STATE.active_slot.lock().unwrap() = Some(slot_key.clone());
+    *lock(&RUNTIME_STATE.active_slot) = Some(slot_key.clone());
     let options = DumpOptions {
         structure: plan.include_structure,
         data: plan.include_data,
@@ -420,7 +435,10 @@ async fn run_plan_once(runtime: &RuntimeContext, cancellation_state: &DumpCancel
 
 // ---------- Background scheduler ----------
 
-pub fn spawn_database_backup_scheduler(runtime: RuntimeContext, cancellation_state: Arc<DumpCancellationState>) -> crate::async_rt::JoinHandle<()> {
+pub fn spawn_database_backup_scheduler(
+    runtime: RuntimeContext,
+    cancellation_state: Arc<DumpCancellationState>,
+) -> crate::async_rt::JoinHandle<()> {
     crate::async_rt::spawn(async move {
         // App-open boundary: scheduler runs every 30 seconds while SuperDBA is open
         loop {
@@ -488,31 +506,32 @@ pub async fn get_database_backup_status(
     };
 
     Ok(DatabaseBackupStatus {
-        last_run_at: RUNTIME_STATE.last_run_at.lock().unwrap().clone(),
+        last_run_at: lock(&RUNTIME_STATE.last_run_at).clone(),
         last_successful_run_at,
-        last_outcome: RUNTIME_STATE.last_outcome.lock().unwrap().clone(),
-        last_error: RUNTIME_STATE.last_error.lock().unwrap().clone(),
+        last_outcome: lock(&RUNTIME_STATE.last_outcome).clone(),
+        last_error: lock(&RUNTIME_STATE.last_error).clone(),
         last_backup_file,
         next_run_at,
         is_running: RUNTIME_STATE.is_running.load(Ordering::SeqCst),
     })
 }
 
-pub async fn run_database_backup_now(runtime: &RuntimeContext, cancellation_state: &DumpCancellationState) -> Result<String, String> {
+pub async fn run_database_backup_now(
+    runtime: &RuntimeContext,
+    cancellation_state: &DumpCancellationState,
+) -> Result<String, String> {
     run_database_backup(runtime, cancellation_state, "manual").await
 }
 
 /// Cancels the run in progress, whatever the plan says now. Before the dump
 /// task exists (e.g. during the SSH/K8s setup) the flag alone stops it: the
 /// dump checks it once the setup is done and again right after registering.
-pub async fn cancel_database_backup(
-    state: &DumpCancellationState,
-) -> Result<(), String> {
+pub async fn cancel_database_backup(state: &DumpCancellationState) -> Result<(), String> {
     if !RUNTIME_STATE.is_running.load(Ordering::SeqCst) {
         return Err("No database backup is running".into());
     }
     RUNTIME_STATE.was_cancelled.store(true, Ordering::SeqCst);
-    if let Some(slot) = RUNTIME_STATE.active_slot.lock().unwrap().clone() {
+    if let Some(slot) = lock(&RUNTIME_STATE.active_slot).clone() {
         abort_slot(&state.handles, &slot);
     }
     // is_running stays set: the run's RunGuard clears it once the aborted

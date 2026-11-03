@@ -1,5 +1,7 @@
 /** Pure helpers for the DBA chat panel. */
 
+import type {ChatEvent, ChatToolCall} from '@/types/chat';
+
 const SQL_FENCE = /```sql\s*([\s\S]*?)```/i;
 
 /**
@@ -20,4 +22,72 @@ export function formatToolResult(value: unknown, limit = 1600): string {
     const text = JSON.stringify(value, null, 2) ?? '';
     if (text.length <= limit) return text;
     return `${text.slice(0, limit)}\n…`;
+}
+
+/** Draft of the assistant message currently streaming in. */
+export interface ChatStreamState {
+    requestId: string;
+    text: string;
+    tools: ChatToolCall[];
+    cancelled: boolean;
+}
+
+function emptyStream(requestId: string): ChatStreamState {
+    return {requestId, text: '', tools: [], cancelled: false};
+}
+
+/**
+ * Folds one `ai://chat-event` into the live draft. Pure so the reducer can be
+ * tested without a transport: the hook only checks that the event belongs to
+ * the turn it started.
+ */
+export function reduceChatStream(
+    current: ChatStreamState | null,
+    event: ChatEvent,
+): ChatStreamState | null {
+    switch (event.type) {
+        case 'started':
+            return current ?? emptyStream(event.requestId);
+        case 'delta': {
+            const base = current ?? emptyStream(event.requestId);
+            return {...base, text: base.text + event.text};
+        }
+        case 'toolStarted': {
+            const base = current ?? emptyStream(event.requestId);
+            return {
+                ...base,
+                tools: [
+                    ...base.tools,
+                    {
+                        id: event.callId,
+                        name: event.name,
+                        arguments: event.arguments,
+                        status: 'pending',
+                        durationMs: 0,
+                        summary: 'Running…',
+                    },
+                ],
+            };
+        }
+        case 'toolFinished': {
+            if (!current) return current;
+            return {
+                ...current,
+                tools: current.tools.map((tool) =>
+                    tool.id === event.callId
+                        ? {
+                              ...tool,
+                              status: event.status,
+                              durationMs: event.durationMs,
+                              summary: event.summary,
+                          }
+                        : tool,
+                ),
+            };
+        }
+        case 'cancelled':
+            return current ? {...current, cancelled: true} : current;
+        default:
+            return current;
+    }
 }

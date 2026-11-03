@@ -254,6 +254,7 @@ enum AiRpcCommand {
     ChatGetSession,
     ChatDeleteSession,
     ChatSend,
+    ChatCancel,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -591,6 +592,12 @@ struct AiApprovalDecisionRequest {
 #[serde(deny_unknown_fields)]
 struct AiChatSendRequest {
     request: crate::application::chat::ChatSendRequest,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct AiChatCancelRequest {
+    request_id: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -2234,6 +2241,7 @@ impl AiRpcCommand {
             "chat_get_session" => Self::ChatGetSession,
             "chat_delete_session" => Self::ChatDeleteSession,
             "chat_send" => Self::ChatSend,
+            "chat_cancel" => Self::ChatCancel,
             _ => return None,
         })
     }
@@ -2689,6 +2697,12 @@ fn decode_ai_command(command: AiRpcCommand, body: &[u8]) -> Result<AiCommand, St
         AiRpcCommand::ChatSend => {
             let request: AiChatSendRequest = decode_payload(body)?;
             AiCommand::Chat(crate::application::chat::ChatCommand::Send(request.request))
+        }
+        AiRpcCommand::ChatCancel => {
+            let request: AiChatCancelRequest = decode_payload(body)?;
+            AiCommand::Chat(crate::application::chat::ChatCommand::Cancel {
+                request_id: request.request_id,
+            })
         }
     })
 }

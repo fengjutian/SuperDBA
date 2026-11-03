@@ -1,13 +1,27 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {useSuperDBAClient} from './useSuperDBAClient';
 import {useSettings} from './useSettings';
-import type {ChatContext, ChatSendRequest, ChatSession, ChatSessionSummary} from '@/types/chat';
+import {reduceChatStream, type ChatStreamState} from '@/utils/chat';
+import type {
+    ChatContext,
+    ChatEvent,
+    ChatSendRequest,
+    ChatSession,
+    ChatSessionSummary,
+} from '@/types/chat';
+
+function newRequestId(): string {
+    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+        return crypto.randomUUID();
+    }
+    return `chat-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
 
 /**
  * Conversation state for the chat panel.
  *
- * The backend owns persistence and the agent loop; this hook only keeps the
- * currently open conversation and the session list in sync with it.
+ * The backend owns persistence and the agent loop; this hook keeps the open
+ * conversation, the session list, and the live turn draft in sync.
  */
 export function useChatAgent() {
     const client = useSuperDBAClient();
@@ -16,8 +30,10 @@ export function useChatAgent() {
     const [session, setSession] = useState<ChatSession | null>(null);
     const [loadingList, setLoadingList] = useState(true);
     const [sending, setSending] = useState(false);
+    const [stream, setStream] = useState<ChatStreamState | null>(null);
     const [error, setError] = useState<string | null>(null);
     const mounted = useRef(true);
+    const activeRequest = useRef<string | null>(null);
 
     useEffect(() => {
         mounted.current = true;
@@ -25,6 +41,23 @@ export function useChatAgent() {
             mounted.current = false;
         };
     }, []);
+
+    const applyEvent = useCallback((event: ChatEvent) => {
+        const active = activeRequest.current;
+        if (!active || event.requestId !== active) return;
+        if (event.type === 'failed') {
+            setError(event.message);
+            return;
+        }
+        setStream((current) => reduceChatStream(current, event));
+    }, []);
+
+    useEffect(() => {
+        const subscription = client.subscribe('ai://chat-event', applyEvent);
+        return () => {
+            void subscription.then((unsubscribe) => unsubscribe()).catch(() => {});
+        };
+    }, [client, applyEvent]);
 
     const refreshSessions = useCallback(async () => {
         try {
@@ -68,6 +101,7 @@ export function useChatAgent() {
 
     const startNewSession = useCallback(() => {
         setSession(null);
+        setStream(null);
         setError(null);
     }, []);
 
@@ -85,6 +119,16 @@ export function useChatAgent() {
         [client, refreshSessions, session?.id],
     );
 
+    const cancel = useCallback(async () => {
+        const requestId = activeRequest.current;
+        if (!requestId) return;
+        try {
+            await client.call('chat_cancel', {requestId});
+        } catch (err) {
+            if (mounted.current) setError(String(err));
+        }
+    }, [client]);
+
     const send = useCallback(
         async (message: string, context: ChatContext) => {
             const trimmed = message.trim();
@@ -94,12 +138,16 @@ export function useChatAgent() {
                 setError('Configure an AI provider in Settings → AI before using chat.');
                 return;
             }
+            const requestId = newRequestId();
+            activeRequest.current = requestId;
             setSending(true);
             setError(null);
+            setStream({requestId, text: '', tools: [], cancelled: false});
             const request: ChatSendRequest = {
                 provider,
                 model: settings.aiModel ?? '',
                 ...(session?.id ? {sessionId: session.id} : {}),
+                requestId,
                 message: trimmed,
                 context,
             };
@@ -111,7 +159,11 @@ export function useChatAgent() {
             } catch (err) {
                 if (mounted.current) setError(String(err));
             } finally {
-                if (mounted.current) setSending(false);
+                if (mounted.current) {
+                    setSending(false);
+                    setStream(null);
+                }
+                activeRequest.current = null;
             }
         },
         [client, refreshSessions, sending, session?.id, settings.aiModel, settings.aiProvider],
@@ -122,8 +174,10 @@ export function useChatAgent() {
         session,
         loadingList,
         sending,
+        stream,
         error,
         send,
+        cancel,
         openSession,
         startNewSession,
         deleteSession,

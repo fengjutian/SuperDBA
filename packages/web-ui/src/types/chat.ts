@@ -68,6 +68,36 @@ export interface ChatSendRequest {
     provider: string;
     model: string;
     sessionId?: string;
+    /** Client-generated id used to correlate `ai://chat-event` progress and cancellation. */
+    requestId?: string;
     message: string;
     context: ChatContext;
 }
+
+/**
+ * Progress emitted while a turn runs. `finished`, `cancelled`, and `failed`
+ * close the stream; the authoritative transcript still comes from the
+ * `chat_send` response.
+ */
+export type ChatEvent =
+    | {type: 'started'; requestId: string; sessionId: string}
+    | {type: 'delta'; requestId: string; sessionId: string; text: string}
+    | {
+          type: 'toolStarted';
+          requestId: string;
+          callId: string;
+          name: string;
+          arguments: Record<string, unknown>;
+      }
+    | {
+          type: 'toolFinished';
+          requestId: string;
+          callId: string;
+          name: string;
+          status: ChatToolStatus;
+          durationMs: number;
+          summary: string;
+      }
+    | {type: 'finished'; requestId: string; sessionId: string}
+    | {type: 'cancelled'; requestId: string; sessionId: string}
+    | {type: 'failed'; requestId: string; sessionId: string; message: string};

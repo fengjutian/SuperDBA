@@ -131,3 +131,12 @@ pub async fn chat_send(
     )
     .await
 }
+
+#[tauri::command]
+pub async fn chat_cancel(app: AppHandle, request_id: String) -> Result<Value, String> {
+    execute(
+        &app,
+        AiCommand::Chat(crate::application::chat::ChatCommand::Cancel { request_id }),
+    )
+    .await
+}

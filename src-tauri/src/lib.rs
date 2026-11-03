@@ -43,6 +43,8 @@ pub mod connection_migrations_tests;
 pub mod connection_tags;
 
 pub mod credential_cache;
+#[cfg(test)]
+pub mod credential_cache_tests;
 pub mod dump_commands; // Added
 #[cfg(test)]
 pub mod dump_commands_tests;
@@ -113,6 +115,8 @@ pub mod ssm_tunnel;
 pub mod storage_location;
 #[cfg(test)]
 pub mod storage_location_tests;
+
+pub mod sync_ext;
 
 pub mod team_share;
 

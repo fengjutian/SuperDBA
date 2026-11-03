@@ -11,6 +11,7 @@ import {
     X,
     Loader2,
     Sparkles,
+    Square,
     Wrench,
 } from 'lucide-react';
 import {useChatAgent} from '@/hooks/useChat';
@@ -133,8 +134,10 @@ export function ChatPanel() {
         sessions,
         session,
         sending,
+        stream,
         error,
         send,
+        cancel,
         openSession,
         startNewSession,
         deleteSession,
@@ -247,7 +250,7 @@ export function ChatPanel() {
             )}
 
             <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-3 py-3">
-                {messages.length === 0 ? (
+                {messages.length === 0 && !stream ? (
                     <div className="h-full flex flex-col items-center justify-center text-center gap-3 px-2">
                         <Sparkles size={20} className="text-accent-primary" />
                         <p className="text-sm text-primary">
@@ -285,10 +288,30 @@ export function ChatPanel() {
                             .map((message) => (
                                 <MessageBubble key={message.id} message={message} />
                             ))}
-                        {sending && (
-                            <div className="flex items-center gap-2 text-xs text-muted">
-                                <Loader2 size={12} className="animate-spin" />
-                                {t('chat.working', {defaultValue: 'Gathering evidence…'})}
+                        {stream && (
+                            <div className="max-w-full space-y-2">
+                                {stream.text ? (
+                                    <div className="text-sm text-secondary [&_p]:mb-2 [&_p]:leading-relaxed [&_pre]:bg-surface-secondary [&_pre]:border [&_pre]:border-default [&_pre]:rounded [&_pre]:p-2 [&_pre]:overflow-x-auto [&_pre]:text-xs [&_code]:font-mono [&_code]:text-xs [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-accent-primary [&_a]:underline [&_strong]:text-primary">
+                                        <Markdown>{stream.text}</Markdown>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center gap-2 text-xs text-muted">
+                                        <Loader2 size={12} className="animate-spin" />
+                                        {t('chat.working', {defaultValue: 'Gathering evidence…'})}
+                                    </div>
+                                )}
+                                {stream.tools.length > 0 && (
+                                    <div className="space-y-1">
+                                        {stream.tools.map((call) => (
+                                            <ToolCallRow key={call.id} call={call} />
+                                        ))}
+                                    </div>
+                                )}
+                                {stream.cancelled && (
+                                    <div className="text-[11px] text-accent-warning">
+                                        {t('chat.cancelled', {defaultValue: 'Stopped.'})}
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
@@ -339,16 +362,21 @@ export function ChatPanel() {
                     />
                     <button
                         type="button"
-                        onClick={() => void submit()}
-                        disabled={sending || !input.trim() || !providerReady}
-                        aria-label={t('chat.send', {defaultValue: 'Send'})}
+                        onClick={() => (sending ? void cancel() : void submit())}
+                        disabled={!sending && (!input.trim() || !providerReady)}
+                        aria-label={
+                            sending
+                                ? t('chat.stop', {defaultValue: 'Stop'})
+                                : t('chat.send', {defaultValue: 'Send'})
+                        }
+                        title={
+                            sending
+                                ? t('chat.stop', {defaultValue: 'Stop'})
+                                : t('chat.send', {defaultValue: 'Send'})
+                        }
                         className="p-2 rounded-md bg-accent-primary text-inverse disabled:opacity-40"
                     >
-                        {sending ? (
-                            <Loader2 size={14} className="animate-spin" />
-                        ) : (
-                            <Send size={14} />
-                        )}
+                        {sending ? <Square size={14} /> : <Send size={14} />}
                     </button>
                 </div>
                 <p className="mt-1 text-[10px] text-muted">
