@@ -1,10 +1,10 @@
-use super::agent::{bound_result, build_audit_event, system_prompt};
+use super::agent::{bound_result, build_audit_event, is_batch_boundary, system_prompt};
 use super::provider::{self, ProviderToolCall};
 use super::store;
 use super::tools::{self, classify_statement, is_single_read_only_statement, StatementClass};
 use super::{
     cancellation_key, ChatContext, ChatMessage, ChatRole, ChatSession, ChatToolCall,
-    ChatToolStatus, MAX_MODEL_CALLS_PER_TURN,
+    ChatToolStatus, MAX_MODEL_CALLS_PER_TURN, MODEL_CALLS_PER_BATCH,
 };
 use serde_json::json;
 
@@ -230,7 +230,15 @@ fn system_prompt_carries_connection_context() {
     assert!(prompt.contains("read-only"));
     assert!(prompt.contains("describe_tables"));
     assert!(prompt.contains("every page and batch"));
-    assert!(MAX_MODEL_CALLS_PER_TURN > 6);
+    assert!(MAX_MODEL_CALLS_PER_TURN > MODEL_CALLS_PER_BATCH);
+}
+
+#[test]
+fn long_turns_checkpoint_at_batch_boundaries() {
+    assert!(!is_batch_boundary(0));
+    assert!(!is_batch_boundary(MODEL_CALLS_PER_BATCH - 1));
+    assert!(is_batch_boundary(MODEL_CALLS_PER_BATCH));
+    assert!(is_batch_boundary(MODEL_CALLS_PER_BATCH * 2));
 }
 
 #[test]

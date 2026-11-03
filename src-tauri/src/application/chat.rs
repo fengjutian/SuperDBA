@@ -21,7 +21,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use uuid::Uuid;
 
-pub const MAX_MODEL_CALLS_PER_TURN: usize = 16;
+pub const MODEL_CALLS_PER_BATCH: usize = 16;
+pub const MAX_MODEL_CALL_BATCHES: usize = 4;
+pub const MAX_MODEL_CALLS_PER_TURN: usize = MODEL_CALLS_PER_BATCH * MAX_MODEL_CALL_BATCHES;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

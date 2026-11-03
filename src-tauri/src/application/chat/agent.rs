@@ -1,9 +1,9 @@
 //! The bounded turn loop.
 //!
 //! A turn alternates model calls and tool executions until the model answers
-//! without tools or [`MAX_MODEL_CALLS_PER_TURN`] is reached. The conversation is
-//! persisted once per turn, including every tool invocation, so the record the
-//! user reads is the record the model saw.
+//! without tools or [`MAX_MODEL_CALLS_PER_TURN`] is reached. Long turns are
+//! checkpointed in batches so database-wide analysis continues automatically
+//! without losing completed work.
 
 use super::provider::{self, ProviderToolCall};
 use super::store;
@@ -11,6 +11,7 @@ use super::tools;
 use super::{
     clear_cancelled, emit_chat_event, is_cancelled, ChatContext, ChatMessage, ChatRole,
     ChatSendRequest, ChatSession, ChatToolCall, ChatToolStatus, MAX_MODEL_CALLS_PER_TURN,
+    MODEL_CALLS_PER_BATCH,
 };
 use crate::ai_activity::AiActivityEvent;
 use crate::application::ai::resolve_model;
@@ -171,10 +172,20 @@ pub async fn run_turn(
         .await;
         session.messages[index].tool_calls = calls;
 
-        if round + 1 == MAX_MODEL_CALLS_PER_TURN {
+        let completed_calls = round + 1;
+        if completed_calls == MAX_MODEL_CALLS_PER_TURN {
             session.messages[index].notice = Some(format!(
-                "Stopped after {MAX_MODEL_CALLS_PER_TURN} model calls. Ask a narrower follow-up to continue."
+                "Stopped after {MAX_MODEL_CALLS_PER_TURN} model calls across automatic batches. Ask a follow-up to continue from the saved analysis."
             ));
+        } else if is_batch_boundary(completed_calls) {
+            persist(runtime, &session).await?;
+            log::debug!(
+                "AI chat session {} completed a {}-call batch; continuing automatically ({}/{})",
+                session.id,
+                MODEL_CALLS_PER_BATCH,
+                completed_calls,
+                MAX_MODEL_CALLS_PER_TURN,
+            );
         }
         session.updated_at = crate::ai_activity::now_iso8601();
     }
@@ -183,6 +194,10 @@ pub async fn run_turn(
     emit_finished(runtime, web_session_id, &request_id, &session.id);
     clear_cancelled(web_session_id, &request_id);
     Ok(session)
+}
+
+pub(crate) fn is_batch_boundary(completed_calls: usize) -> bool {
+    completed_calls > 0 && completed_calls % MODEL_CALLS_PER_BATCH == 0
 }
 
 fn emit_finished(
