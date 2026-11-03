@@ -1,13 +1,13 @@
 #[cfg(test)]
 mod tests {
     use crate::ai_approval::{
-        cleanup_expired_in, list_pending_in, new_approval_id, poll_decision_in,
+        cleanup_expired_in, clear_in, list_pending_in, new_approval_id, poll_decision_in,
         poll_decision_with_liveness_in, read_decision_in, read_pending_in, write_decision_in,
         write_pending_in, ApprovalDecision, PendingApproval, PollOutcome,
     };
+    use std::path::Path;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
-    use std::path::Path;
     use tempfile::TempDir;
     use tokio::time::Duration;
 
@@ -60,6 +60,18 @@ mod tests {
         let list = list_pending_in(tmp.path()).unwrap();
         assert_eq!(list.len(), 1);
         assert_eq!(list[0].id, "a");
+    }
+
+    #[test]
+    fn clear_in_removes_pending_and_decision() {
+        let tmp = TempDir::new().unwrap();
+        write_pending_in(tmp.path(), &make_pending("a")).unwrap();
+        write_decision_in(tmp.path(), &make_decision("a", "deny")).unwrap();
+        clear_in(tmp.path(), "a").unwrap();
+        assert!(read_pending_in(tmp.path(), "a").unwrap().is_none());
+        assert!(read_decision_in(tmp.path(), "a").unwrap().is_none());
+        // Clearing an id that never existed is a no-op.
+        clear_in(tmp.path(), "missing").unwrap();
     }
 
     #[test]
@@ -237,7 +249,8 @@ mod tests {
         let old_time = std::time::SystemTime::now()
             .checked_sub(Duration::from_secs(3600))
             .unwrap();
-        let _ = filetime::set_file_mtime(&stale_path, filetime::FileTime::from_system_time(old_time));
+        let _ =
+            filetime::set_file_mtime(&stale_path, filetime::FileTime::from_system_time(old_time));
         let deleted = cleanup_expired_in(tmp.path(), 60).unwrap();
         assert_eq!(deleted, 1);
         assert!(!stale_path.exists());

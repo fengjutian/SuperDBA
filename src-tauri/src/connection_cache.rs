@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 use crate::models::SavedConnection;
+use crate::sync_ext::lock;
 
 pub enum CacheLookup {
     Hit(SavedConnection),
@@ -31,7 +32,7 @@ impl ConnectionCache {
     /// Returns Cold when the cache has never been populated, Miss when it has
     /// been populated but the ID is absent, Hit when found.
     pub fn lookup(&self, id: &str) -> CacheLookup {
-        let guard = self.entries.lock().unwrap();
+        let guard = lock(&self.entries);
         match guard.as_ref() {
             None => CacheLookup::Cold,
             Some(map) => match map.get(id) {
@@ -47,11 +48,11 @@ impl ConnectionCache {
             .iter()
             .map(|c| (c.id.clone(), c.clone()))
             .collect();
-        *self.entries.lock().unwrap() = Some(map);
+        *lock(&self.entries) = Some(map);
     }
 
     /// Discard cached data. Must be called after any write to the connections file.
     pub fn invalidate(&self) {
-        *self.entries.lock().unwrap() = None;
+        *lock(&self.entries) = None;
     }
 }

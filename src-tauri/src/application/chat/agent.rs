@@ -34,7 +34,7 @@ pub async fn run_turn(
     }
     if !provider::supports_tool_calling(&request.provider) {
         return Err(format!(
-            "The {} provider does not support chat tools yet. Pick an OpenAI, Anthropic, DeepSeek, MiniMax, OpenRouter, Requesty, custom OpenAI-compatible, or Ollama model in Settings → AI.",
+            "The {} provider does not support chat tools yet. Pick an OpenAI, Anthropic, DeepSeek, MiniMax, OpenRouter, Requesty, custom OpenAI-compatible, or Ollama model in Settings 鈫?AI.",
             request.provider
         ));
     }
@@ -71,7 +71,7 @@ pub async fn run_turn(
     let system_prompt = system_prompt(&context);
     let tool_schemas = tools::definitions();
     let request_id = request.request_id.clone().unwrap_or_default();
-    clear_cancelled(&request_id);
+    clear_cancelled(web_session_id, &request_id);
 
     emit_chat_event(
         runtime,
@@ -84,12 +84,12 @@ pub async fn run_turn(
     );
 
     for round in 0..MAX_MODEL_CALLS_PER_TURN {
-        if is_cancelled(&request_id) {
+        if is_cancelled(web_session_id, &request_id) {
             let index = push_assistant(&mut session, String::new(), None);
             session.messages[index].notice = Some("Stopped by the user.".to_string());
             persist(runtime, &session).await?;
             emit_cancelled(runtime, web_session_id, &request_id, &session.id);
-            clear_cancelled(&request_id);
+            clear_cancelled(web_session_id, &request_id);
             return Ok(session);
         }
 
@@ -114,7 +114,7 @@ pub async fn run_turn(
                     }),
                 );
             },
-            &|| is_cancelled(&request_id),
+            &|| is_cancelled(web_session_id, &request_id),
         )
         .await;
 
@@ -125,7 +125,7 @@ pub async fn run_turn(
                 session.messages[index].notice = Some("Stopped by the user.".to_string());
                 persist(runtime, &session).await?;
                 emit_cancelled(runtime, web_session_id, &request_id, &session.id);
-                clear_cancelled(&request_id);
+                clear_cancelled(web_session_id, &request_id);
                 return Ok(session);
             }
             Err(error) => {
@@ -144,7 +144,7 @@ pub async fn run_turn(
                         "message": error,
                     }),
                 );
-                clear_cancelled(&request_id);
+                clear_cancelled(web_session_id, &request_id);
                 return Ok(session);
             }
         };
@@ -153,7 +153,7 @@ pub async fn run_turn(
         if reply.tool_calls.is_empty() {
             persist(runtime, &session).await?;
             emit_finished(runtime, web_session_id, &request_id, &session.id);
-            clear_cancelled(&request_id);
+            clear_cancelled(web_session_id, &request_id);
             return Ok(session);
         }
 
@@ -163,6 +163,7 @@ pub async fn run_turn(
             web_session_id,
             &context,
             &request_id,
+            &session.id,
             &reply.tool_calls,
         )
         .await;
@@ -178,7 +179,7 @@ pub async fn run_turn(
 
     persist(runtime, &session).await?;
     emit_finished(runtime, web_session_id, &request_id, &session.id);
-    clear_cancelled(&request_id);
+    clear_cancelled(web_session_id, &request_id);
     Ok(session)
 }
 
@@ -222,11 +223,12 @@ async fn execute_calls(
     web_session_id: Option<Uuid>,
     context: &ChatContext,
     request_id: &str,
+    chat_session_id: &str,
     calls: &[ProviderToolCall],
 ) -> Vec<ChatToolCall> {
     let mut executed = Vec::with_capacity(calls.len());
     for call in calls {
-        if is_cancelled(request_id) {
+        if is_cancelled(web_session_id, request_id) {
             break;
         }
         emit_chat_event(
@@ -241,15 +243,15 @@ async fn execute_calls(
             }),
         );
         let started = std::time::Instant::now();
-        let outcome = tools::execute(
+        let tool = tools::ToolCallContext {
             runtime,
             state,
             web_session_id,
-            context,
-            &call.name,
-            &call.arguments,
-        )
-        .await;
+            chat_session_id,
+            request_id,
+            chat: context,
+        };
+        let outcome = tools::execute(&tool, &call.name, &call.arguments).await;
         let (result, truncated) = bound_result(outcome.result, MAX_TOOL_RESULT_BYTES);
         let mut summary = outcome.summary;
         if truncated {
@@ -336,7 +338,7 @@ pub(crate) fn system_prompt(context: &ChatContext) -> String {
          Rules:\n\
          - Gather evidence with the tools before answering schema or data questions. Never invent table or column names.\n\
          - Use `list_tables` and `describe_table` to inspect structure, `run_query` for read-only SELECTs, and `explain_query` for plans.\n\
-         - Only read-only statements can run through the tools. If the user asks for a write, DDL, or administrative command, explain the change and offer the SQL for the editor instead.\n\
+         - Read-only statements run immediately. A single write or DDL statement is sent to the user for approval before it runs: explain the impact in one sentence first, and never try to batch several statements.\n\
          - Keep answers short and concrete. Put SQL in fenced ```sql blocks.\n\
          - Cite what you observed (row counts, columns, plan nodes) instead of guessing.\n\
          - When a tool fails, report the error and continue with what you know.\n",
@@ -400,7 +402,7 @@ fn bounded(text: &str, limit: usize) -> String {
         return text.to_string();
     }
     let mut value: String = text.chars().take(limit).collect();
-    value.push_str("\n… (truncated)");
+    value.push_str("\n鈥?(truncated)");
     value
 }
 

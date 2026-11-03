@@ -1,21 +1,44 @@
-//! Read-only database tools exposed to the agent.
+//! Database tools exposed to the agent.
 //!
 //! Execution reuses the application metadata and query services, so a tool call
 //! is subject to the same connection resolution, dialect handling, and
-//! cancellation as the editor. The read-only policy is enforced here rather
-//! than in the prompt: a write statement becomes a `denied` tool result.
+//! cancellation as the editor. Read-only statements run directly; a write or
+//! DDL statement is held behind the same file-queue approval gate the MCP
+//! server uses, and only runs after the user approves it.
 
-use super::{ChatContext, ChatToolStatus};
+use super::{emit_chat_event, is_cancelled, ChatContext, ChatToolStatus};
+use crate::ai_approval::{self, PendingApproval};
 use crate::application::metadata;
 use crate::application::queries::{self, QueryRequestScope, QueryResponsePolicy};
 use crate::runtime::{state::ApplicationState, RuntimeContext};
 use serde::Deserialize;
 use serde_json::{json, Value};
+use std::time::{Duration, Instant};
 use uuid::Uuid;
 
 pub const MAX_TABLES: usize = 200;
 pub const MAX_ROWS: u32 = 50;
 pub const DEFAULT_ROWS: u32 = 20;
+/// How long a chat tool waits for the user to approve a write.
+const APPROVAL_TIMEOUT: Duration = Duration::from_secs(180);
+const APPROVAL_POLL_INTERVAL: Duration = Duration::from_millis(200);
+
+/// Everything a tool needs: the runtime, the live turn identity, and the
+/// connection context the user is looking at.
+pub struct ToolCallContext<'a> {
+    pub runtime: &'a RuntimeContext,
+    pub state: &'a ApplicationState,
+    pub web_session_id: Option<Uuid>,
+    pub chat_session_id: &'a str,
+    pub request_id: &'a str,
+    pub chat: &'a ChatContext,
+}
+
+impl ToolCallContext<'_> {
+    fn cancelled(&self) -> bool {
+        is_cancelled(self.web_session_id, self.request_id)
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct ToolSchema {
@@ -87,7 +110,7 @@ pub fn definitions() -> Vec<ToolSchema> {
         },
         ToolSchema {
             name: "run_query",
-            description: "Run a single read-only SELECT statement and return at most 50 rows. Writes and DDL are refused.",
+            description: "Run one SQL statement and return at most 50 rows. A write or DDL statement is queued for the user's approval before it executes.",
             input_schema: json!({
                 "type": "object",
                 "properties": {
@@ -141,15 +164,8 @@ struct ExplainQueryArgs {
     analyze: bool,
 }
 
-pub async fn execute(
-    runtime: &RuntimeContext,
-    state: &ApplicationState,
-    session_id: Option<Uuid>,
-    context: &ChatContext,
-    name: &str,
-    arguments: &Value,
-) -> ToolOutcome {
-    let Some(connection_id) = context.connection_id.as_deref() else {
+pub async fn execute(tool: &ToolCallContext<'_>, name: &str, arguments: &Value) -> ToolOutcome {
+    let Some(connection_id) = tool.chat.connection_id.as_deref() else {
         return ToolOutcome::error(
             "No database connection is selected. Ask the user to open a connection first.",
         );
@@ -160,32 +176,24 @@ pub async fn execute(
                 Ok(args) => args,
                 Err(error) => return ToolOutcome::error(format!("Invalid arguments: {error}")),
             };
-            let schema = args.schema.or_else(|| context.schema.clone());
-            list_tables(
-                runtime,
-                session_id,
-                connection_id,
-                schema,
-                context.database.clone(),
-            )
-            .await
+            let schema = args.schema.or_else(|| tool.chat.schema.clone());
+            list_tables(tool, connection_id, schema, tool.chat.database.clone()).await
         }
         "describe_table" => {
             let args: DescribeTableArgs = match serde_json::from_value(arguments.clone()) {
                 Ok(args) => args,
                 Err(error) => return ToolOutcome::error(format!("Invalid arguments: {error}")),
             };
-            let schema = args.schema.or_else(|| context.schema.clone());
+            let schema = args.schema.or_else(|| tool.chat.schema.clone());
             if args.table.trim().is_empty() {
                 return ToolOutcome::error("`table` must not be empty.");
             }
             describe_table(
-                runtime,
-                session_id,
+                tool,
                 connection_id,
                 args.table,
                 schema,
-                context.database.clone(),
+                tool.chat.database.clone(),
             )
             .await
         }
@@ -194,27 +202,34 @@ pub async fn execute(
                 Ok(args) => args,
                 Err(error) => return ToolOutcome::error(format!("Invalid arguments: {error}")),
             };
-            run_query(runtime, state, session_id, context, connection_id, args).await
+            run_query(tool, connection_id, args).await
         }
         "explain_query" => {
             let args: ExplainQueryArgs = match serde_json::from_value(arguments.clone()) {
                 Ok(args) => args,
                 Err(error) => return ToolOutcome::error(format!("Invalid arguments: {error}")),
             };
-            explain_query(runtime, state, session_id, context, connection_id, args).await
+            explain_query(tool, connection_id, args).await
         }
         other => ToolOutcome::error(format!("Unknown tool: {other}")),
     }
 }
 
 async fn list_tables(
-    runtime: &RuntimeContext,
-    session_id: Option<Uuid>,
+    tool: &ToolCallContext<'_>,
     connection_id: &str,
     schema: Option<String>,
     database: Option<String>,
 ) -> ToolOutcome {
-    match metadata::get_tables(runtime, session_id, connection_id, schema, database).await {
+    match metadata::get_tables(
+        tool.runtime,
+        tool.web_session_id,
+        connection_id,
+        schema,
+        database,
+    )
+    .await
+    {
         Ok(tables) => {
             let total = tables.len();
             let names = tables
@@ -238,16 +253,15 @@ async fn list_tables(
 }
 
 async fn describe_table(
-    runtime: &RuntimeContext,
-    session_id: Option<Uuid>,
+    tool: &ToolCallContext<'_>,
     connection_id: &str,
     table: String,
     schema: Option<String>,
     database: Option<String>,
 ) -> ToolOutcome {
     let columns = metadata::get_columns(
-        runtime,
-        session_id,
+        tool.runtime,
+        tool.web_session_id,
         connection_id,
         table.clone(),
         schema.clone(),
@@ -255,8 +269,8 @@ async fn describe_table(
     )
     .await;
     let indexes = metadata::get_indexes(
-        runtime,
-        session_id,
+        tool.runtime,
+        tool.web_session_id,
         connection_id,
         table.clone(),
         schema.clone(),
@@ -264,8 +278,8 @@ async fn describe_table(
     )
     .await;
     let foreign_keys = metadata::get_foreign_keys(
-        runtime,
-        session_id,
+        tool.runtime,
+        tool.web_session_id,
         connection_id,
         table.clone(),
         schema,
@@ -306,56 +320,84 @@ async fn describe_table(
 }
 
 async fn run_query(
-    runtime: &RuntimeContext,
-    state: &ApplicationState,
-    session_id: Option<Uuid>,
-    context: &ChatContext,
+    tool: &ToolCallContext<'_>,
     connection_id: &str,
     args: RunQueryArgs,
 ) -> ToolOutcome {
-    if let Err(reason) = is_single_read_only_statement(&args.sql) {
-        return ToolOutcome::denied(reason);
-    }
     let limit = args.limit.unwrap_or(DEFAULT_ROWS).clamp(1, MAX_ROWS);
+    let (sql, approved) = match classify_statement(&args.sql) {
+        StatementClass::Rejected(reason) => return ToolOutcome::denied(reason),
+        StatementClass::ReadOnly => (args.sql, false),
+        StatementClass::Write(kind) => match request_approval(tool, &args.sql, kind).await {
+            ApprovalOutcome::Approved(sql) => match classify_statement(&sql) {
+                StatementClass::Rejected(reason) => return ToolOutcome::denied(reason),
+                _ => (sql, true),
+            },
+            ApprovalOutcome::Denied(reason) => return ToolOutcome::denied(reason),
+            ApprovalOutcome::Cancelled => return ToolOutcome::denied(
+                "The user stopped the turn before approving this statement. Nothing was executed.",
+            ),
+            ApprovalOutcome::TimedOut => {
+                return ToolOutcome::error("Timed out waiting for approval. Nothing was executed.")
+            }
+        },
+    };
+    execute_statement(tool, connection_id, sql, limit, approved).await
+}
+
+async fn execute_statement(
+    tool: &ToolCallContext<'_>,
+    connection_id: &str,
+    sql: String,
+    limit: u32,
+    approved: bool,
+) -> ToolOutcome {
     let scope = QueryRequestScope {
-        session_id,
+        session_id: tool.web_session_id,
         request_id: Some("ai-chat"),
     };
-    let started = std::time::Instant::now();
+    let started = Instant::now();
     let result = queries::execute_query(
-        runtime,
-        &state.query_cancellation,
+        tool.runtime,
+        &tool.state.query_cancellation,
         scope,
         QueryResponsePolicy::Unbounded,
         connection_id.to_string(),
-        args.sql,
+        sql,
         Some(limit),
         Some(1),
-        context.schema.clone(),
+        tool.chat.schema.clone(),
         None,
-        context.database.clone(),
+        tool.chat.database.clone(),
     )
     .await;
     match result {
         Ok(result) => {
             let row_count = result.rows.len();
             let truncated = result.truncated || row_count > limit as usize;
+            let is_result_set = !result.columns.is_empty();
+            let affected_rows = result.affected_rows;
             let rows = result
                 .rows
                 .into_iter()
                 .take(limit as usize)
                 .collect::<Vec<_>>();
-            let summary = format!(
-                "{row_count} rows returned in {} ms",
-                started.elapsed().as_millis()
-            );
+            let prefix = if approved { "Approved. " } else { "" };
+            let elapsed_ms = started.elapsed().as_millis();
+            let summary = if is_result_set {
+                format!("{prefix}{row_count} rows returned in {elapsed_ms} ms")
+            } else {
+                format!("{prefix}{affected_rows} rows affected in {elapsed_ms} ms")
+            };
             ToolOutcome::ok(
                 summary,
                 json!({
                     "columns": result.columns,
                     "rows": rows,
                     "rowCount": row_count,
+                    "affectedRows": affected_rows,
                     "truncated": truncated,
+                    "approved": approved,
                 }),
             )
         }
@@ -364,26 +406,23 @@ async fn run_query(
 }
 
 async fn explain_query(
-    runtime: &RuntimeContext,
-    state: &ApplicationState,
-    session_id: Option<Uuid>,
-    context: &ChatContext,
+    tool: &ToolCallContext<'_>,
     connection_id: &str,
     args: ExplainQueryArgs,
 ) -> ToolOutcome {
     let scope = QueryRequestScope {
-        session_id,
+        session_id: tool.web_session_id,
         request_id: Some("ai-chat"),
     };
     let result = queries::explain_query_plan(
-        runtime,
-        &state.query_cancellation,
+        tool.runtime,
+        &tool.state.query_cancellation,
         scope,
         connection_id.to_string(),
         args.sql,
         args.analyze,
-        context.schema.clone(),
-        context.database.clone(),
+        tool.chat.schema.clone(),
+        tool.chat.database.clone(),
     )
     .await;
     match result {
@@ -395,46 +434,203 @@ async fn explain_query(
     }
 }
 
-/// Accepts exactly one read-only statement.
-///
-/// The check runs on a copy with string literals and comments removed, so a
-/// semicolon inside a literal or a DML keyword inside a comment does not
-/// produce a false deny.
-pub(crate) fn is_single_read_only_statement(sql: &str) -> Result<(), String> {
+enum ApprovalOutcome {
+    Approved(String),
+    Denied(String),
+    Cancelled,
+    TimedOut,
+}
+
+/// Holds a write statement behind the same pending-approval queue the MCP
+/// server uses, so the approval modal, audit trail, and edited-query override
+/// apply unchanged.
+async fn request_approval(tool: &ToolCallContext<'_>, sql: &str, kind: &str) -> ApprovalOutcome {
+    let config_dir = tool.runtime.paths.config_dir().to_path_buf();
+    let approval_id = ai_approval::new_approval_id();
+    let pending = PendingApproval {
+        id: approval_id.clone(),
+        created_at: crate::ai_activity::now_iso8601(),
+        session_id: tool.chat_session_id.to_string(),
+        connection_id: tool.chat.connection_id.clone().unwrap_or_default(),
+        connection_name: tool
+            .chat
+            .connection_name
+            .clone()
+            .or_else(|| tool.chat.connection_id.clone())
+            .unwrap_or_default(),
+        database: tool.chat.database.clone(),
+        query: sql.to_string(),
+        query_kind: kind.to_string(),
+        client_hint: Some("SuperDBA chat".to_string()),
+        explain_plan: None,
+        explain_error: None,
+    };
+    if let Err(error) = ai_approval::write_pending_in(&config_dir, &pending) {
+        return ApprovalOutcome::Denied(format!("Could not request approval: {error}"));
+    }
+    if let Ok(payload) = serde_json::to_value(&pending) {
+        let emitted = match tool.web_session_id {
+            Some(session_id) => {
+                tool.runtime
+                    .events
+                    .emit_to(session_id, "ai://pending_approval", payload)
+            }
+            None => tool.runtime.events.emit("ai://pending_approval", payload),
+        };
+        if let Err(error) = emitted {
+            log::warn!("Failed to emit the pending chat approval: {error}");
+        }
+    }
+    emit_chat_event(
+        tool.runtime,
+        tool.web_session_id,
+        json!({
+            "type": "approvalRequired",
+            "requestId": tool.request_id,
+            "approvalId": approval_id,
+            "query": sql,
+            "queryKind": kind,
+        }),
+    );
+    let started = Instant::now();
+    loop {
+        if tool.cancelled() {
+            let _ = ai_approval::clear_in(&config_dir, &approval_id);
+            emit_chat_event(
+                tool.runtime,
+                tool.web_session_id,
+                json!({
+                    "type": "approvalResolved",
+                    "requestId": tool.request_id,
+                    "approvalId": approval_id,
+                    "decision": "cancelled",
+                }),
+            );
+            return ApprovalOutcome::Cancelled;
+        }
+        match ai_approval::read_decision_in(&config_dir, &approval_id) {
+            Ok(Some(decision)) => {
+                let _ = ai_approval::clear_in(&config_dir, &approval_id);
+                emit_chat_event(
+                    tool.runtime,
+                    tool.web_session_id,
+                    json!({
+                        "type": "approvalResolved",
+                        "requestId": tool.request_id,
+                        "approvalId": approval_id,
+                        "decision": decision.decision,
+                    }),
+                );
+                if decision.decision == "approve" {
+                    return ApprovalOutcome::Approved(
+                        decision.edited_query.unwrap_or_else(|| sql.to_string()),
+                    );
+                }
+                return ApprovalOutcome::Denied(
+                    decision
+                        .reason
+                        .unwrap_or_else(|| "The user denied this statement.".to_string()),
+                );
+            }
+            Ok(None) => {}
+            Err(error) => {
+                let _ = ai_approval::clear_in(&config_dir, &approval_id);
+                return ApprovalOutcome::Denied(format!("Approval failed: {error}"));
+            }
+        }
+        if started.elapsed() >= APPROVAL_TIMEOUT {
+            let _ = ai_approval::clear_in(&config_dir, &approval_id);
+            emit_chat_event(
+                tool.runtime,
+                tool.web_session_id,
+                json!({
+                    "type": "approvalResolved",
+                    "requestId": tool.request_id,
+                    "approvalId": approval_id,
+                    "decision": "timeout",
+                }),
+            );
+            return ApprovalOutcome::TimedOut;
+        }
+        tokio::time::sleep(APPROVAL_POLL_INTERVAL).await;
+    }
+}
+
+/// How the chat tool will treat a statement.
+pub(crate) enum StatementClass {
+    ReadOnly,
+    Write(&'static str),
+    Rejected(String),
+}
+
+const WRITE_KEYWORDS: [&str; 14] = [
+    "INSERT", "UPDATE", "DELETE", "REPLACE", "MERGE", "CREATE", "DROP", "ALTER", "TRUNCATE",
+    "GRANT", "REVOKE", "COPY", "CALL", "VACUUM",
+];
+
+/// Classifies a statement for the chat tool. The check runs on a copy with
+/// string literals and comments removed, so a semicolon inside a literal or a
+/// DML keyword inside a comment does not change the verdict.
+pub(crate) fn classify_statement(sql: &str) -> StatementClass {
     let stripped = strip_sql_noise(sql);
     let trimmed = stripped.trim();
-    let without_trailing = trimmed.trim_end_matches(';').trim_end();
     if trimmed.is_empty() {
-        return Err("The statement is empty.".to_string());
+        return StatementClass::Rejected("The statement is empty.".to_string());
     }
+    let without_trailing = trimmed.trim_end_matches(';').trim_end();
     if without_trailing.contains(';') {
-        return Err(
+        return StatementClass::Rejected(
             "Only one statement can run through chat. Run multiple statements in the editor."
                 .to_string(),
         );
     }
     let words = words_of(without_trailing);
     let Some(first) = words.first() else {
-        return Err("The statement is empty.".to_string());
+        return StatementClass::Rejected("The statement is empty.".to_string());
     };
-    match first.as_str() {
-        "SELECT" => Ok(()),
-        "WITH" => {
-            const WRITES: [&str; 11] = [
-                "INSERT", "UPDATE", "DELETE", "MERGE", "CREATE", "DROP", "ALTER", "TRUNCATE",
-                "GRANT", "REVOKE", "COPY",
-            ];
-            if words.iter().any(|word| WRITES.contains(&word.as_str())) {
-                return Err(
-                    "`WITH` is only allowed for read-only queries. Write operations must run in the editor."
-                        .to_string(),
-                );
-            }
-            Ok(())
+    if first == "SELECT" {
+        return StatementClass::ReadOnly;
+    }
+    if first == "WITH" {
+        let writes = words
+            .iter()
+            .any(|word| WRITE_KEYWORDS.contains(&word.as_str()));
+        return if writes {
+            StatementClass::Write("WITH (data change)")
+        } else {
+            StatementClass::ReadOnly
+        };
+    }
+    if WRITE_KEYWORDS.contains(&first.as_str()) {
+        return StatementClass::Write(statement_kind(first));
+    }
+    StatementClass::Rejected(format!(
+        "Chat cannot run `{first}`. Supported: a read-only SELECT, or one write statement that the user approves."
+    ))
+}
+
+fn statement_kind(word: &str) -> &'static str {
+    match word {
+        "INSERT" => "INSERT",
+        "UPDATE" => "UPDATE",
+        "DELETE" => "DELETE",
+        "REPLACE" => "REPLACE",
+        "MERGE" => "MERGE",
+        "CREATE" | "DROP" | "ALTER" | "TRUNCATE" => "DDL",
+        "GRANT" | "REVOKE" => "PRIVILEGES",
+        "COPY" | "CALL" | "VACUUM" => "ADMIN",
+        _ => "WRITE",
+    }
+}
+
+/// Kept for callers that only need the read-only verdict (tests, docs).
+pub(crate) fn is_single_read_only_statement(sql: &str) -> Result<(), String> {
+    match classify_statement(sql) {
+        StatementClass::ReadOnly => Ok(()),
+        StatementClass::Write(_) => {
+            Err("Chat can only run read-only SELECT statements without approval.".to_string())
         }
-        _ => Err(format!(
-            "Chat can only run read-only SELECT statements; `{first}` is not allowed. Use the editor for writes and DDL."
-        )),
+        StatementClass::Rejected(reason) => Err(reason),
     }
 }
 

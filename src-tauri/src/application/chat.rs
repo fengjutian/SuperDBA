@@ -148,31 +148,42 @@ pub enum ChatCommand {
     Cancel { request_id: String },
 }
 
-/// Request ids that the user asked to stop. The flag is checked between stream
-/// chunks, before every tool call, and before every model call, so a cancelled
-/// turn persists its partial transcript instead of disappearing.
+/// Request ids that the user asked to stop. The key includes the transport
+/// session, so a browser session cannot stop another session's turn even if it
+/// learns a request id. The flag is checked between stream chunks, before every
+/// tool call, and before every model call, so a cancelled turn persists its
+/// partial transcript instead of disappearing.
 static CANCELLED_REQUESTS: once_cell::sync::Lazy<
     std::sync::Mutex<std::collections::HashSet<String>>,
 > = once_cell::sync::Lazy::new(Default::default);
 
-pub(crate) fn is_cancelled(request_id: &str) -> bool {
+/// Desktop callers share the `desktop` scope; web callers are scoped to their
+/// authenticated session id.
+pub(crate) fn cancellation_key(web_session_id: Option<Uuid>, request_id: &str) -> String {
+    match web_session_id {
+        Some(session_id) => format!("{session_id}:{request_id}"),
+        None => format!("desktop:{request_id}"),
+    }
+}
+
+pub(crate) fn is_cancelled(web_session_id: Option<Uuid>, request_id: &str) -> bool {
     if request_id.is_empty() {
         return false;
     }
     CANCELLED_REQUESTS
         .lock()
         .unwrap_or_else(|error| error.into_inner())
-        .contains(request_id)
+        .contains(&cancellation_key(web_session_id, request_id))
 }
 
-pub(crate) fn clear_cancelled(request_id: &str) {
+pub(crate) fn clear_cancelled(web_session_id: Option<Uuid>, request_id: &str) {
     if request_id.is_empty() {
         return;
     }
     CANCELLED_REQUESTS
         .lock()
         .unwrap_or_else(|error| error.into_inner())
-        .remove(request_id);
+        .remove(&cancellation_key(web_session_id, request_id));
 }
 
 pub(crate) fn emit_chat_event(
@@ -226,7 +237,7 @@ pub async fn execute(
             CANCELLED_REQUESTS
                 .lock()
                 .unwrap_or_else(|error| error.into_inner())
-                .insert(request_id);
+                .insert(cancellation_key(web_session_id, &request_id));
             Ok(Value::Null)
         }
     }

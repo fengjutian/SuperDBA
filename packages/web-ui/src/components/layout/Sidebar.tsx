@@ -1,7 +1,17 @@
 import {lazy, Suspense, useState, useEffect, useMemo, useCallback, useRef} from 'react';
 import {useNavigate, useLocation} from 'react-router-dom';
 import {useTranslation} from 'react-i18next';
-import {Plug2, Settings, Cpu, PanelLeft, Layers, Star, Clock, BookOpen, Bot} from 'lucide-react';
+import {
+    Plug2,
+    Settings,
+    Cpu,
+    PanelLeft,
+    Layers,
+    Star,
+    Clock,
+    BookOpen,
+    Sparkles,
+} from 'lucide-react';
 import {useDatabase} from '@/hooks/useDatabase';
 import {useRightSidebar} from '@/hooks/useRightSidebar';
 import {SlotAnchor} from '@/components/ui/SlotAnchor';
@@ -383,7 +393,7 @@ export const Sidebar = () => {
                         title={t('sidebar.chat', {defaultValue: 'DBA chat'})}
                         className="flex items-center justify-center w-12 h-12 rounded-lg transition-colors mb-2 text-muted hover:bg-surface-secondary hover:text-primary"
                     >
-                        <Bot size={24} />
+                        <Sparkles size={24} />
                     </button>
 
                     <NavItem to="/mcp" icon={Cpu} label={t('sidebar.mcpServer')} />

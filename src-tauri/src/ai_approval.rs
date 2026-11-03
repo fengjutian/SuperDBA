@@ -154,6 +154,17 @@ pub fn read_decision_in(base: &Path, id: &str) -> Result<Option<ApprovalDecision
         .map_err(|e| e.to_string())
 }
 
+/// Removes both files for `id`. Called when an in-process caller stops waiting
+/// (timeout, cancellation) so the modal does not keep offering a dead approval.
+pub fn clear_in(base: &Path, id: &str) -> Result<(), String> {
+    let _ = fs::remove_file(decision_file(base, id));
+    match fs::remove_file(pending_file(base, id)) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
 /// Async polling helper. Returns `Ok(Some(decision))` once a decision file
 /// is written, or `Ok(None)` if `timeout_secs` elapses with none.
 ///
@@ -165,10 +176,8 @@ pub async fn poll_decision_in(
     timeout_secs: u64,
     poll_interval_ms: u64,
 ) -> Result<Option<ApprovalDecision>, String> {
-    match poll_decision_with_liveness_in(base, approval_id, timeout_secs, poll_interval_ms, || {
-        true
-    })
-    .await?
+    match poll_decision_with_liveness_in(base, approval_id, timeout_secs, poll_interval_ms, || true)
+        .await?
     {
         PollOutcome::Decided(d) => Ok(Some(d)),
         PollOutcome::TimedOut => Ok(None),

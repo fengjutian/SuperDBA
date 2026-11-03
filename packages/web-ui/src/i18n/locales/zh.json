@@ -2788,6 +2788,10 @@
     "arguments": "参数",
     "result": "结果",
     "copySql": "复制 SQL",
+    "insertSql": "插入编辑器",
+    "inserted": "已插入",
+    "waitingApproval": "等待审批：{{kind}}",
+    "approvalHint": "请在审批弹窗中批准或拒绝；只有批准后才会执行该语句。",
     "copied": "已复制"
   }
 }

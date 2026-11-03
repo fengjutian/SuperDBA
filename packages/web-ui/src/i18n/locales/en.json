@@ -2957,6 +2957,10 @@
     "arguments": "Arguments",
     "result": "Result",
     "copySql": "Copy SQL",
+    "insertSql": "Insert into editor",
+    "inserted": "Inserted",
+    "waitingApproval": "Waiting for approval: {{kind}}",
+    "approvalHint": "Approve or deny it in the approval dialog. The statement runs only after you approve.",
     "copied": "Copied"
   }
 }

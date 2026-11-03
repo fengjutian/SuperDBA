@@ -1,8 +1,7 @@
-import {useMemo, useRef, useState, useEffect} from 'react';
+import {useMemo, useRef, useState, useEffect, useCallback} from 'react';
 import Markdown from 'react-markdown';
 import {useTranslation} from 'react-i18next';
 import {
-    Bot,
     ChevronDown,
     ChevronRight,
     MessageSquarePlus,
@@ -16,6 +15,7 @@ import {
 } from 'lucide-react';
 import {useChatAgent} from '@/hooks/useChat';
 import {useDatabase} from '@/hooks/useDatabase';
+import {useEditor} from '@/hooks/useEditor';
 import {useRightSidebar} from '@/hooks/useRightSidebar';
 import {useSettings} from '@/hooks/useSettings';
 import {extractSqlBlock, formatToolResult} from '@/utils/chat';
@@ -73,10 +73,17 @@ function ToolCallRow({call}: {call: ChatToolCall}) {
     );
 }
 
-function MessageBubble({message}: {message: ChatMessage}) {
+function MessageBubble({
+    message,
+    onInsert,
+}: {
+    message: ChatMessage;
+    onInsert: (sql: string) => void;
+}) {
     const {t} = useTranslation();
     const sql = message.role === 'assistant' ? extractSqlBlock(message.content) : null;
     const [copied, setCopied] = useState(false);
+    const [inserted, setInserted] = useState(false);
 
     const copySql = async () => {
         if (!sql) return;
@@ -99,15 +106,30 @@ function MessageBubble({message}: {message: ChatMessage}) {
                 <Markdown>{message.content}</Markdown>
             </div>
             {sql && (
-                <button
-                    type="button"
-                    onClick={copySql}
-                    className="text-[11px] text-accent-primary hover:underline"
-                >
-                    {copied
-                        ? t('chat.copied', {defaultValue: 'Copied'})
-                        : t('chat.copySql', {defaultValue: 'Copy SQL'})}
-                </button>
+                <div className="flex items-center gap-3">
+                    <button
+                        type="button"
+                        onClick={copySql}
+                        className="text-[11px] text-accent-primary hover:underline"
+                    >
+                        {copied
+                            ? t('chat.copied', {defaultValue: 'Copied'})
+                            : t('chat.copySql', {defaultValue: 'Copy SQL'})}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            onInsert(sql);
+                            setInserted(true);
+                            window.setTimeout(() => setInserted(false), 1500);
+                        }}
+                        className="text-[11px] text-accent-primary hover:underline"
+                    >
+                        {inserted
+                            ? t('chat.inserted', {defaultValue: 'Inserted'})
+                            : t('chat.insertSql', {defaultValue: 'Insert into editor'})}
+                    </button>
+                </div>
             )}
             {message.toolCalls && message.toolCalls.length > 0 && (
                 <div className="space-y-1">
@@ -128,6 +150,7 @@ function MessageBubble({message}: {message: ChatMessage}) {
 export function ChatPanel() {
     const {t} = useTranslation();
     const {close} = useRightSidebar();
+    const {activeTab, updateTab, addTab} = useEditor();
     const {activeConnectionId, activeSchema, activeDatabaseName, connections} = useDatabase();
     const {settings} = useSettings();
     const {
@@ -147,6 +170,32 @@ export function ChatPanel() {
     const [input, setInput] = useState('');
     const [showSessions, setShowSessions] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
+
+    /**
+     * Appends the SQL to the active editor tab, or opens a new console tab when
+     * the active tab is not a SQL editor (table/users/notebook).
+     */
+    const insertSql = useCallback(
+        (sql: string) => {
+            const editable =
+                activeTab &&
+                activeTab.type !== 'table' &&
+                activeTab.type !== 'users' &&
+                activeTab.type !== 'notebook';
+            if (!activeTab || !editable) {
+                addTab({query: sql});
+                return;
+            }
+            const existing = activeTab.query?.trim() ?? '';
+            if (!existing) {
+                updateTab(activeTab.id, {query: sql});
+                return;
+            }
+            const separator = existing.endsWith(';') ? '\n\n' : ';\n\n';
+            updateTab(activeTab.id, {query: `${existing}${separator}${sql}`});
+        },
+        [activeTab, addTab, updateTab],
+    );
 
     const messages = session?.messages ?? [];
 
@@ -174,7 +223,7 @@ export function ChatPanel() {
     return (
         <div className="flex flex-col h-full min-h-0">
             <header className="flex items-center gap-2 px-3 py-2 border-b border-default">
-                <Bot size={16} className="text-accent-primary" />
+                <Sparkles size={16} className="text-accent-primary" />
                 <h2 className="text-sm font-semibold text-primary flex-1">
                     {t('chat.title', {defaultValue: 'DBA chat'})}
                 </h2>
@@ -286,7 +335,11 @@ export function ChatPanel() {
                         {messages
                             .filter((message) => message.role !== 'system')
                             .map((message) => (
-                                <MessageBubble key={message.id} message={message} />
+                                <MessageBubble
+                                    key={message.id}
+                                    message={message}
+                                    onInsert={insertSql}
+                                />
                             ))}
                         {stream && (
                             <div className="max-w-full space-y-2">
@@ -305,6 +358,25 @@ export function ChatPanel() {
                                         {stream.tools.map((call) => (
                                             <ToolCallRow key={call.id} call={call} />
                                         ))}
+                                    </div>
+                                )}
+                                {stream.awaitingApproval && (
+                                    <div className="border border-accent-warning/40 bg-accent-warning/10 rounded px-2 py-1.5 space-y-1">
+                                        <div className="text-[11px] text-accent-warning">
+                                            {t('chat.waitingApproval', {
+                                                defaultValue: 'Waiting for approval: {{kind}}',
+                                                kind: stream.awaitingApproval.queryKind,
+                                            })}
+                                        </div>
+                                        <pre className="text-[11px] font-mono bg-base border border-default rounded p-1.5 overflow-x-auto max-h-24">
+                                            {stream.awaitingApproval.query}
+                                        </pre>
+                                        <div className="text-[10px] text-muted">
+                                            {t('chat.approvalHint', {
+                                                defaultValue:
+                                                    'Approve or deny it in the approval dialog. The statement runs only after you approve.',
+                                            })}
+                                        </div>
                                     </div>
                                 )}
                                 {stream.cancelled && (

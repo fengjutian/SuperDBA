@@ -30,10 +30,12 @@ export interface ChatStreamState {
     text: string;
     tools: ChatToolCall[];
     cancelled: boolean;
+    /** Set while a write statement waits for the approval dialog. */
+    awaitingApproval?: {approvalId: string; query: string; queryKind: string} | null;
 }
 
 function emptyStream(requestId: string): ChatStreamState {
-    return {requestId, text: '', tools: [], cancelled: false};
+    return {requestId, text: '', tools: [], cancelled: false, awaitingApproval: null};
 }
 
 /**
@@ -73,6 +75,7 @@ export function reduceChatStream(
             if (!current) return current;
             return {
                 ...current,
+                awaitingApproval: null,
                 tools: current.tools.map((tool) =>
                     tool.id === event.callId
                         ? {
@@ -84,6 +87,21 @@ export function reduceChatStream(
                         : tool,
                 ),
             };
+        }
+        case 'approvalRequired': {
+            const base = current ?? emptyStream(event.requestId);
+            return {
+                ...base,
+                awaitingApproval: {
+                    approvalId: event.approvalId,
+                    query: event.query,
+                    queryKind: event.queryKind,
+                },
+            };
+        }
+        case 'approvalResolved': {
+            if (!current) return current;
+            return {...current, awaitingApproval: null};
         }
         case 'cancelled':
             return current ? {...current, cancelled: true} : current;

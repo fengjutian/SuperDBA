@@ -8,6 +8,8 @@ use std::sync::{Arc, Mutex};
 
 use tokio::task::AbortHandle;
 
+use crate::sync_ext::lock;
+
 /// Per-slot collection of abort handles for in-flight cancellable tasks.
 /// Used by `QueryCancellationState`, `ExportCancellationState`, and
 /// `DumpCancellationState`.
@@ -37,7 +39,7 @@ pub(crate) fn register_abort_handle(
     key: String,
     handle: Arc<AbortHandle>,
 ) {
-    let mut guard = handles.lock().unwrap();
+    let mut guard = lock(handles);
     let entry = guard.entry(key).or_default();
     entry.retain(|h| !h.is_finished());
     entry.push(handle);
@@ -51,7 +53,7 @@ pub(crate) fn unregister_abort_handle(
     key: &str,
     handle: &Arc<AbortHandle>,
 ) {
-    let mut guard = handles.lock().unwrap();
+    let mut guard = lock(handles);
     if let Some(entry) = guard.get_mut(key) {
         entry.retain(|h| !Arc::ptr_eq(h, handle));
         if entry.is_empty() {

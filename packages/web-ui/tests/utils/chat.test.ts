@@ -47,7 +47,13 @@ describe('chat utils', () => {
                 requestId: 'r1',
                 sessionId: 's1',
             });
-            expect(state).toEqual({requestId: 'r1', text: '', tools: [], cancelled: false});
+            expect(state).toEqual({
+                requestId: 'r1',
+                text: '',
+                tools: [],
+                cancelled: false,
+                awaitingApproval: null,
+            });
         });
 
         it('appends deltas in order', () => {
@@ -115,6 +121,29 @@ describe('chat utils', () => {
                 sessionId: 's1',
             });
             expect(state).toMatchObject({text: 'partial', cancelled: true});
+        });
+
+        it('tracks the approval gate for write statements', () => {
+            let state = reduceChatStream(null, {
+                type: 'approvalRequired',
+                requestId: 'r1',
+                approvalId: 'a1',
+                query: 'DELETE FROM users WHERE id = 1',
+                queryKind: 'DELETE',
+            });
+            expect(state?.awaitingApproval).toEqual({
+                approvalId: 'a1',
+                query: 'DELETE FROM users WHERE id = 1',
+                queryKind: 'DELETE',
+            });
+
+            state = reduceChatStream(state, {
+                type: 'approvalResolved',
+                requestId: 'r1',
+                approvalId: 'a1',
+                decision: 'approve',
+            });
+            expect(state?.awaitingApproval).toBeNull();
         });
 
         it('ignores finished events without a draft', () => {

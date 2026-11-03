@@ -100,4 +100,17 @@ export type ChatEvent =
       }
     | {type: 'finished'; requestId: string; sessionId: string}
     | {type: 'cancelled'; requestId: string; sessionId: string}
-    | {type: 'failed'; requestId: string; sessionId: string; message: string};
+    | {type: 'failed'; requestId: string; sessionId: string; message: string}
+    | {
+          type: 'approvalRequired';
+          requestId: string;
+          approvalId: string;
+          query: string;
+          queryKind: string;
+      }
+    | {
+          type: 'approvalResolved';
+          requestId: string;
+          approvalId: string;
+          decision: string;
+      };

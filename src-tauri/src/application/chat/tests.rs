@@ -1,8 +1,10 @@
 use super::agent::{bound_result, system_prompt};
 use super::provider;
 use super::store;
-use super::tools::is_single_read_only_statement;
-use super::{ChatContext, ChatMessage, ChatRole, ChatSession, ChatToolCall, ChatToolStatus};
+use super::tools::{classify_statement, is_single_read_only_statement, StatementClass};
+use super::{
+    cancellation_key, ChatContext, ChatMessage, ChatRole, ChatSession, ChatToolCall, ChatToolStatus,
+};
 use serde_json::json;
 
 fn message(role: ChatRole, content: &str) -> ChatMessage {
@@ -86,6 +88,52 @@ fn rejects_multi_statement_and_writes() {
     assert!(is_single_read_only_statement("DELETE FROM users").is_err());
     assert!(is_single_read_only_statement("WITH a AS (SELECT 1) DELETE FROM users").is_err());
     assert!(is_single_read_only_statement("").is_err());
+}
+
+#[test]
+fn classifies_writes_for_the_approval_gate() {
+    assert!(matches!(
+        classify_statement("SELECT 1"),
+        StatementClass::ReadOnly
+    ));
+    assert!(matches!(
+        classify_statement("DELETE FROM users"),
+        StatementClass::Write("DELETE")
+    ));
+    assert!(matches!(
+        classify_statement("CREATE TABLE t (id int)"),
+        StatementClass::Write("DDL")
+    ));
+    assert!(matches!(
+        classify_statement("WITH a AS (SELECT 1) DELETE FROM users"),
+        StatementClass::Write(_)
+    ));
+    assert!(matches!(
+        classify_statement("SHOW TABLES"),
+        StatementClass::Rejected(_)
+    ));
+    assert!(matches!(
+        classify_statement("SELECT 1; SELECT 2"),
+        StatementClass::Rejected(_)
+    ));
+}
+
+#[test]
+fn cancellation_keys_are_scoped_to_the_transport_session() {
+    let first = uuid::Uuid::new_v4();
+    let second = uuid::Uuid::new_v4();
+    assert_ne!(
+        cancellation_key(Some(first), "request"),
+        cancellation_key(Some(second), "request")
+    );
+    assert_ne!(
+        cancellation_key(Some(first), "request"),
+        cancellation_key(None, "request")
+    );
+    assert_eq!(
+        cancellation_key(None, "request"),
+        "desktop:request".to_string()
+    );
 }
 
 #[test]
