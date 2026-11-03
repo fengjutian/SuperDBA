@@ -234,6 +234,32 @@ fn system_prompt_carries_connection_context() {
 }
 
 #[test]
+fn chat_tools_expose_pagination_and_batch_schema_inspection() {
+    let definitions = tools::definitions();
+    let list_tables = definitions
+        .iter()
+        .find(|tool| tool.name == "list_tables")
+        .expect("list_tables is registered");
+    assert_eq!(
+        list_tables.input_schema["properties"]["offset"]["minimum"],
+        json!(0)
+    );
+    assert_eq!(
+        list_tables.input_schema["properties"]["limit"]["maximum"],
+        json!(50)
+    );
+
+    let describe_tables = definitions
+        .iter()
+        .find(|tool| tool.name == "describe_tables")
+        .expect("describe_tables is registered");
+    assert_eq!(
+        describe_tables.input_schema["properties"]["tables"]["maxItems"],
+        json!(5)
+    );
+}
+
+#[test]
 fn openai_body_encodes_tool_calls_and_results() {
     let mut assistant = message(ChatRole::Assistant, "");
     assistant.tool_calls.push(ChatToolCall {
