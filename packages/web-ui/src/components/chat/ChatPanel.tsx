@@ -356,6 +356,15 @@ export function ChatPanel() {
                                         ))}
                                     </div>
                                 )}
+                                {stream.batchProgress && (
+                                    <div className="rounded border border-accent-info/40 bg-accent-info/10 px-2 py-1 text-[11px] text-accent-info">
+                                        {t('chat.batchProgress', {
+                                            defaultValue:
+                                                'Batch {{completedBatch}}/{{totalBatches}} complete - {{completedCalls}}/{{totalCalls}} model calls',
+                                            ...stream.batchProgress,
+                                        })}
+                                    </div>
+                                )}
                                 {stream.awaitingApproval && (
                                     <div className="border border-accent-warning/40 bg-accent-warning/10 rounded px-2 py-1.5 space-y-1">
                                         <div className="text-[11px] text-accent-warning">

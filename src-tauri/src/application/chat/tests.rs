@@ -1,4 +1,6 @@
-use super::agent::{bound_result, build_audit_event, is_batch_boundary, system_prompt};
+use super::agent::{
+    bound_result, build_audit_event, is_batch_boundary, messages_for_model, system_prompt,
+};
 use super::provider::{self, ProviderToolCall};
 use super::store;
 use super::tools::{self, classify_statement, is_single_read_only_statement, StatementClass};
@@ -239,6 +241,36 @@ fn long_turns_checkpoint_at_batch_boundaries() {
     assert!(!is_batch_boundary(MODEL_CALLS_PER_BATCH - 1));
     assert!(is_batch_boundary(MODEL_CALLS_PER_BATCH));
     assert!(is_batch_boundary(MODEL_CALLS_PER_BATCH * 2));
+}
+
+#[test]
+fn old_tool_results_are_compacted_only_for_model_replay() {
+    let mut messages = Vec::new();
+    for index in 0..=MODEL_CALLS_PER_BATCH {
+        let mut assistant = message(ChatRole::Assistant, "Checking.");
+        assistant.id = format!("message-{index}");
+        assistant.tool_calls.push(ChatToolCall {
+            id: format!("call-{index}"),
+            name: "run_query".to_string(),
+            arguments: json!({"sql": format!("SELECT {index}")}),
+            status: ChatToolStatus::Ok,
+            duration_ms: 1,
+            summary: format!("result {index}"),
+            result: Some(json!({"rows": [[index]]})),
+        });
+        messages.push(assistant);
+    }
+
+    let replay = messages_for_model(&messages);
+    assert_eq!(
+        messages[0].tool_calls[0].result,
+        Some(json!({"rows": [[0]]}))
+    );
+    assert_eq!(
+        replay[0].tool_calls[0].result.as_ref().unwrap()["compacted"],
+        json!(true)
+    );
+    assert_eq!(replay[1].tool_calls[0].result, Some(json!({"rows": [[1]]})));
 }
 
 #[test]

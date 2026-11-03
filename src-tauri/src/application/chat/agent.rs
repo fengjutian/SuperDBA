@@ -96,15 +96,29 @@ pub async fn run_turn(
             return Ok(session);
         }
 
+        let final_report = round + 1 == MAX_MODEL_CALLS_PER_TURN;
+        let request_prompt = if final_report {
+            format!(
+                "{system_prompt}\nFinal batch instruction:\n- Do not call tools. Summarize completed coverage, evidence-backed findings, unfinished scope, and the exact next step for a follow-up."
+            )
+        } else {
+            system_prompt.clone()
+        };
+        let model_messages = messages_for_model(&session.messages);
+        let request_tools = if final_report {
+            &[]
+        } else {
+            tool_schemas.as_slice()
+        };
         let reply = provider::complete_streaming(
             runtime,
             &state.credential_cache,
             &config,
             &request.provider,
             &model,
-            &system_prompt,
-            &session.messages,
-            &tool_schemas,
+            &request_prompt,
+            &model_messages,
+            request_tools,
             &mut |delta| {
                 emit_chat_event(
                     runtime,
@@ -179,6 +193,19 @@ pub async fn run_turn(
             ));
         } else if is_batch_boundary(completed_calls) {
             persist(runtime, &session).await?;
+            emit_chat_event(
+                runtime,
+                web_session_id,
+                json!({
+                    "type": "batchProgress",
+                    "requestId": request_id,
+                    "sessionId": session.id,
+                    "completedBatch": completed_calls / MODEL_CALLS_PER_BATCH,
+                    "totalBatches": super::MAX_MODEL_CALL_BATCHES,
+                    "completedCalls": completed_calls,
+                    "totalCalls": MAX_MODEL_CALLS_PER_TURN,
+                }),
+            );
             log::debug!(
                 "AI chat session {} completed a {}-call batch; continuing automatically ({}/{})",
                 session.id,
@@ -198,6 +225,34 @@ pub async fn run_turn(
 
 pub(crate) fn is_batch_boundary(completed_calls: usize) -> bool {
     completed_calls > 0 && completed_calls % MODEL_CALLS_PER_BATCH == 0
+}
+
+pub(crate) fn messages_for_model(messages: &[ChatMessage]) -> Vec<ChatMessage> {
+    let tool_turns = messages
+        .iter()
+        .filter(|message| !message.tool_calls.is_empty())
+        .count();
+    let compact_before = tool_turns.saturating_sub(MODEL_CALLS_PER_BATCH);
+    let mut seen_tool_turns = 0;
+    messages
+        .iter()
+        .cloned()
+        .map(|mut message| {
+            if !message.tool_calls.is_empty() {
+                if seen_tool_turns < compact_before {
+                    for call in &mut message.tool_calls {
+                        call.result = Some(json!({
+                            "compacted": true,
+                            "status": call.status,
+                            "summary": call.summary,
+                        }));
+                    }
+                }
+                seen_tool_turns += 1;
+            }
+            message
+        })
+        .collect()
 }
 
 fn emit_finished(

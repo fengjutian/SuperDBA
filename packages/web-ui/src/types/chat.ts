@@ -100,6 +100,15 @@ export type ChatEvent =
       }
     | {type: 'finished'; requestId: string; sessionId: string}
     | {type: 'cancelled'; requestId: string; sessionId: string}
+    | {
+          type: 'batchProgress';
+          requestId: string;
+          sessionId: string;
+          completedBatch: number;
+          totalBatches: number;
+          completedCalls: number;
+          totalCalls: number;
+      }
     | {type: 'failed'; requestId: string; sessionId: string; message: string}
     | {
           type: 'approvalRequired';

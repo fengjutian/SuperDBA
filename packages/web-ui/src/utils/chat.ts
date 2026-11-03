@@ -30,6 +30,12 @@ export interface ChatStreamState {
     text: string;
     tools: ChatToolCall[];
     cancelled: boolean;
+    batchProgress?: {
+        completedBatch: number;
+        totalBatches: number;
+        completedCalls: number;
+        totalCalls: number;
+    };
     /** Set while a write statement waits for the approval dialog. */
     awaitingApproval?: {approvalId: string; query: string; queryKind: string} | null;
 }
@@ -102,6 +108,18 @@ export function reduceChatStream(
         case 'approvalResolved': {
             if (!current) return current;
             return {...current, awaitingApproval: null};
+        }
+        case 'batchProgress': {
+            const base = current ?? emptyStream(event.requestId);
+            return {
+                ...base,
+                batchProgress: {
+                    completedBatch: event.completedBatch,
+                    totalBatches: event.totalBatches,
+                    completedCalls: event.completedCalls,
+                    totalCalls: event.totalCalls,
+                },
+            };
         }
         case 'cancelled':
             return current ? {...current, cancelled: true} : current;

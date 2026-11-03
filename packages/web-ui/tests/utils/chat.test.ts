@@ -123,6 +123,24 @@ describe('chat utils', () => {
             expect(state).toMatchObject({text: 'partial', cancelled: true});
         });
 
+        it('tracks automatic batch progress', () => {
+            const state = reduceChatStream(null, {
+                type: 'batchProgress',
+                requestId: 'r1',
+                sessionId: 's1',
+                completedBatch: 1,
+                totalBatches: 4,
+                completedCalls: 16,
+                totalCalls: 64,
+            });
+            expect(state?.batchProgress).toEqual({
+                completedBatch: 1,
+                totalBatches: 4,
+                completedCalls: 16,
+                totalCalls: 64,
+            });
+        });
+
         it('tracks the approval gate for write statements', () => {
             let state = reduceChatStream(null, {
                 type: 'approvalRequired',

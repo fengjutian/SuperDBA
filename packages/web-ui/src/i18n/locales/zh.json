@@ -2792,6 +2792,7 @@
     "inserted": "已插入",
     "waitingApproval": "等待审批：{{kind}}",
     "approvalHint": "请在审批弹窗中批准或拒绝；只有批准后才会执行该语句。",
-    "copied": "已复制"
+    "copied": "已复制",
+    "batchProgress": "第 {{completedBatch}}/{{totalBatches}} 批已完成 - 模型调用 {{completedCalls}}/{{totalCalls}}"
   }
 }
