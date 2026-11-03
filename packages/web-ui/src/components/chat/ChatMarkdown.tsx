@@ -26,7 +26,7 @@ const STYLES = [
     '[&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-secondary',
     // Tables (the scroll wrapper comes from the `table` renderer below)
     '[&_table]:w-full [&_table]:border-collapse [&_table]:text-xs',
-    '[&_th]:border-b [&_th]:border-strong [&_th]:bg-surface-secondary [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_th]:font-semibold [&_th]:text-primary',
+    '[&_th]:border-b [&_th]:border-strong [&_th]:bg-surface-secondary [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_th]:font-semibold [&_th]:text-primary [&_th]:whitespace-nowrap',
     '[&_td]:border-b [&_td]:border-default [&_td]:px-2 [&_td]:py-1 [&_td]:align-top',
     // Blockquotes, rules, emphasis, media
     '[&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-strong [&_blockquote]:pl-2 [&_blockquote]:text-muted',
@@ -36,7 +36,7 @@ const STYLES = [
     '[&_del]:text-muted [&_del]:line-through',
     '[&_img]:max-w-full [&_img]:rounded',
     // Task lists
-    '[&_input[type=checkbox]]:mr-1 [&_input[type=checkbox]]:align-middle',
+    '[&_input]:mr-1 [&_input]:align-middle',
 ].join(' ');
 
 const COMPONENTS: Components = {

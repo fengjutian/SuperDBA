@@ -108,7 +108,7 @@ function MessageBubble({
                     <button
                         type="button"
                         onClick={copySql}
-                        className="text-[11px] text-accent-primary hover:underline"
+                        className="text-[11px] text-accent hover:underline"
                     >
                         {copied
                             ? t('chat.copied', {defaultValue: 'Copied'})
@@ -121,7 +121,7 @@ function MessageBubble({
                             setInserted(true);
                             window.setTimeout(() => setInserted(false), 1500);
                         }}
-                        className="text-[11px] text-accent-primary hover:underline"
+                        className="text-[11px] text-accent hover:underline"
                     >
                         {inserted
                             ? t('chat.inserted', {defaultValue: 'Inserted'})
@@ -221,7 +221,7 @@ export function ChatPanel() {
     return (
         <div className="flex flex-col h-full min-h-0">
             <header className="flex items-center gap-2 px-3 py-2 border-b border-default">
-                <Sparkles size={16} className="text-accent-primary" />
+                <Sparkles size={16} className="text-accent" />
                 <h2 className="text-sm font-semibold text-primary flex-1">
                     {t('chat.title', {defaultValue: 'DBA chat'})}
                 </h2>
@@ -299,7 +299,7 @@ export function ChatPanel() {
             <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-3 py-3">
                 {messages.length === 0 && !stream ? (
                     <div className="h-full flex flex-col items-center justify-center text-center gap-3 px-2">
-                        <Sparkles size={20} className="text-accent-primary" />
+                        <Sparkles size={20} className="text-accent" />
                         <p className="text-sm text-primary">
                             {t('chat.emptyTitle', {defaultValue: 'Ask about this database'})}
                         </p>
@@ -426,7 +426,7 @@ export function ChatPanel() {
                             defaultValue: 'Ask a question or paste a query…',
                         })}
                         disabled={sending || !providerReady}
-                        className="flex-1 resize-none bg-base border border-default rounded-md px-2 py-1.5 text-xs text-primary placeholder:text-muted focus:outline-none focus:border-accent-primary disabled:opacity-60"
+                        className="flex-1 resize-none bg-base border border-default rounded-md px-2 py-1.5 text-xs text-primary placeholder:text-muted focus:outline-none focus:border-focus disabled:opacity-60"
                     />
                     <button
                         type="button"
