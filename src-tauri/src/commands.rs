@@ -46,18 +46,8 @@ use crate::models::{ConnectionGroup, ConnectionParams, SavedConnection};
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::application::test_support::{base_params, saved_connection as saved_conn};
     use crate::models::DatabaseSelection;
-
-    fn base_params() -> ConnectionParams {
-        ConnectionParams {
-            driver: "mysql".to_string(),
-            host: Some("localhost".to_string()),
-            port: Some(3306),
-            username: Some("root".to_string()),
-            database: DatabaseSelection::Single("testdb".to_string()),
-            ..Default::default()
-        }
-    }
 
     #[test]
     fn resolve_leaves_network_database_names_untouched() {
@@ -154,25 +144,6 @@ mod tests {
             credential_cache::get_connection_uri_cached(&cache, "conn-1", false).unwrap(),
             None
         );
-    }
-
-    fn saved_conn(id: &str, password: Option<&str>, save_in_keychain: bool) -> SavedConnection {
-        SavedConnection {
-            id: id.to_string(),
-            name: "Test".to_string(),
-            params: ConnectionParams {
-                password: password.map(|p| p.to_string()),
-                save_in_keychain: Some(save_in_keychain),
-                ..base_params()
-            },
-            plugin_secret_keys: Vec::new(),
-            group_id: None,
-            sort_order: None,
-            detect_json_in_text_columns: None,
-            appearance: None,
-            tag_ids: None,
-            environment: None,
-        }
     }
 
     /// Regression test: update_connection must not wipe appearance.

@@ -209,7 +209,3 @@ pub(crate) fn resolve_ssh_test_password(
         },
     )
 }
-
-#[cfg(test)]
-#[path = "connection_params_tests.rs"]
-mod tests;

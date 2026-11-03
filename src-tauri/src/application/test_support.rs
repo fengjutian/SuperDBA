@@ -3,7 +3,7 @@
 //! Test-only: declared `#[cfg(test)]` from `application/mod.rs`, so nothing
 //! here is linked into a production build.
 
-use crate::models::{ConnectionGroup, ConnectionParams, DatabaseSelection, SavedConnection};
+use crate::models::{ConnectionParams, DatabaseSelection, SavedConnection};
 
 /// A plain MySQL connection pointing at `testdb`.
 pub(crate) fn base_params() -> ConnectionParams {
@@ -50,22 +50,4 @@ pub(crate) fn saved_connection_with_params(
         tag_ids: None,
         environment: None,
     }
-}
-
-/// A group whose name matches its id.
-pub(crate) fn group(id: &str, parent: Option<&str>) -> ConnectionGroup {
-    ConnectionGroup {
-        id: id.to_string(),
-        name: id.to_string(),
-        collapsed: false,
-        sort_order: 0,
-        parent_id: parent.map(|p| p.to_string()),
-    }
-}
-
-/// A saved connection placed directly in `group_id`.
-pub(crate) fn connection_in_group(id: &str, group_id: Option<&str>) -> SavedConnection {
-    let mut connection = saved_connection(id, None, false);
-    connection.group_id = group_id.map(|g| g.to_string());
-    connection
 }

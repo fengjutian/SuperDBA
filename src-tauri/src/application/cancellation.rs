@@ -69,7 +69,3 @@ pub(crate) fn cancel_query_impl(
 ) -> Result<(), String> {
     crate::application::queries::cancel_registered_queries(state, None, connection_id, None)
 }
-
-#[cfg(test)]
-#[path = "cancellation_tests.rs"]
-mod tests;

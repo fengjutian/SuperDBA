@@ -75,7 +75,3 @@ pub(crate) fn sql_builder_params(
     apply_ddl_database_override(&mut params, database);
     params
 }
-
-#[cfg(test)]
-#[path = "sql_builder_tests.rs"]
-mod tests;

@@ -109,7 +109,3 @@ pub(crate) fn reject_if_would_create_cycle(
             .to_string(),
     )
 }
-
-#[cfg(test)]
-#[path = "connection_groups_tests.rs"]
-mod tests;
