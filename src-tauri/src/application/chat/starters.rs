@@ -78,7 +78,11 @@ pub(crate) fn prompt(context: &ChatContext, tables: &[String], language: &str) -
          - No numbering, no markdown, no answers, no commentary.\n",
     );
 
-    if let Some(database) = context.database.as_deref().filter(|value| !value.is_empty()) {
+    if let Some(database) = context
+        .database
+        .as_deref()
+        .filter(|value| !value.is_empty())
+    {
         prompt.push_str(&format!("\nDatabase: {database}"));
     }
     if let Some(schema) = context.schema.as_deref().filter(|value| !value.is_empty()) {
@@ -253,7 +257,11 @@ mod tests {
         };
         let text = prompt(
             &context,
-            &["users".to_string(), "orders".to_string(), "users".to_string()],
+            &[
+                "users".to_string(),
+                "orders".to_string(),
+                "users".to_string(),
+            ],
             "zh",
         );
         assert!(text.contains("- users"));

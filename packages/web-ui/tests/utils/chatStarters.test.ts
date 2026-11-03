@@ -144,7 +144,10 @@ describe('chatStarters', () => {
             const key = starterCacheKey('openai', 'gpt-4', 'en', 'connection-1', ['users']);
             expect(cachedStarters(key)).toBeNull();
             rememberStarters(key, ['1. Why is users slow?', 'Which indexes are missing?']);
-            expect(cachedStarters(key)).toEqual(['Why is users slow?', 'Which indexes are missing?']);
+            expect(cachedStarters(key)).toEqual([
+                'Why is users slow?',
+                'Which indexes are missing?',
+            ]);
         });
 
         it('does not cache an empty answer', () => {

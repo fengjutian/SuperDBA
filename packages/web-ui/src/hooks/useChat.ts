@@ -130,7 +130,8 @@ export function useChatAgent() {
         }
     }, [client]);
 
-    const send = useCallback(        async (message: string, context: ChatContext) => {
+    const send = useCallback(
+        async (message: string, context: ChatContext) => {
             const trimmed = message.trim();
             if (!trimmed || sending) return;
             const provider = settings.aiProvider;
@@ -176,11 +177,7 @@ export function useChatAgent() {
      * so this never surfaces an error of its own.
      */
     const suggestStarters = useCallback(
-        async (
-            context: ChatContext,
-            tables: string[],
-            language: string,
-        ): Promise<string[]> => {
+        async (context: ChatContext, tables: string[], language: string): Promise<string[]> => {
             const provider = settings.aiProvider;
             if (!provider || tables.length === 0) return [];
             try {
