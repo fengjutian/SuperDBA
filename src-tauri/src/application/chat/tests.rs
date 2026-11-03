@@ -1,6 +1,6 @@
 use super::agent::{
     batch_limits, bound_result, build_audit_event, is_batch_boundary, messages_for_model,
-    system_prompt,
+    system_prompt, tool_cache_key,
 };
 use super::provider::{self, ProviderToolCall};
 use super::store;
@@ -256,6 +256,30 @@ fn chat_batch_limits_use_defaults_and_clamp_saved_values() {
     let clamped = batch_limits(&config);
     assert_eq!((clamped.calls_per_batch, clamped.max_batches), (32, 1));
     assert_eq!(clamped.total_calls, 32);
+}
+
+#[test]
+fn tool_cache_only_accepts_read_only_calls() {
+    let read = ProviderToolCall {
+        id: "read".to_string(),
+        name: "run_query".to_string(),
+        arguments: json!({"sql": "SELECT 1", "limit": 20}),
+    };
+    let write = ProviderToolCall {
+        id: "write".to_string(),
+        name: "run_query".to_string(),
+        arguments: json!({"sql": "DELETE FROM users"}),
+    };
+    let describe = ProviderToolCall {
+        id: "describe".to_string(),
+        name: "describe_table".to_string(),
+        arguments: json!({"table": "users"}),
+    };
+
+    assert_eq!(tool_cache_key(&read), tool_cache_key(&read));
+    assert!(tool_cache_key(&read).is_some());
+    assert!(tool_cache_key(&describe).is_some());
+    assert!(tool_cache_key(&write).is_none());
 }
 
 #[test]

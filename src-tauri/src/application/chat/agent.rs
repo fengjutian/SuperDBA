@@ -20,6 +20,7 @@ use crate::config::{
 };
 use crate::runtime::{state::ApplicationState, RuntimeContext};
 use serde_json::{json, Value};
+use std::collections::HashMap;
 use uuid::Uuid;
 
 const MAX_TOOL_RESULT_BYTES: usize = 8 * 1024;
@@ -88,6 +89,7 @@ pub async fn run_turn(
             "sessionId": session.id,
         }),
     );
+    let mut tool_cache = HashMap::new();
 
     for round in 0..limits.total_calls {
         if is_cancelled(web_session_id, &request_id) {
@@ -195,6 +197,7 @@ pub async fn run_turn(
             &request_id,
             &session.id,
             &reply.tool_calls,
+            &mut tool_cache,
         )
         .await;
         session.messages[index].tool_calls = calls;
@@ -354,6 +357,7 @@ async fn execute_calls(
     request_id: &str,
     chat_session_id: &str,
     calls: &[ProviderToolCall],
+    cache: &mut HashMap<String, ChatToolCall>,
 ) -> Vec<ChatToolCall> {
     let mut executed = Vec::with_capacity(calls.len());
     let config = crate::application::persistence::load_config(runtime);
@@ -376,6 +380,28 @@ async fn execute_calls(
                 "arguments": call.arguments,
             }),
         );
+        let cache_key = tool_cache_key(call);
+        if let Some(cached) = cache_key.as_ref().and_then(|key| cache.get(key)) {
+            let mut reused = cached.clone();
+            reused.id = call.id.clone();
+            reused.duration_ms = 0;
+            reused.summary = format!("Reused cached result: {}", cached.summary);
+            emit_chat_event(
+                runtime,
+                web_session_id,
+                json!({
+                    "type": "toolFinished",
+                    "requestId": request_id,
+                    "callId": call.id,
+                    "name": call.name,
+                    "status": reused.status,
+                    "durationMs": 0,
+                    "summary": reused.summary,
+                }),
+            );
+            executed.push(reused);
+            continue;
+        }
         let started = std::time::Instant::now();
         let tool = tools::ToolCallContext {
             runtime,
@@ -422,7 +448,7 @@ async fn execute_calls(
                 "summary": summary,
             }),
         );
-        executed.push(ChatToolCall {
+        let executed_call = ChatToolCall {
             id: call.id.clone(),
             name: call.name.clone(),
             arguments: call.arguments.clone(),
@@ -430,9 +456,38 @@ async fn execute_calls(
             duration_ms,
             summary,
             result: Some(result),
-        });
+        };
+        if executed_call.status == ChatToolStatus::Ok {
+            if let Some(key) = cache_key {
+                cache.insert(key, executed_call.clone());
+            }
+        }
+        executed.push(executed_call);
     }
     executed
+}
+
+pub(crate) fn tool_cache_key(call: &ProviderToolCall) -> Option<String> {
+    let cacheable = if call.name == "run_query" {
+        call.arguments
+            .get("sql")
+            .and_then(Value::as_str)
+            .is_some_and(|sql| {
+                matches!(
+                    tools::classify_statement(sql),
+                    tools::StatementClass::ReadOnly
+                )
+            })
+    } else {
+        crate::application::tool_registry::is_read_only(&call.name)
+    };
+    cacheable.then(|| {
+        format!(
+            "{}:{}",
+            call.name,
+            serde_json::to_string(&call.arguments).unwrap_or_default()
+        )
+    })
 }
 
 pub(super) fn build_audit_event(
