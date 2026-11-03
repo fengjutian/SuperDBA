@@ -10,6 +10,10 @@ use serde::Serialize;
 use serde_json::Value;
 use uuid::Uuid;
 
+/// Re-exported so `application::*` callers (e.g. the chat agent) resolve the
+/// model picker from this module instead of reaching into the legacy `ai` root.
+pub(crate) use crate::ai::resolve_model;
+
 const AI_KEY_PREFIX: &str = "ai_key:";
 
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
