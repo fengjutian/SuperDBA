@@ -88,7 +88,10 @@ export function useChatAgent() {
             setError(null);
             try {
                 const loaded = await client.call('chat_get_session', {sessionId});
-                if (mounted.current) setSession(loaded);
+                if (mounted.current) {
+                    setSession(loaded);
+                    setContinuationRequired(loaded.continuation ?? null);
+                }
             } catch (err) {
                 if (mounted.current) setError(String(err));
             }
@@ -171,6 +174,7 @@ export function useChatAgent() {
                 const updated = await client.call('chat_send', {request});
                 if (!mounted.current) return;
                 setSession(updated);
+                setContinuationRequired(updated.continuation ?? null);
                 await refreshSessions();
             } catch (err) {
                 if (mounted.current) setError(String(err));

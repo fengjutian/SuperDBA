@@ -27,6 +27,8 @@ const ROW_GENERATOR_MESSAGE: &str =
     "AI query blocked: recursive queries and automatic row generators must be reviewed and run explicitly in the SQL editor.";
 const QUERY_COMPLEXITY_MESSAGE: &str =
     "AI query blocked: the statement exceeds automated-query complexity limits. Reduce joins, set operations, or nesting before retrying.";
+const EXPENSIVE_PLAN_MESSAGE: &str =
+    "AI query blocked: Cartesian joins and full-table random ordering must be reviewed and run explicitly in the SQL editor.";
 const MAX_AI_SQL_BYTES: usize = 256 * 1024;
 const MAX_AI_JOINS: usize = 8;
 const MAX_AI_SET_OPERATIONS: usize = 8;
@@ -39,6 +41,7 @@ enum Token {
     CloseParen,
     Semicolon,
     RangeComparator,
+    Equal,
 }
 
 /// Reject SQL patterns that are too risky for an automated execution channel.
@@ -70,6 +73,9 @@ pub fn validate_ai_sql(sql: &str) -> Result<(), &'static str> {
     if exceeds_query_complexity(&tokens) {
         return Err(QUERY_COMPLEXITY_MESSAGE);
     }
+    if contains_expensive_plan_pattern(&tokens) {
+        return Err(EXPENSIVE_PLAN_MESSAGE);
+    }
     if contains_unbounded_write(&tokens) {
         return Err(UNBOUNDED_WRITE_MESSAGE);
     }
@@ -100,6 +106,7 @@ fn tokens(sql: &str) -> Vec<Token> {
             ')' => result.push(Token::CloseParen),
             ';' => result.push(Token::Semicolon),
             '<' | '>' => result.push(Token::RangeComparator),
+            '=' => result.push(Token::Equal),
             _ => {}
         }
     }
@@ -295,6 +302,30 @@ fn exceeds_query_complexity(tokens: &[Token]) -> bool {
     false
 }
 
+fn contains_expensive_plan_pattern(tokens: &[Token]) -> bool {
+    let has_cross_join = tokens.windows(2).any(|pair| {
+        matches!(
+            pair,
+            [Token::Word(cross), Token::Word(join)] if cross == "CROSS" && join == "JOIN"
+        )
+    });
+    let has_random_sort = tokens.windows(4).any(|window| {
+        matches!(
+            window,
+            [
+                Token::Word(order),
+                Token::Word(by),
+                Token::Word(function),
+                Token::OpenParen
+            ] if order == "ORDER"
+                && by == "BY"
+                && matches!(function.as_str(), "RAND" | "RANDOM" | "NEWID" | "UUID")
+        )
+    });
+
+    has_cross_join || has_random_sort
+}
+
 fn contains_unbounded_write(tokens: &[Token]) -> bool {
     let mut depth = 0usize;
 
@@ -317,16 +348,68 @@ fn contains_unbounded_write(tokens: &[Token]) -> bool {
 fn has_where_in_scope(tokens: &[Token], statement_depth: usize) -> bool {
     let mut depth = statement_depth;
 
-    for token in tokens {
+    for (index, token) in tokens.iter().enumerate() {
         match token {
             Token::OpenParen => depth += 1,
             Token::CloseParen if depth <= statement_depth => return false,
             Token::CloseParen => depth -= 1,
             Token::Semicolon if depth == statement_depth => return false,
-            Token::Word(word) if depth == statement_depth && word == "WHERE" => return true,
+            Token::Word(word) if depth == statement_depth && word == "WHERE" => {
+                return !where_clause_is_obviously_tautological(
+                    &tokens[index + 1..],
+                    statement_depth,
+                );
+            }
             _ => {}
         }
     }
 
     false
+}
+
+fn where_clause_is_obviously_tautological(tokens: &[Token], statement_depth: usize) -> bool {
+    let mut depth = statement_depth;
+    let mut condition = Vec::new();
+
+    for token in tokens {
+        match token {
+            Token::OpenParen => {
+                depth += 1;
+                condition.push(token);
+            }
+            Token::CloseParen if depth <= statement_depth => break,
+            Token::CloseParen => {
+                depth -= 1;
+                condition.push(token);
+            }
+            Token::Semicolon if depth == statement_depth => break,
+            Token::Word(word)
+                if depth == statement_depth
+                    && matches!(word.as_str(), "RETURNING" | "ORDER" | "GROUP" | "LIMIT") =>
+            {
+                break;
+            }
+            _ => condition.push(token),
+        }
+    }
+
+    let normalized = condition
+        .into_iter()
+        .filter(|token| !matches!(token, Token::OpenParen | Token::CloseParen))
+        .collect::<Vec<_>>();
+
+    is_tautology(&normalized)
+        || normalized.iter().enumerate().any(|(index, token)| {
+            matches!(token, Token::Word(word) if word == "OR")
+                && is_tautology(&normalized[index + 1..])
+        })
+}
+
+fn is_tautology(tokens: &[&Token]) -> bool {
+    matches!(tokens, [Token::Word(value)] if value == "TRUE")
+        || matches!(tokens, [Token::Word(not), Token::Word(value)] if not == "NOT" && value == "FALSE")
+        || matches!(
+            tokens,
+            [Token::Word(left), Token::Equal, Token::Word(right)] if left == right
+        )
 }

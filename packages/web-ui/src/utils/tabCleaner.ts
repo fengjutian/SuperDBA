@@ -32,7 +32,8 @@ export interface CleanedTab {
 
 /**
  * Removes temporary/runtime data from a tab, keeping only persistent state.
- * Excludes: result, error, executionTime, isLoading, pendingChanges, pendingDeletions, selectedRows
+ * Excludes runtime and DBA context data, including selectedSql and
+ * lastExplainPlan, so sensitive transient context is never restored from disk.
  * For notebook tabs: only persists notebookId reference, not the full notebookState.
  *
  * @param tab - The tab to clean
@@ -94,6 +95,8 @@ export function restoreTabFromStorage(cleanedTab: Partial<Tab>): Tab {
         pendingInsertions: undefined,
         pendingDeletions: undefined,
         selectedRows: undefined,
+        selectedSql: undefined,
+        lastExplainPlan: undefined,
         notebookId: cleanedTab.notebookId,
         notebookState: undefined,
     };

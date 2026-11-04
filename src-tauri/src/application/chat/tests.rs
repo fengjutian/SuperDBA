@@ -6,7 +6,8 @@ use super::provider::{self, ProviderToolCall};
 use super::store;
 use super::tools::{self, classify_statement, is_single_read_only_statement, StatementClass};
 use super::{
-    cancellation_key, ChatContext, ChatMessage, ChatRole, ChatSession, ChatToolCall, ChatToolStatus,
+    cancellation_key, ChatContext, ChatContinuation, ChatMessage, ChatRole, ChatSession,
+    ChatToolCall, ChatToolStatus,
 };
 use serde_json::json;
 
@@ -71,6 +72,7 @@ fn session() -> ChatSession {
         created_at: "2026-11-03T00:00:00Z".to_string(),
         updated_at: "2026-11-03T00:00:00Z".to_string(),
         messages: Vec::new(),
+        continuation: None,
     }
 }
 
@@ -101,6 +103,10 @@ fn session_ids_reject_path_traversal() {
 fn sessions_round_trip_and_delete() {
     let directory = tempfile::tempdir().unwrap();
     let mut session = session();
+    session.continuation = Some(ChatContinuation {
+        completed_calls: 16,
+        total_calls: 64,
+    });
     store::append_message(&mut session, ChatRole::User, "hello".to_string());
     store::save(directory.path(), &session).unwrap();
 
@@ -111,6 +117,9 @@ fn sessions_round_trip_and_delete() {
     let loaded = store::load(directory.path(), &session.id).unwrap();
     assert_eq!(loaded.messages.len(), 1);
     assert_eq!(loaded.messages[0].content, "hello");
+    let continuation = loaded.continuation.expect("continuation is persisted");
+    assert_eq!(continuation.completed_calls, 16);
+    assert_eq!(continuation.total_calls, 64);
 
     store::delete(directory.path(), &session.id).unwrap();
     assert!(store::load(directory.path(), &session.id).is_err());

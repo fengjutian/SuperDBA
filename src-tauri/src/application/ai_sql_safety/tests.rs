@@ -1,8 +1,8 @@
 use super::{
-    validate_ai_sql, AUDIT_TIME_RANGE_MESSAGE, LOCKING_READ_MESSAGE, LOCK_HEAVY_MESSAGE,
-    MAX_AI_JOINS, MAX_AI_NESTING_DEPTH, MAX_AI_SET_OPERATIONS, MAX_AI_SQL_BYTES,
-    QUERY_COMPLEXITY_MESSAGE, RESOURCE_ABUSE_MESSAGE, ROW_GENERATOR_MESSAGE, SQL_TOO_LARGE_MESSAGE,
-    TRANSACTION_CONTROL_MESSAGE, UNBOUNDED_WRITE_MESSAGE,
+    validate_ai_sql, AUDIT_TIME_RANGE_MESSAGE, EXPENSIVE_PLAN_MESSAGE, LOCKING_READ_MESSAGE,
+    LOCK_HEAVY_MESSAGE, MAX_AI_JOINS, MAX_AI_NESTING_DEPTH, MAX_AI_SET_OPERATIONS,
+    MAX_AI_SQL_BYTES, QUERY_COMPLEXITY_MESSAGE, RESOURCE_ABUSE_MESSAGE, ROW_GENERATOR_MESSAGE,
+    SQL_TOO_LARGE_MESSAGE, TRANSACTION_CONTROL_MESSAGE, UNBOUNDED_WRITE_MESSAGE,
 };
 
 #[test]
@@ -27,6 +27,27 @@ fn blocks_updates_and_deletes_without_where() {
         validate_ai_sql("DELETE FROM sessions"),
         Err(UNBOUNDED_WRITE_MESSAGE)
     );
+}
+
+#[test]
+fn blocks_writes_with_obviously_tautological_where_clauses() {
+    for sql in [
+        "UPDATE users SET active = 0 WHERE 1 = 1",
+        "DELETE FROM sessions WHERE TRUE",
+        "DELETE FROM sessions WHERE NOT FALSE",
+        "UPDATE users SET active = 0 WHERE id = 7 OR TRUE",
+        "DELETE FROM sessions WHERE expired = 1 OR session_id = session_id",
+        "UPDATE users SET active = 0 WHERE (1 = 1)",
+    ] {
+        assert_eq!(validate_ai_sql(sql), Err(UNBOUNDED_WRITE_MESSAGE), "{sql}");
+    }
+
+    for sql in [
+        "UPDATE users SET active = 0 WHERE 1 = 1 AND id = 7",
+        "DELETE FROM sessions WHERE TRUE AND expires_at < NOW()",
+    ] {
+        assert_eq!(validate_ai_sql(sql), Ok(()), "{sql}");
+    }
 }
 
 #[test]
@@ -188,6 +209,26 @@ fn bounds_automated_query_complexity() {
     assert_eq!(
         validate_ai_sql(&deeply_nested),
         Err(QUERY_COMPLEXITY_MESSAGE)
+    );
+}
+
+#[test]
+fn blocks_cartesian_joins_and_random_full_table_sorts() {
+    for sql in [
+        "SELECT * FROM users CROSS JOIN events",
+        "SELECT * FROM users ORDER BY RAND() LIMIT 10",
+        "SELECT * FROM users ORDER BY RANDOM() LIMIT 10",
+        "SELECT * FROM users ORDER BY NEWID()",
+        "SELECT * FROM users ORDER BY UUID() LIMIT 10",
+    ] {
+        assert_eq!(validate_ai_sql(sql), Err(EXPENSIVE_PLAN_MESSAGE), "{sql}");
+    }
+
+    assert_eq!(
+        validate_ai_sql(
+            "SELECT * FROM users JOIN events ON events.user_id = users.id ORDER BY users.id"
+        ),
+        Ok(())
     );
 }
 

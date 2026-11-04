@@ -45,6 +45,8 @@ describe('tabCleaner', () => {
                 pendingChanges: {'1': {pkOriginalValue: 1, changes: {name: 'new'}}},
                 pendingDeletions: {'1': 1},
                 selectedRows: [0, 1, 2],
+                selectedSql: 'SELECT secret FROM users',
+                lastExplainPlan: '{"Plan":{"Node Type":"Seq Scan"}}',
             };
 
             const cleaned = cleanTabForStorage(tab);
@@ -79,6 +81,19 @@ describe('tabCleaner', () => {
             expect(cleaned).not.toHaveProperty('pendingChanges');
             expect(cleaned).not.toHaveProperty('pendingDeletions');
             expect(cleaned).not.toHaveProperty('selectedRows');
+            expect(cleaned).not.toHaveProperty('selectedSql');
+            expect(cleaned).not.toHaveProperty('lastExplainPlan');
+        });
+
+        it('drops legacy persisted DBA context while restoring a tab', () => {
+            const restored = restoreTabFromStorage({
+                id: 'legacy-tab',
+                selectedSql: 'SELECT password FROM users',
+                lastExplainPlan: 'legacy plan',
+            });
+
+            expect(restored.selectedSql).toBeUndefined();
+            expect(restored.lastExplainPlan).toBeUndefined();
         });
 
         it('should handle null values for optional fields', () => {

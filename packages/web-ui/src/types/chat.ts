@@ -41,6 +41,12 @@ export interface ChatSession {
     createdAt: string;
     updatedAt: string;
     messages: ChatMessage[];
+    continuation?: ChatContinuation;
+}
+
+export interface ChatContinuation {
+    completedCalls: number;
+    totalCalls: number;
 }
 
 export interface ChatSessionSummary {

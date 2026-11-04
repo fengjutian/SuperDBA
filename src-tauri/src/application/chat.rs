@@ -92,6 +92,15 @@ pub struct ChatSession {
     pub created_at: String,
     pub updated_at: String,
     pub messages: Vec<ChatMessage>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub continuation: Option<ChatContinuation>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatContinuation {
+    pub completed_calls: usize,
+    pub total_calls: usize,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -297,5 +306,6 @@ pub(crate) fn new_session(provider: &str, model: &str, context: &ChatContext) ->
         created_at: now.clone(),
         updated_at: now,
         messages: Vec::new(),
+        continuation: None,
     }
 }

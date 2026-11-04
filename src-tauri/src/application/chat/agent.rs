@@ -9,8 +9,8 @@ use super::provider::{self, ProviderToolCall};
 use super::store;
 use super::tools;
 use super::{
-    clear_cancelled, emit_chat_event, is_cancelled, ChatContext, ChatMessage, ChatRole,
-    ChatSendRequest, ChatSession, ChatToolCall, ChatToolStatus,
+    clear_cancelled, emit_chat_event, is_cancelled, ChatContext, ChatContinuation, ChatMessage,
+    ChatRole, ChatSendRequest, ChatSession, ChatToolCall, ChatToolStatus,
 };
 use crate::ai_activity::AiActivityEvent;
 use crate::application::ai::resolve_model;
@@ -66,6 +66,7 @@ pub async fn run_turn(
     };
     session.provider = request.provider.clone();
     session.model = model.clone();
+    session.continuation = None;
 
     let context = merged_context(&request.context, &session);
     if context.connection_id.is_some() {
@@ -230,6 +231,10 @@ pub async fn run_turn(
                 session.messages[index].notice = Some(format!(
                     "Paused after {completed_calls} model calls. Continue the investigation when you are ready."
                 ));
+                session.continuation = Some(ChatContinuation {
+                    completed_calls,
+                    total_calls: limits.total_calls,
+                });
                 persist(runtime, &session).await?;
                 emit_chat_event(
                     runtime,
