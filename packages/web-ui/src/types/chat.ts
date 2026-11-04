@@ -63,6 +63,7 @@ export interface ChatContext {
     lastResult?: string;
     lastPlan?: string;
     strictMode?: boolean;
+    maskSensitiveResults?: boolean;
 }
 
 export interface ChatSendRequest {

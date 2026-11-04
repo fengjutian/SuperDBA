@@ -210,7 +210,10 @@ export function DbaChatTab() {
                         value={settings.dbaChatTemperature ?? 0}
                         formatValue={(value) => value.toFixed(1)}
                         onChange={(value) =>
-                            void updateSetting('dbaChatTemperature', Math.min(2, Math.max(0, value)))
+                            void updateSetting(
+                                'dbaChatTemperature',
+                                Math.min(2, Math.max(0, value)),
+                            )
                         }
                     />
                 </SettingRow>

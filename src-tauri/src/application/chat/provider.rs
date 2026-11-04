@@ -39,7 +39,11 @@ pub struct GenerationOptions {
     pub max_output_tokens: Option<u32>,
 }
 
-fn apply_generation_options(body: &mut Value, provider: &str, options: GenerationOptions) {
+pub(super) fn apply_generation_options(
+    body: &mut Value,
+    provider: &str,
+    options: GenerationOptions,
+) {
     if provider == "ollama" {
         let config = body
             .as_object_mut()

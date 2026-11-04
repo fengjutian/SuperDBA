@@ -262,6 +262,8 @@ fn system_prompt_carries_connection_context() {
         selected_sql: Some("SELECT * FROM orders".to_string()),
         last_result: None,
         last_plan: None,
+        strict_mode: false,
+        mask_sensitive_results: false,
     };
     let prompt = system_prompt(&context);
     assert!(prompt.contains("Connection: Analytics"));
@@ -414,6 +416,23 @@ fn openai_body_encodes_tool_calls_and_results() {
     assert_eq!(messages[3]["role"], json!("tool"));
     assert_eq!(messages[3]["tool_call_id"], json!("call-1"));
     assert!(body["tools"].as_array().unwrap().len() >= 4);
+}
+
+#[test]
+fn generation_options_are_applied_per_provider_wire_format() {
+    let options = provider::GenerationOptions {
+        temperature: Some(0.3),
+        max_output_tokens: Some(4096),
+    };
+    let mut openai = json!({});
+    provider::apply_generation_options(&mut openai, "openai", options);
+    assert_eq!(openai["temperature"], json!(0.3_f32));
+    assert_eq!(openai["max_tokens"], json!(4096));
+
+    let mut ollama = json!({});
+    provider::apply_generation_options(&mut ollama, "ollama", options);
+    assert_eq!(ollama["options"]["temperature"], json!(0.3_f32));
+    assert_eq!(ollama["options"]["num_predict"], json!(4096));
 }
 
 #[test]

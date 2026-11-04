@@ -82,6 +82,22 @@ describe('chat utils', () => {
             expect(JSON.parse(summary).rows).toEqual([['123']]);
         });
 
+        it('masks sensitive columns before building model context', () => {
+            const summary = formatQueryResultSummary(
+                {
+                    columns: ['id', 'email', 'access_token'],
+                    rows: [[1, 'ada@example.com', 'secret-value']],
+                    affected_rows: 0,
+                },
+                20,
+                2000,
+                {enabled: true},
+            );
+            expect(JSON.parse(summary).rows).toEqual([[1, '••••••', '••••••']]);
+            expect(summary).not.toContain('ada@example.com');
+            expect(summary).not.toContain('secret-value');
+        });
+
         it('bounds the character count', () => {
             const summary = formatQueryResultSummary(
                 {columns: ['value'], rows: [['x'.repeat(100)]], affected_rows: 0},

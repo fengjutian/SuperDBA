@@ -66,11 +66,15 @@ export const VisualExplainModal = ({
     });
     const hasExternalPlan = !!viewState;
     const effectivePlan = viewState?.plan ?? plan;
+    const reportedPlanRef = useRef('');
 
     useEffect(() => {
         if (!effectivePlan?.raw_output || !onPlanLoaded) return;
         const raw = effectivePlan.raw_output;
-        onPlanLoaded(typeof raw === 'string' ? raw : JSON.stringify(raw, null, 2));
+        const serialized = typeof raw === 'string' ? raw : JSON.stringify(raw, null, 2);
+        if (serialized === reportedPlanRef.current) return;
+        reportedPlanRef.current = serialized;
+        onPlanLoaded(serialized);
     }, [effectivePlan, onPlanLoaded]);
     const connectionData = getConnectionData(connectionId);
     const effectiveDriver =

@@ -561,15 +561,48 @@ async fn execute_statement(
     };
     match result {
         Ok(result) => {
+            let config = crate::application::persistence::load_config(tool.runtime);
+            let masking_patterns = config.column_masking_patterns.unwrap_or_else(|| {
+                [
+                    "password",
+                    "passwd",
+                    "email",
+                    "phone",
+                    "ssn",
+                    "token",
+                    "secret",
+                    "api_key",
+                    "iban",
+                    "credit_card",
+                ]
+                .into_iter()
+                .map(str::to_string)
+                .collect()
+            });
             let row_count = result.rows.len();
             let truncated = result.truncated || row_count > limit as usize;
             let is_result_set = !result.columns.is_empty();
             let affected_rows = result.affected_rows;
-            let rows = result
+            let mut rows = result
                 .rows
                 .into_iter()
                 .take(limit as usize)
                 .collect::<Vec<_>>();
+            if tool.chat.mask_sensitive_results {
+                for (column_index, column) in result.columns.iter().enumerate() {
+                    let lower = column.to_lowercase();
+                    if masking_patterns
+                        .iter()
+                        .any(|pattern| lower.contains(&pattern.trim().to_lowercase()))
+                    {
+                        for row in &mut rows {
+                            if let Some(value) = row.get_mut(column_index) {
+                                *value = json!("••••••");
+                            }
+                        }
+                    }
+                }
+            }
             let prefix = if approved { "Approved. " } else { "" };
             let elapsed_ms = started.elapsed().as_millis();
             let summary = if is_result_set {

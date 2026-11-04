@@ -60,8 +60,8 @@ export function formatQueryResultSummary(
                           overrides: masking.overrides,
                       },
                   )
-                    ? MASKED_PLACEHOLDER
-                    : value,
+                      ? MASKED_PLACEHOLDER
+                      : value,
               )
             : row,
     );

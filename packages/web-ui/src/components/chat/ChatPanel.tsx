@@ -190,6 +190,7 @@ export function ChatPanel() {
         sending,
         stream,
         error,
+        continuationRequired,
         send,
         suggestStarters,
         cancel,
@@ -237,6 +238,26 @@ export function ChatPanel() {
     }, [messages.length, sending]);
 
     const connectionName = connections.find((entry) => entry.id === activeConnectionId)?.name;
+    const activeConnection = connections.find((entry) => entry.id === activeConnectionId);
+    const strictMode =
+        activeConnection?.environment === 'production' &&
+        settings.dbaChatProductionStrictMode !== false;
+    const chatProvider = settings.dbaChatProvider ?? settings.aiProvider;
+    const chatModel = settings.dbaChatModel?.trim() || settings.aiModel || '';
+    const callsPerBatch = settings.aiChatCallsPerBatch ?? 16;
+    const maxBatches = settings.aiChatMaxBatches ?? 4;
+    const totalBudget = callsPerBatch * maxBatches;
+    const completedCalls =
+        stream?.batchProgress?.completedCalls ?? continuationRequired?.completedCalls ?? 0;
+    const remainingBudget = Math.max(0, totalBudget - completedCalls);
+    const analysisMode =
+        callsPerBatch === 8 && maxBatches === 2
+            ? t('settings.dbaChat.presetQuick')
+            : callsPerBatch === 16 && maxBatches === 4
+              ? t('settings.dbaChat.presetStandard')
+              : callsPerBatch === 24 && maxBatches === 6
+                ? t('settings.dbaChat.presetDeep')
+                : t('settings.dbaChat.presetCustom');
 
     const promptTables = useMemo(
         () => selectPromptTables(tables.map((table) => table.name)),
@@ -328,29 +349,46 @@ export function ChatPanel() {
                   cachedStarters(startersKey) ??
                   localStarters);
 
+    const buildContext = () => ({
+        ...(activeConnectionId ? {connectionId: activeConnectionId} : {}),
+        ...(connectionName ? {connectionName} : {}),
+        ...(activeSchema ? {schema: activeSchema} : {}),
+        ...(activeDatabaseName ? {database: activeDatabaseName} : {}),
+        ...(settings.dbaChatIncludeCurrentSql !== false && activeTab?.selectedSql
+            ? {selectedSql: activeTab.selectedSql}
+            : {}),
+        ...(settings.dbaChatIncludeLastResult === true && activeTab?.result
+            ? {
+                  lastResult: formatQueryResultSummary(activeTab.result, 20, 2000, {
+                      enabled: settings.dbaChatMaskSensitiveResults !== false,
+                      patterns: settings.columnMaskingPatterns,
+                      overrides: settings.columnMaskingOverrides,
+                      connectionId: activeConnectionId ?? undefined,
+                      tableName: activeTab.activeTable ?? undefined,
+                  }),
+              }
+            : {}),
+        ...(settings.dbaChatIncludeLastPlan !== false && activeTab?.lastExplainPlan
+            ? {lastPlan: activeTab.lastExplainPlan}
+            : {}),
+        ...(strictMode ? {strictMode: true} : {}),
+        ...(settings.dbaChatMaskSensitiveResults !== false ? {maskSensitiveResults: true} : {}),
+    });
+
     const submit = async () => {
         if (!input.trim() || sending) return;
         const message = input;
         setInput('');
-        await send(message, {
-            ...(activeConnectionId ? {connectionId: activeConnectionId} : {}),
-            ...(connectionName ? {connectionName} : {}),
-            ...(activeSchema ? {schema: activeSchema} : {}),
-            ...(activeDatabaseName ? {database: activeDatabaseName} : {}),
-            ...(settings.dbaChatIncludeCurrentSql !== false && activeTab?.query?.trim()
-                ? {selectedSql: activeTab.query.trim()}
-                : {}),
-            ...(settings.dbaChatIncludeLastResult === true && activeTab?.result
-                ? {lastResult: formatQueryResultSummary(activeTab.result)}
-                : {}),
-        });
+        await send(message, buildContext());
     };
 
-    const providerReady = Boolean(settings.aiProvider);
+    const providerReady = Boolean(chatProvider);
     const includesCurrentSql =
-        settings.dbaChatIncludeCurrentSql !== false && Boolean(activeTab?.query?.trim());
+        settings.dbaChatIncludeCurrentSql !== false && Boolean(activeTab?.selectedSql);
     const includesLastResult =
         settings.dbaChatIncludeLastResult === true && Boolean(activeTab?.result);
+    const includesLastPlan =
+        settings.dbaChatIncludeLastPlan !== false && Boolean(activeTab?.lastExplainPlan);
 
     return (
         <div className="flex flex-col h-full min-h-0">
@@ -396,6 +434,21 @@ export function ChatPanel() {
                     <X size={14} />
                 </button>
             </header>
+
+            <div className="flex flex-wrap items-center gap-1.5 border-b border-default bg-surface-secondary/40 px-3 py-1.5 text-[10px] text-secondary">
+                <span>{t('chat.statusMode', {mode: analysisMode})}</span>
+                <span aria-hidden="true">·</span>
+                <span title={`${chatProvider ?? ''} / ${chatModel}`}>
+                    {t('chat.statusModel', {model: chatModel || chatProvider || '-'})}
+                </span>
+                <span aria-hidden="true">·</span>
+                <span>{t('chat.statusBudget', {count: remainingBudget})}</span>
+                {strictMode && (
+                    <span className="rounded bg-accent-warning/15 px-1 py-0.5 text-accent-warning">
+                        {t('chat.productionStrict')}
+                    </span>
+                )}
+            </div>
 
             {showSessions && (
                 <div className="border-b border-default max-h-56 overflow-auto">
@@ -526,6 +579,15 @@ export function ChatPanel() {
                                 )}
                             </div>
                         )}
+                        {continuationRequired && !sending && (
+                            <button
+                                type="button"
+                                onClick={() => void send(t('chat.continuePrompt'), buildContext())}
+                                className="self-start rounded-md bg-accent-primary px-3 py-1.5 text-xs font-medium text-inverse hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                            >
+                                {t('chat.continueInvestigation')}
+                            </button>
+                        )}
                     </div>
                 )}
             </div>
@@ -582,6 +644,12 @@ export function ChatPanel() {
                             {t('chat.contextResult', {
                                 count: activeTab?.result?.rows.length ?? 0,
                             })}
+                        </span>
+                    )}
+                    {includesLastPlan && (
+                        <span className="inline-flex items-center gap-1 rounded border border-default bg-surface-secondary px-1.5 py-0.5 text-[10px] text-secondary">
+                            <Code2 size={10} aria-hidden="true" />
+                            {t('chat.contextPlan')}
                         </span>
                     )}
                 </div>

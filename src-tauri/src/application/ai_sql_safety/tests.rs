@@ -1,6 +1,7 @@
 use super::{
     validate_ai_sql, LOCKING_READ_MESSAGE, LOCK_HEAVY_MESSAGE, MAX_AI_SQL_BYTES,
-    SQL_TOO_LARGE_MESSAGE, TRANSACTION_CONTROL_MESSAGE, UNBOUNDED_WRITE_MESSAGE,
+    RESOURCE_ABUSE_MESSAGE, SQL_TOO_LARGE_MESSAGE, TRANSACTION_CONTROL_MESSAGE,
+    UNBOUNDED_WRITE_MESSAGE,
 };
 
 #[test]
@@ -111,6 +112,21 @@ fn blocks_oversized_sql_before_tokenizing_it() {
 }
 
 #[test]
+fn blocks_delay_and_benchmark_operations() {
+    for sql in [
+        "SELECT pg_sleep(30)",
+        "SELECT pg_sleep_for('30 seconds')",
+        "SELECT pg_sleep_until(NOW() + INTERVAL '30 seconds')",
+        "SELECT SLEEP(30)",
+        "SELECT BENCHMARK(1000000, SHA2('value', 256))",
+        "WAITFOR DELAY '00:00:30'",
+        "WAITFOR TIME '23:59:59'",
+    ] {
+        assert_eq!(validate_ai_sql(sql), Err(RESOURCE_ABUSE_MESSAGE), "{sql}");
+    }
+}
+
+#[test]
 fn does_not_treat_read_only_text_as_an_operation() {
     assert_eq!(
         validate_ai_sql("SELECT operation FROM jobs WHERE operation = 'VACUUM'"),
@@ -126,6 +142,10 @@ fn does_not_treat_read_only_text_as_an_operation() {
     );
     assert_eq!(
         validate_ai_sql("SELECT 'FOR UPDATE', 'GET_LOCK', advisory_lock_count FROM metrics"),
+        Ok(())
+    );
+    assert_eq!(
+        validate_ai_sql("SELECT sleep_count, benchmark_name, 'pg_sleep(30)' FROM metrics"),
         Ok(())
     );
 }

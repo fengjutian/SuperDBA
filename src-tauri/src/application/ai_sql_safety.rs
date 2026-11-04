@@ -19,6 +19,8 @@ const LOCKING_READ_MESSAGE: &str =
     "AI query blocked: locking reads and advisory-lock functions are not allowed through automated channels. Run the statement explicitly in the SQL editor.";
 const SQL_TOO_LARGE_MESSAGE: &str =
     "AI query blocked: the SQL text exceeds the 256 KiB automated-query limit. Review and run it explicitly in the SQL editor.";
+const RESOURCE_ABUSE_MESSAGE: &str =
+    "AI query blocked: delay and benchmark operations are not allowed through automated channels because they occupy database workers without useful progress.";
 const MAX_AI_SQL_BYTES: usize = 256 * 1024;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -45,6 +47,9 @@ pub fn validate_ai_sql(sql: &str) -> Result<(), &'static str> {
     }
     if contains_locking_read(&tokens) {
         return Err(LOCKING_READ_MESSAGE);
+    }
+    if contains_resource_abuse(&tokens) {
+        return Err(RESOURCE_ABUSE_MESSAGE);
     }
     if contains_unbounded_write(&tokens) {
         return Err(UNBOUNDED_WRITE_MESSAGE);
@@ -145,6 +150,22 @@ fn contains_locking_read(tokens: &[Token]) -> bool {
                 ["FOR", "NO", "KEY", "UPDATE"] | ["LOCK", "IN", "SHARE", "MODE"]
             )
         })
+}
+
+fn contains_resource_abuse(tokens: &[Token]) -> bool {
+    const BLOCKED_FUNCTIONS: &[&str] = &[
+        "PG_SLEEP",
+        "PG_SLEEP_FOR",
+        "PG_SLEEP_UNTIL",
+        "SLEEP",
+        "BENCHMARK",
+    ];
+
+    tokens.windows(2).any(|pair| match pair {
+        [Token::Word(word), Token::OpenParen] => BLOCKED_FUNCTIONS.contains(&word.as_str()),
+        _ => false,
+    }) || top_level_statement_prefixes(tokens)
+        .any(|words| matches!(words.as_slice(), ["WAITFOR", "DELAY" | "TIME", ..]))
 }
 
 fn top_level_statement_prefixes(tokens: &[Token]) -> impl Iterator<Item = Vec<&str>> {

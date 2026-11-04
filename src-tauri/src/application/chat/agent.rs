@@ -128,7 +128,9 @@ pub async fn run_turn(
             request_tools,
             provider::GenerationOptions {
                 temperature: request.temperature.map(|value| value.clamp(0.0, 2.0)),
-                max_output_tokens: request.max_output_tokens.map(|value| value.clamp(256, 32_768)),
+                max_output_tokens: request
+                    .max_output_tokens
+                    .map(|value| value.clamp(256, 32_768)),
             },
             &mut |delta| {
                 emit_chat_event(
@@ -445,7 +447,10 @@ async fn execute_calls(
                     .get("sql")
                     .and_then(Value::as_str)
                     .is_some_and(|sql| {
-                        !matches!(tools::classify_statement(sql), tools::StatementClass::ReadOnly)
+                        !matches!(
+                            tools::classify_statement(sql),
+                            tools::StatementClass::ReadOnly
+                        )
                     })
             } else {
                 !crate::application::tool_registry::is_read_only(&call.name)
@@ -646,6 +651,8 @@ fn merged_context(request: &ChatContext, session: &ChatSession) -> ChatContext {
         selected_sql: request.selected_sql.clone(),
         last_result: request.last_result.clone(),
         last_plan: request.last_plan.clone(),
+        strict_mode: request.strict_mode,
+        mask_sensitive_results: request.mask_sensitive_results,
     }
 }
 
@@ -667,6 +674,11 @@ pub(crate) fn system_prompt(context: &ChatContext) -> String {
          - When a tool fails, report the error and continue with what you know.\n",
     );
     let mut context_lines = Vec::new();
+    if context.strict_mode {
+        prompt.push_str(
+            "- Production strict mode is active. Never request or attempt writes or DDL; use read-only evidence only.\n",
+        );
+    }
     if let Some(name) = context
         .connection_name
         .as_deref()

@@ -128,6 +128,9 @@ pub struct ChatContext {
     /// Enforces read-only tool execution, normally for production connections.
     #[serde(default)]
     pub strict_mode: bool,
+    /// Masks sensitive query-result columns before tool output reaches the model.
+    #[serde(default)]
+    pub mask_sensitive_results: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
