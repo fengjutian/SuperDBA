@@ -269,7 +269,12 @@ fn system_prompt_carries_connection_context() {
     assert!(prompt.contains("SELECT * FROM orders"));
     assert!(prompt.contains("read-only"));
     assert!(prompt.contains("describe_tables"));
-    assert!(prompt.contains("every page and batch"));
+    assert!(prompt.contains("every metadata page and batch"));
+    assert!(prompt.contains("most recent 7 days"));
+    assert!(prompt.contains("expand once to 30 days"));
+    assert!(prompt.contains("do not scan all history"));
+    assert!(prompt.contains("Do not wrap the timestamp column in a function"));
+    assert!(prompt.contains("entity predicate and time predicate together"));
     assert!(batch_limits(&crate::config::AppConfig::default()).total_calls > 16);
 }
 

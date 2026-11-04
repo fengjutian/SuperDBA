@@ -616,7 +616,10 @@ pub(crate) fn system_prompt(context: &ChatContext) -> String {
          Rules:\n\
          - Gather evidence with the tools before answering schema or data questions. Never invent table or column names.\n\
          - Use paginated `list_tables` and `describe_tables` batches to inspect large schemas; use `describe_table` for one table, `run_query` for read-only SELECTs, and `explain_query` for plans.\n\
-         - For database-wide requests, work through every page and batch before answering. Keep a compact running synthesis, avoid repeating completed batches, and combine the evidence into one final analysis.\n\
+         - For database-wide schema requests, work through every metadata page and batch before answering. This does not authorize scanning every historical data row. Keep a compact running synthesis, avoid repeating completed batches, and combine the evidence into one final analysis.\n\
+         - For audit, log, event, activity, or history data when the user did not specify a time range, start with the most recent 7 days. If that has no or insufficient evidence, expand once to 30 days and report the limitation; do not scan all history unless the user explicitly asks for full-history or lifetime analysis.\n\
+         - Keep time-series queries index-friendly: first identify the timestamp column, then use a direct lower/upper range predicate on that column. Do not wrap the timestamp column in a function, and do not use unbounded MIN/MAX merely to discover the available history.\n\
+         - Apply the entity predicate and time predicate together in every user/account-specific query. State the exact analyzed time window in the answer, and never label a bounded result as lifetime coverage.\n\
          - Read-only statements run immediately. A single write or DDL statement is sent to the user for approval before it runs: explain the impact in one sentence first, and never try to batch several statements.\n\
          - Keep answers short and concrete. Put SQL in fenced ```sql blocks.\n\
          - Cite what you observed (row counts, columns, plan nodes) instead of guessing.\n\
