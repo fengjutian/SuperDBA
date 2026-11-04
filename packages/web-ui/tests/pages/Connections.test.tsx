@@ -237,6 +237,17 @@ describe('Connections SQLite database action', () => {
     });
 });
 
+describe('Connections header', () => {
+    it('uses compact vertical spacing', () => {
+        render(<Connections />);
+
+        const header = screen.getByText('Database Manager').parentElement?.parentElement
+            ?.parentElement;
+        expect(header).toHaveClass('py-3.5');
+        expect(header).not.toHaveClass('pt-7', 'pb-6');
+    });
+});
+
 describe('Connections ordering', () => {
     const conn = (id: string, sort_order?: number) =>
         ({

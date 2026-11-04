@@ -3,6 +3,12 @@ import {render, screen} from '@testing-library/react';
 import {ChatMarkdown} from '@/components/chat/ChatMarkdown';
 
 describe('ChatMarkdown', () => {
+    it('allows users to select and copy rendered text', () => {
+        const {container} = render(<ChatMarkdown content="Selectable response" />);
+
+        expect(container.firstElementChild).toHaveClass('select-text');
+    });
+
     it('renders a GitHub-flavoured table as a real table', () => {
         const content = [
             '| Schema | Tables | Domain |',

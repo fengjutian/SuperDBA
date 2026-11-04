@@ -11,6 +11,8 @@ import {
     Sparkles,
     Square,
     Wrench,
+    Copy,
+    Check,
 } from 'lucide-react';
 import {useChatAgent} from '@/hooks/useChat';
 import {ChatMarkdown} from '@/components/chat/ChatMarkdown';
@@ -27,6 +29,7 @@ import {
     starterCacheKey,
 } from '@/utils/chatStarters';
 import type {ChatMessage, ChatToolCall} from '@/types/chat';
+import {useCopyFeedback} from '@/hooks/useCopyFeedback';
 
 function ToolCallRow({call}: {call: ChatToolCall}) {
     const {t} = useTranslation();
@@ -89,14 +92,13 @@ function MessageBubble({
 }) {
     const {t} = useTranslation();
     const sql = message.role === 'assistant' ? extractSqlBlock(message.content) : null;
-    const [copied, setCopied] = useState(false);
+    const {copied: messageCopied, copy: copyMessage} = useCopyFeedback(1500);
+    const {copied: sqlCopied, copy: copySqlText} = useCopyFeedback(1500);
     const [inserted, setInserted] = useState(false);
 
     const copySql = async () => {
         if (!sql) return;
-        await navigator.clipboard.writeText(sql);
-        setCopied(true);
-        window.setTimeout(() => setCopied(false), 1500);
+        await copySqlText(sql);
     };
 
     if (message.role === 'user') {
@@ -110,32 +112,43 @@ function MessageBubble({
     return (
         <div className="max-w-full space-y-2">
             <ChatMarkdown content={message.content} />
-            {sql && (
-                <div className="flex items-center gap-3">
-                    <button
-                        type="button"
-                        onClick={copySql}
-                        className="text-[11px] text-accent hover:underline"
-                    >
-                        {copied
-                            ? t('chat.copied', {defaultValue: 'Copied'})
-                            : t('chat.copySql', {defaultValue: 'Copy SQL'})}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => {
-                            onInsert(sql);
-                            setInserted(true);
-                            window.setTimeout(() => setInserted(false), 1500);
-                        }}
-                        className="text-[11px] text-accent hover:underline"
-                    >
-                        {inserted
-                            ? t('chat.inserted', {defaultValue: 'Inserted'})
-                            : t('chat.insertSql', {defaultValue: 'Insert into editor'})}
-                    </button>
-                </div>
-            )}
+            <div className="flex items-center gap-3">
+                <button
+                    type="button"
+                    onClick={() => void copyMessage(message.content)}
+                    aria-label={t('common.copy')}
+                    className="inline-flex items-center gap-1 text-[11px] text-accent hover:underline"
+                >
+                    {messageCopied ? <Check size={12} /> : <Copy size={12} />}
+                    {messageCopied ? t('chat.copied', {defaultValue: 'Copied'}) : t('common.copy')}
+                </button>
+                {sql && (
+                    <>
+                        <button
+                            type="button"
+                            onClick={() => void copySql()}
+                            className="text-[11px] text-accent hover:underline"
+                        >
+                            {sqlCopied
+                                ? t('chat.copied', {defaultValue: 'Copied'})
+                                : t('chat.copySql', {defaultValue: 'Copy SQL'})}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                onInsert(sql);
+                                setInserted(true);
+                                window.setTimeout(() => setInserted(false), 1500);
+                            }}
+                            className="text-[11px] text-accent hover:underline"
+                        >
+                            {inserted
+                                ? t('chat.inserted', {defaultValue: 'Inserted'})
+                                : t('chat.insertSql', {defaultValue: 'Insert into editor'})}
+                        </button>
+                    </>
+                )}
+            </div>
             {message.toolCalls && message.toolCalls.length > 0 && (
                 <div className="space-y-1">
                     {message.toolCalls.map((call) => (

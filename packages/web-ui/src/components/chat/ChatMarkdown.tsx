@@ -8,7 +8,7 @@ import remarkGfm from 'remark-gfm';
  * theme tokens; see `.rules/design.md`.
  */
 const STYLES = [
-    'max-w-full break-words text-sm leading-relaxed text-secondary',
+    'max-w-full select-text break-words text-sm leading-relaxed text-secondary',
     // Paragraphs and last-child spacing
     '[&_p]:mb-2 [&_p]:leading-relaxed [&_p:last-child]:mb-0',
     // Headings stay compact: the side panel is narrow.

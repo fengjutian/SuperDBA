@@ -1176,22 +1176,22 @@ export const Connections = () => {
     return (
         <div className="h-full flex flex-col overflow-hidden bg-base">
             {/* ── Header ────────────────────────────────────────────────────────── */}
-            <div className="relative flex items-center justify-between px-8 pt-7 pb-6 border-b border-default bg-elevated shrink-0 overflow-hidden">
+            <div className="relative flex items-center justify-between px-6 py-3.5 border-b border-default bg-elevated shrink-0 overflow-hidden">
                 {/* Decorative gradients */}
                 <div className="absolute top-0 right-0 w-72 h-full bg-gradient-to-bl from-accent-primary/10 via-accent-primary/3 to-transparent pointer-events-none" />
                 <div className="absolute top-0 right-0 w-32 h-full bg-gradient-to-l from-accent-primary/6 to-transparent pointer-events-none" />
 
                 <div className="relative">
-                    <div className="flex items-center gap-1.5 mb-2">
+                    <div className="flex items-center gap-1.5 mb-1">
                         <Database size={12} className="text-accent" />
                         <span className="text-[10px] font-bold text-accent/80 uppercase tracking-[0.15em]">
                             Database Manager
                         </span>
                     </div>
-                    <h1 className="text-xl font-bold text-primary tracking-tight">
+                    <h1 className="text-lg font-bold text-primary tracking-tight">
                         {t('connections.title')}
                     </h1>
-                    <div className="flex items-center gap-3 mt-1.5">
+                    <div className="flex items-center gap-3 mt-1">
                         <span className="text-xs text-muted">
                             {connections.length === 0
                                 ? t('connections.noConnections')
@@ -1217,7 +1217,7 @@ export const Connections = () => {
                             setEditingConnection(null);
                             setIsModalOpen(true);
                         }}
-                        className="flex items-center gap-2 bg-accent-primary hover:bg-accent-primary/90 text-inverse pl-4 pr-3.5 py-2.5 rounded-l-xl font-semibold text-sm transition-colors duration-150"
+                        className="flex items-center gap-2 bg-accent-primary hover:bg-accent-primary/90 text-inverse pl-4 pr-3.5 py-2 rounded-l-xl font-semibold text-sm transition-colors duration-150"
                     >
                         <Plus size={15} />
                         {t('connections.addConnection')}
