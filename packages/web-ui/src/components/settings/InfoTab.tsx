@@ -32,6 +32,7 @@ import {WhatsNewModal} from '@/components/modals/WhatsNewModal';
 import {OpenSourceLibrariesModal} from '@/components/modals/OpenSourceLibrariesModal';
 import {SocialLinks} from '@/components/SocialLinks';
 import {TONE_SOFT_BG_CLASS, TONE_TEXT_CLASS, type Tone} from '@/utils/tones';
+import {GITHUB_URL} from '@/config/links';
 
 export function InfoTab() {
     const platform = usePlatformCapabilities();
@@ -105,11 +106,7 @@ export function InfoTab() {
 
                 <div className="flex justify-center gap-4 flex-wrap">
                     <button
-                        onClick={() =>
-                            void platform.openExternalUrl(
-                                'https://github.com/SuperDBA/SuperDBA',
-                            )
-                        }
+                        onClick={() => void platform.openExternalUrl(GITHUB_URL)}
                         className="flex items-center gap-2 bg-surface-secondary hover:bg-surface-tertiary text-primary px-4 py-2 rounded-lg font-medium transition-colors border border-strong"
                     >
                         <Github size={18} />
@@ -271,7 +268,7 @@ export function InfoTab() {
                                 <button
                                     onClick={() =>
                                         void platform.openExternalUrl(
-                                            'https://github.com/SuperDBA/SuperDBA/blob/main/docs/web/WEB_MODE_UPGRADES.md',
+                                            `${GITHUB_URL}/blob/main/docs/web/WEB_MODE_UPGRADES.md`,
                                         )
                                     }
                                     className="mt-3 flex items-center gap-2 text-sm font-medium text-accent hover:text-accent/90 hover:underline"
@@ -437,14 +434,10 @@ export function InfoTab() {
             >
                 <div className="pt-3 flex flex-col items-center text-center">
                     <button
-                        onClick={() =>
-                            void platform.openExternalUrl(
-                                'https://github.com/SuperDBA/SuperDBA',
-                            )
-                        }
+                        onClick={() => void platform.openExternalUrl(GITHUB_URL)}
                         className="text-accent hover:text-accent/90 font-medium text-sm hover:underline"
                     >
-                        github.com/SuperDBA/SuperDBA
+                        github.com/fengjutian/SuperDBA
                     </button>
                 </div>
             </SettingSection>

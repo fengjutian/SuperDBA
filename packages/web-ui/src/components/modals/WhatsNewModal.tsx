@@ -9,7 +9,6 @@ import {
     Rocket,
     ExternalLink,
     Loader2,
-    Heart,
     Star,
 } from 'lucide-react';
 import {Modal} from '@/components/ui/Modal';
@@ -80,52 +79,29 @@ export const WhatsNewModal = ({isOpen, onClose, entries, isLoading}: WhatsNewMod
                             className="rounded-xl border border-accent-secondary/20 bg-linear-to-br from-accent-secondary/10 via-accent-secondary/5 to-transparent p-4"
                         >
                             <div className="flex items-start gap-3">
-                                <img
-                                    src="/debba-avatar.jpg"
-                                    alt="Andrea Debernardi (debba)"
-                                    width={56}
-                                    height={56}
-                                    className="h-14 w-14 shrink-0 rounded-lg border border-strong bg-base p-0.5 shadow-sm"
-                                />
+                                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-accent-secondary/30 bg-accent-secondary/10">
+                                    <Sparkles
+                                        size={24}
+                                        className="text-accent-secondary"
+                                        aria-hidden="true"
+                                    />
+                                </div>
                                 <div className="min-w-0 space-y-1.5">
                                     <h3
                                         id="whats-new-support-title"
                                         className="text-sm font-semibold text-primary"
                                     >
-                                        {t('whatsNew.supportTitle')}
+                                        {t('settings.support')}
                                     </h3>
                                     <p className="text-sm leading-relaxed text-secondary">
-                                        {t('whatsNew.supportDescription')}
+                                        {t('settings.supportDesc')}
                                     </p>
                                     <p className="text-xs text-secondary">
-                                        {t('whatsNew.supportThanks')}{' '}
-                                        <span className="inline-block font-medium italic text-primary">
-                                            — Andrea · debba
-                                        </span>
+                                        {t('whatsNew.supportThanks')}
                                     </p>
                                 </div>
                             </div>
                             <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-                                <a
-                                    href="https://github.com/sponsors/debba"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    onClick={(event) => {
-                                        event.preventDefault();
-                                        void platform.openExternalUrl(
-                                            'https://github.com/sponsors/debba',
-                                        );
-                                    }}
-                                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-accent-secondary px-3 py-2 text-xs font-medium text-on-accent-secondary transition-colors hover:bg-accent-secondary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-secondary"
-                                >
-                                    <Heart size={14} className="shrink-0" aria-hidden="true" />
-                                    {t('whatsNew.supportAction')}
-                                    <ExternalLink
-                                        size={14}
-                                        className="shrink-0"
-                                        aria-hidden="true"
-                                    />
-                                </a>
                                 <a
                                     href={GITHUB_URL}
                                     target="_blank"

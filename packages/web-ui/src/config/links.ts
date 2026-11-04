@@ -7,13 +7,13 @@
  */
 
 export const LINKS = {
-    DISCORD: 'https://discord.com/invite/K2hmhfHRSt',
-    GITHUB: 'https://github.com/SuperDBA/SuperDBA',
-    GITHUB_ISSUES: 'https://github.com/SuperDBA/SuperDBA/issues',
-    X: 'https://x.com/superdba',
-    BLUESKY: 'https://bsky.app/profile/superdba.bsky.social',
-    MASTODON: 'https://mastodon.social/@superdba',
-    LINKEDIN: 'https://www.linkedin.com/company/superdba',
+  DISCORD: "https://discord.com/invite/K2hmhfHRSt",
+  GITHUB: "https://github.com/fengjutian/SuperDBA",
+  GITHUB_ISSUES: "https://github.com/fengjutian/SuperDBA/issues",
+  X: "https://x.com/superdba",
+  BLUESKY: "https://bsky.app/profile/superdba.bsky.social",
+  MASTODON: "https://mastodon.social/@superdba",
+  LINKEDIN: "https://www.linkedin.com/company/superdba",
 } as const;
 
 // Named exports for convenience

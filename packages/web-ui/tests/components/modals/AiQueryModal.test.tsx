@@ -60,10 +60,10 @@ describe('AiQueryModal', () => {
             />,
         );
 
-        fireEvent.change(screen.getByPlaceholderText(/Find all users/i), {
+        fireEvent.change(screen.getByPlaceholderText('ai.promptPlaceholder'), {
             target: {value: 'Count users'},
         });
-        fireEvent.click(screen.getByRole('button', {name: /Generate SQL/i}));
+        fireEvent.click(screen.getByRole('button', {name: 'ai.generateSql'}));
 
         expect(
             invokeMock.mock.calls.filter(([command]) => command === 'generate_ai_query'),

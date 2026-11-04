@@ -11,7 +11,7 @@ vi.mock('@/hooks/usePlatformCapabilities', () => import('../../support/tauriBack
 const entry = {
     version: '0.23.0',
     date: '2026-09-10',
-    url: 'https://github.com/SuperDBA/SuperDBA/releases/tag/v0.23.0',
+    url: 'https://github.com/fengjutian/SuperDBA/releases/tag/v0.23.0',
     features: ['Save **SQL files**'],
     bugFixes: ['Keep typed characters'],
     breakingChanges: ['Review connection settings'],
@@ -47,35 +47,25 @@ describe('WhatsNewModal', () => {
         vi.restoreAllMocks();
     });
 
-    it('shows the sponsorship invitation alongside every changelog section', () => {
+    it('shows project support without stale upstream maintainer details', () => {
         renderModal();
-        expect(screen.getByRole('region', {name: 'whatsNew.supportTitle'})).toBeInTheDocument();
-        expect(screen.getByText('whatsNew.supportDescription')).toBeInTheDocument();
-        expect(screen.getByText(/Andrea · debba/)).toBeInTheDocument();
-        expect(screen.getByRole('img', {name: 'Andrea Debernardi (debba)'})).toHaveAttribute(
-            'src',
-            '/debba-avatar.jpg',
-        );
+        expect(screen.getByRole('region', {name: 'settings.support'})).toBeInTheDocument();
+        expect(screen.getByText('settings.supportDesc')).toBeInTheDocument();
+        expect(screen.queryByText(/Andrea|debba/)).not.toBeInTheDocument();
+        expect(screen.queryByRole('link', {name: 'whatsNew.supportAction'})).not.toBeInTheDocument();
         expect(screen.getByText('SQL files').tagName).toBe('STRONG');
         expect(screen.getByText('Keep typed characters')).toBeInTheDocument();
         expect(screen.getByText('Review connection settings')).toBeInTheDocument();
     });
 
-    it('opens the configured GitHub Sponsors profile externally without dismissing', () => {
-        const {onClose} = renderModal();
-        const link = screen.getByRole('link', {name: 'whatsNew.supportAction'});
-        expect(link).toHaveAttribute('href', 'https://github.com/sponsors/debba');
-        fireEvent.click(link);
-        expect(openUrl).toHaveBeenCalledExactlyOnceWith('https://github.com/sponsors/debba');
-        expect(onClose).not.toHaveBeenCalled();
-    });
-
     it('opens the project repository externally to leave a star without dismissing', () => {
         const {onClose} = renderModal();
         const link = screen.getByRole('link', {name: 'whatsNew.supportStarAction'});
-        expect(link).toHaveAttribute('href', 'https://github.com/SuperDBA/SuperDBA');
+        expect(link).toHaveAttribute('href', 'https://github.com/fengjutian/SuperDBA');
         fireEvent.click(link);
-        expect(openUrl).toHaveBeenCalledExactlyOnceWith('https://github.com/SuperDBA/SuperDBA');
+        expect(openUrl).toHaveBeenCalledExactlyOnceWith(
+            'https://github.com/fengjutian/SuperDBA',
+        );
         expect(onClose).not.toHaveBeenCalled();
     });
 
@@ -98,7 +88,9 @@ describe('WhatsNewModal', () => {
         'keeps sponsorship available with no entries (loading: %s)',
         (isLoading) => {
             renderModal({entries: [], isLoading});
-            expect(screen.getByRole('link', {name: 'whatsNew.supportAction'})).toBeInTheDocument();
+            expect(
+                screen.getByRole('link', {name: 'whatsNew.supportStarAction'}),
+            ).toBeInTheDocument();
             expect(screen.queryByText('common.loading') !== null).toBe(isLoading);
         },
     );
@@ -144,7 +136,7 @@ describe('WhatsNewModal', () => {
     it('does not render when closed', () => {
         renderModal({isOpen: false});
         expect(
-            screen.queryByRole('link', {name: 'whatsNew.supportAction'}),
+                screen.queryByRole('link', {name: 'whatsNew.supportStarAction'}),
         ).not.toBeInTheDocument();
     });
 });

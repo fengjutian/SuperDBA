@@ -61,7 +61,7 @@ struct GitHubAsset {
 }
 
 // Constants
-const GITHUB_REPO: &str = "SuperDBA/SuperDBA";
+const GITHUB_REPO: &str = "fengjutian/SuperDBA";
 const CACHE_DURATION_SECS: u64 = 43200; // 12 hours
 
 #[cfg_attr(feature = "desktop", tauri::command)]
@@ -516,7 +516,7 @@ mod tests {
     // GitHub repo constant test
     #[test]
     fn test_github_repo_constant() {
-        assert_eq!(GITHUB_REPO, "SuperDBA/SuperDBA");
+        assert_eq!(GITHUB_REPO, "fengjutian/SuperDBA");
     }
 
     // Cache duration test

@@ -4,6 +4,7 @@ import {useSuperDBAClient} from '@/hooks/useSuperDBAClient';
 import {useDatabase} from '@/hooks/useDatabase';
 import {useSettings} from '@/hooks/useSettings';
 import {Modal} from '@/components/ui/Modal';
+import {useTranslation} from 'react-i18next';
 
 interface AiQueryModalProps {
     isOpen: boolean;
@@ -28,6 +29,7 @@ export const AiQueryModal = ({
     schema,
     database,
 }: AiQueryModalProps) => {
+    const {t} = useTranslation();
     const {activeConnectionId, activeSchema, activeDatabaseName} = useDatabase();
     const {settings} = useSettings();
     const client = useSuperDBAClient();
@@ -101,7 +103,7 @@ export const AiQueryModal = ({
                     setSchemaLoad({
                         key: schemaKey,
                         context: '',
-                        error: 'Failed to load database schema context',
+                        error: t('ai.schemaError'),
                     });
                 }
             });
@@ -109,11 +111,11 @@ export const AiQueryModal = ({
         return () => {
             cancelled = true;
         };
-    }, [isOpen, resolvedConnectionId, schemaKey, loadSchema]);
+    }, [isOpen, resolvedConnectionId, schemaKey, loadSchema, t]);
 
     const handleGenerate = async () => {
         if (!prompt.trim() || !settings.aiProvider) {
-            setError('Please configure AI provider in Settings and enter a prompt.');
+            setError(t('ai.configError'));
             return;
         }
 
@@ -153,10 +155,12 @@ export const AiQueryModal = ({
                 <div className="flex items-center justify-between p-4 border-b border-default">
                     <div className="flex items-center gap-2 text-primary font-medium">
                         <Sparkles size={18} className="text-accent-warning" />
-                        <span>AI Query Assist</span>
+                        <span>{t('ai.assist')}</span>
                     </div>
                     <button
+                        type="button"
                         onClick={onClose}
+                        aria-label={t('common.close')}
                         className="text-secondary hover:text-primary transition-colors"
                     >
                         <X size={18} />
@@ -167,7 +171,7 @@ export const AiQueryModal = ({
                 <div className="p-6 space-y-4">
                     {!settings.aiProvider && (
                         <div className="bg-warning-bg border border-warning-border text-warning-text px-4 py-3 rounded text-sm">
-                            ⚠️ AI Provider not configured. Please go to Settings {'>'} AI.
+                            {t('ai.configRequired')}
                         </div>
                     )}
 
@@ -176,7 +180,7 @@ export const AiQueryModal = ({
                             htmlFor={promptId}
                             className="block text-sm font-medium text-secondary mb-2"
                         >
-                            Describe your query in natural language
+                            {t('ai.enterPrompt')}
                         </label>
                         {/* Prose field: natural-language input, so spellcheck/autocorrect stay ON; only the WebKit autofill pill is disabled. */}
                         <textarea
@@ -185,7 +189,7 @@ export const AiQueryModal = ({
                             spellCheck={true}
                             value={prompt}
                             onChange={(e) => setPrompt(e.target.value)}
-                            placeholder="e.g. Find all users who signed up last month and ordered a 'Premium' plan..."
+                            placeholder={t('ai.promptPlaceholder')}
                             className="w-full h-32 bg-base border border-strong rounded-lg p-3 text-primary focus:outline-none focus:border-focus transition-colors resize-none"
                             autoFocus
                             onKeyDown={(e) => {
@@ -205,7 +209,7 @@ export const AiQueryModal = ({
                     {isSchemaLoading && (
                         <div className="flex items-center gap-2 text-xs text-muted">
                             <Loader2 size={12} className="animate-spin" />
-                            Reading database schema...
+                            {t('ai.readingSchema')}
                         </div>
                     )}
                 </div>
@@ -213,12 +217,14 @@ export const AiQueryModal = ({
                 {/* Footer */}
                 <div className="flex items-center justify-end gap-2 p-4 border-t border-default bg-elevated/50 rounded-b-xl">
                     <button
+                        type="button"
                         onClick={onClose}
                         className="px-4 py-2 text-secondary hover:text-primary hover:bg-surface-secondary rounded-lg text-sm transition-colors"
                     >
-                        Cancel
+                        {t('common.cancel')}
                     </button>
                     <button
+                        type="button"
                         onClick={handleGenerate}
                         disabled={isLoading || !prompt.trim() || !settings.aiProvider}
                         className="flex items-center gap-2 px-4 py-2 bg-accent-primary hover:bg-accent-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-inverse rounded-lg text-sm font-medium transition-colors"
@@ -226,12 +232,12 @@ export const AiQueryModal = ({
                         {isLoading ? (
                             <>
                                 <Loader2 size={16} className="animate-spin" />
-                                Generating...
+                                {t('ai.generating')}
                             </>
                         ) : (
                             <>
                                 <Sparkles size={16} />
-                                Generate SQL
+                                {t('ai.generateSql')}
                             </>
                         )}
                     </button>
