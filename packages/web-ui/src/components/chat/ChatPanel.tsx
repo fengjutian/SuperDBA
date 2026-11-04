@@ -35,6 +35,7 @@ import {
     buildLocalStarters,
     cachedStarters,
     rememberStarters,
+    sanitizeGeneratedStarters,
     selectPromptTables,
     starterCacheKey,
 } from '@/utils/chatStarters';
@@ -272,11 +273,13 @@ export function ChatPanel() {
         [settings.aiProvider, settings.aiModel, i18n.language, activeConnectionId, promptTables],
     );
     const showEmptyState = messages.length === 0 && !stream;
+    const customStarters = sanitizeGeneratedStarters(settings.dbaChatCustomStarters ?? []);
 
     // Model-written questions are a progressive enhancement: the empty state
     // paints the local set immediately and this effect only swaps it in later.
     useEffect(() => {
         if (!showEmptyState || settings.dbaChatShowSuggestions === false) return;
+        if (customStarters.length > 0) return;
         if (cachedStarters(startersKey)) return;
         if (settings.dbaChatGenerateSuggestions === false) return;
         if (!settings.aiProvider || promptTables.length === 0) return;
@@ -303,6 +306,7 @@ export function ChatPanel() {
         activeDatabaseName,
         activeSchema,
         connectionName,
+        customStarters.length,
         i18n.language,
         promptTables,
         settings.aiProvider,
@@ -316,11 +320,13 @@ export function ChatPanel() {
     const starterPrompts =
         settings.dbaChatShowSuggestions === false
             ? []
-            : settings.dbaChatGenerateSuggestions === false
-              ? localStarters
-              : ((generatedStarters?.key === startersKey ? generatedStarters.values : null) ??
-                cachedStarters(startersKey) ??
-                localStarters);
+            : customStarters.length > 0
+              ? customStarters
+              : settings.dbaChatGenerateSuggestions === false
+                ? localStarters
+                : ((generatedStarters?.key === startersKey ? generatedStarters.values : null) ??
+                  cachedStarters(startersKey) ??
+                  localStarters);
 
     const submit = async () => {
         if (!input.trim() || sending) return;

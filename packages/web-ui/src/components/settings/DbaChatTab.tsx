@@ -6,6 +6,7 @@ import {useSettings} from '@/hooks/useSettings';
 import {useToast} from '@/hooks/useToast';
 import {Button} from '@/components/ui/Button';
 import {ConfirmModal} from '@/components/modals/ConfirmModal';
+import {sanitizeGeneratedStarters} from '@/utils/chatStarters';
 import {
     SettingButtonGroup,
     SettingNumberInput,
@@ -30,6 +31,10 @@ export function DbaChatTab() {
     const {settings, updateSetting} = useSettings();
     const {showToast} = useToast();
     const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+    const [customStartersDraft, setCustomStartersDraft] = useState(
+        (settings.dbaChatCustomStarters ?? []).join('\n'),
+    );
+    const customStarterPreview = sanitizeGeneratedStarters(customStartersDraft.split(/\r?\n/));
     const showSuggestions = settings.dbaChatShowSuggestions !== false;
     const callsPerBatch = settings.aiChatCallsPerBatch ?? DEFAULT_CALLS_PER_BATCH;
     const maxBatches = settings.aiChatMaxBatches ?? DEFAULT_MAX_BATCHES;
@@ -54,6 +59,18 @@ export function DbaChatTab() {
         }
     };
 
+    const saveCustomStarters = async () => {
+        const previous = sanitizeGeneratedStarters(settings.dbaChatCustomStarters ?? []);
+        setCustomStartersDraft(customStarterPreview.join('\n'));
+        if (JSON.stringify(previous) === JSON.stringify(customStarterPreview)) return;
+        try {
+            await updateSetting('dbaChatCustomStarters', customStarterPreview);
+            showToast(t('settings.dbaChat.customStartersSaved'), {kind: 'success'});
+        } catch (error) {
+            showToast(t('settings.dbaChat.saveFailed', {error: String(error)}), {kind: 'error'});
+        }
+    };
+
     const resetDefaults = async () => {
         setResetConfirmOpen(false);
         try {
@@ -65,7 +82,9 @@ export function DbaChatTab() {
                 updateSetting('dbaChatIncludeCurrentSql', true),
                 updateSetting('dbaChatIncludeLastResult', false),
                 updateSetting('dbaChatSendOnEnter', true),
+                updateSetting('dbaChatCustomStarters', []),
             ]);
+            setCustomStartersDraft('');
             showToast(t('settings.dbaChat.defaultsRestored'), {kind: 'success'});
         } catch (error) {
             showToast(t('settings.dbaChat.saveFailed', {error: String(error)}), {kind: 'error'});
@@ -150,11 +169,54 @@ export function DbaChatTab() {
                     >
                         <SettingToggle
                             checked={settings.dbaChatGenerateSuggestions !== false}
-                            disabled={!showSuggestions}
+                            disabled={!showSuggestions || customStarterPreview.length > 0}
                             onChange={(value) =>
                                 void updateSetting('dbaChatGenerateSuggestions', value)
                             }
                         />
+                    </SettingRow>
+                    <SettingRow
+                        label={t('settings.dbaChat.customStarters')}
+                        description={t('settings.dbaChat.customStartersDesc')}
+                        vertical
+                    >
+                        <textarea
+                            value={customStartersDraft}
+                            onChange={(event) => setCustomStartersDraft(event.target.value)}
+                            onBlur={() => void saveCustomStarters()}
+                            rows={4}
+                            maxLength={500}
+                            aria-label={t('settings.dbaChat.customStarters')}
+                            placeholder={t('settings.dbaChat.customStartersPlaceholder')}
+                            className="w-full resize-y rounded border border-default bg-base px-3 py-2 text-sm text-primary placeholder:text-muted focus:border-focus focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                        />
+                        <div className="mt-2 flex items-center justify-between gap-3 text-xs text-muted">
+                            <span>
+                                {t('settings.dbaChat.customStartersCount', {
+                                    count: customStarterPreview.length,
+                                })}
+                            </span>
+                            {customStarterPreview.length > 0 && (
+                                <span className="text-accent-warning">
+                                    {t('settings.dbaChat.customStartersOverride')}
+                                </span>
+                            )}
+                        </div>
+                        {customStarterPreview.length > 0 && (
+                            <div
+                                className="mt-2 space-y-1"
+                                aria-label={t('settings.dbaChat.customStartersPreview')}
+                            >
+                                {customStarterPreview.map((prompt) => (
+                                    <div
+                                        key={prompt}
+                                        className="rounded border border-default bg-surface-secondary px-2 py-1.5 text-xs text-secondary"
+                                    >
+                                        {prompt}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </SettingRow>
                 </div>
             </SettingSection>

@@ -87,6 +87,8 @@ export interface Settings {
     dbaChatIncludeLastResult?: boolean;
     /** Send on Enter; when false, only Ctrl/Cmd+Enter sends. Default: true. */
     dbaChatSendOnEnter?: boolean;
+    /** Optional user-authored starter questions shown before generated suggestions. */
+    dbaChatCustomStarters?: string[];
     autoCheckUpdatesOnStartup?: boolean;
     /** Last plugin release shown in a startup notification, keyed by plugin id. */
     notifiedPluginVersions?: Record<string, string>;
@@ -264,6 +266,7 @@ export const DEFAULT_SETTINGS: Settings = {
     dbaChatIncludeCurrentSql: true,
     dbaChatIncludeLastResult: false,
     dbaChatSendOnEnter: true,
+    dbaChatCustomStarters: [],
     loggingEnabled: true,
     maxLogEntries: 1000,
     copyFormat: 'csv',

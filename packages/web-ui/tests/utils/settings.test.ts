@@ -706,6 +706,7 @@ describe('settings', () => {
             expect(DEFAULT_SETTINGS.dbaChatIncludeCurrentSql).toBe(true);
             expect(DEFAULT_SETTINGS.dbaChatIncludeLastResult).toBe(false);
             expect(DEFAULT_SETTINGS.dbaChatSendOnEnter).toBe(true);
+            expect(DEFAULT_SETTINGS.dbaChatCustomStarters).toEqual([]);
         });
     });
 
