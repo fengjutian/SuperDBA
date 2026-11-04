@@ -1,0 +1,122 @@
+//! Conservative SQL safeguards for statements proposed by AI tools.
+//!
+//! These checks intentionally apply only to automated DBA chat and MCP
+//! execution. The SQL editor remains available for deliberate administrative
+//! work that requires broader database privileges.
+
+use crate::ai_activity;
+
+#[cfg(test)]
+mod tests;
+
+const UNBOUNDED_WRITE_MESSAGE: &str =
+    "AI query blocked: UPDATE and DELETE statements require a WHERE clause. Review and run the statement explicitly in the SQL editor if a full-table change is intended.";
+const LOCK_HEAVY_MESSAGE: &str =
+    "AI query blocked: lock-heavy DDL or maintenance statements must be reviewed and run explicitly in the SQL editor.";
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Token {
+    Word(String),
+    OpenParen,
+    CloseParen,
+    Semicolon,
+}
+
+/// Reject SQL patterns that are too risky for an automated execution channel.
+pub fn validate_ai_sql(sql: &str) -> Result<(), &'static str> {
+    let tokens = tokens(sql);
+
+    if contains_lock_heavy_operation(&tokens) {
+        return Err(LOCK_HEAVY_MESSAGE);
+    }
+    if contains_unbounded_write(&tokens) {
+        return Err(UNBOUNDED_WRITE_MESSAGE);
+    }
+
+    Ok(())
+}
+
+fn tokens(sql: &str) -> Vec<Token> {
+    let stripped = ai_activity::strip_strings_and_comments(sql);
+    let mut result = Vec::new();
+    let mut word = String::new();
+
+    let flush_word = |word: &mut String, result: &mut Vec<Token>| {
+        if !word.is_empty() {
+            result.push(Token::Word(std::mem::take(word).to_ascii_uppercase()));
+        }
+    };
+
+    for character in stripped.chars() {
+        if character.is_ascii_alphanumeric() || character == '_' {
+            word.push(character);
+            continue;
+        }
+
+        flush_word(&mut word, &mut result);
+        match character {
+            '(' => result.push(Token::OpenParen),
+            ')' => result.push(Token::CloseParen),
+            ';' => result.push(Token::Semicolon),
+            _ => {}
+        }
+    }
+    flush_word(&mut word, &mut result);
+    result
+}
+
+fn contains_lock_heavy_operation(tokens: &[Token]) -> bool {
+    let words = tokens.iter().filter_map(|token| match token {
+        Token::Word(word) => Some(word.as_str()),
+        _ => None,
+    });
+    let words = words.collect::<Vec<_>>();
+
+    words.iter().any(|word| {
+        matches!(
+            *word,
+            "ALTER" | "TRUNCATE" | "VACUUM" | "OPTIMIZE" | "REINDEX" | "CLUSTER" | "LOCK"
+        )
+    }) || words
+        .windows(2)
+        .any(|pair| matches!(pair, ["CREATE" | "DROP", "INDEX"]))
+        || words
+            .windows(3)
+            .any(|triple| matches!(triple, ["CREATE", "UNIQUE", "INDEX"]))
+}
+
+fn contains_unbounded_write(tokens: &[Token]) -> bool {
+    let mut depth = 0usize;
+
+    for (index, token) in tokens.iter().enumerate() {
+        match token {
+            Token::OpenParen => depth += 1,
+            Token::CloseParen => depth = depth.saturating_sub(1),
+            Token::Word(word) if word == "UPDATE" || word == "DELETE" => {
+                if !has_where_in_scope(&tokens[index + 1..], depth) {
+                    return true;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    false
+}
+
+fn has_where_in_scope(tokens: &[Token], statement_depth: usize) -> bool {
+    let mut depth = statement_depth;
+
+    for token in tokens {
+        match token {
+            Token::OpenParen => depth += 1,
+            Token::CloseParen if depth <= statement_depth => return false,
+            Token::CloseParen => depth -= 1,
+            Token::Semicolon if depth == statement_depth => return false,
+            Token::Word(word) if depth == statement_depth && word == "WHERE" => return true,
+            _ => {}
+        }
+    }
+
+    false
+}

@@ -9,6 +9,7 @@
 use super::{emit_chat_event, is_cancelled, ChatContext, ChatToolStatus};
 use crate::ai_approval::{self, PendingApproval};
 use crate::application::ai_query_guard;
+use crate::application::ai_sql_safety;
 use crate::application::metadata;
 use crate::application::queries::{self, QueryRequestScope, QueryResponsePolicy};
 use crate::runtime::{state::ApplicationState, RuntimeContext};
@@ -486,14 +487,22 @@ async fn run_query(
     args: RunQueryArgs,
 ) -> ToolOutcome {
     let limit = args.limit.unwrap_or(DEFAULT_ROWS).clamp(1, MAX_ROWS);
+    if let Err(reason) = ai_sql_safety::validate_ai_sql(&args.sql) {
+        return ToolOutcome::denied(reason);
+    }
     let (sql, approved) = match classify_statement(&args.sql) {
         StatementClass::Rejected(reason) => return ToolOutcome::denied(reason),
         StatementClass::ReadOnly => (args.sql, false),
         StatementClass::Write(kind) => match request_approval(tool, &args.sql, kind).await {
-            ApprovalOutcome::Approved(sql) => match classify_statement(&sql) {
-                StatementClass::Rejected(reason) => return ToolOutcome::denied(reason),
-                _ => (sql, true),
-            },
+            ApprovalOutcome::Approved(sql) => {
+                if let Err(reason) = ai_sql_safety::validate_ai_sql(&sql) {
+                    return ToolOutcome::denied(reason);
+                }
+                match classify_statement(&sql) {
+                    StatementClass::Rejected(reason) => return ToolOutcome::denied(reason),
+                    _ => (sql, true),
+                }
+            }
             ApprovalOutcome::Denied(reason) => return ToolOutcome::denied(reason),
             ApprovalOutcome::Cancelled => return ToolOutcome::denied(
                 "The user stopped the turn before approving this statement. Nothing was executed.",

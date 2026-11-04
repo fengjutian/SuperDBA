@@ -1,5 +1,6 @@
 pub mod ai;
 pub mod ai_query_guard;
+pub mod ai_sql_safety;
 pub mod api;
 pub mod cancellation;
 pub mod chat;

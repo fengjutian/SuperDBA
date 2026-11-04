@@ -1,6 +1,7 @@
 use crate::ai_activity::{self, AiActivityEvent};
 use crate::ai_approval::{self, PendingApproval, PollOutcome};
 use crate::application::ai_query_guard;
+use crate::application::ai_sql_safety;
 use crate::application::connection_params;
 use crate::config::{
     self, AppConfig, DEFAULT_AI_AUDIT_ENABLED, DEFAULT_AI_AUDIT_MAX_ENTRIES,
@@ -1249,6 +1250,16 @@ async fn tool_run_query(
     audit.database = database.map(str::to_string);
     apply_database_override(&mut db_params, database, &capabilities)?;
 
+    if let Err(message) = ai_sql_safety::validate_ai_sql(query) {
+        audit.status = "blocked_safety".to_string();
+        audit.error = Some(message.to_string());
+        return Err(JsonRpcError {
+            code: -32000,
+            message: message.to_string(),
+            data: None,
+        });
+    }
+
     // Read-only enforcement (fail-closed: unknown counts as write).
     if config::is_connection_readonly(config, &conn.id) && kind != "select" {
         audit.status = "blocked_readonly".to_string();
@@ -1362,6 +1373,16 @@ async fn tool_run_query(
                         );
                         audit.query = Some(effective_query.clone());
                         audit.query_kind = Some(new_kind.to_string());
+
+                        if let Err(message) = ai_sql_safety::validate_ai_sql(&effective_query) {
+                            audit.status = "blocked_safety".to_string();
+                            audit.error = Some(message.to_string());
+                            return Err(JsonRpcError {
+                                code: -32000,
+                                message: message.to_string(),
+                                data: None,
+                            });
+                        }
 
                         if config::is_connection_readonly(config, &conn.id) && new_kind != "select"
                         {
