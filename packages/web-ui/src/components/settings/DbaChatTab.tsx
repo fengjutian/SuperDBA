@@ -8,6 +8,7 @@ import {Button} from '@/components/ui/Button';
 import {ConfirmModal} from '@/components/modals/ConfirmModal';
 import {sanitizeGeneratedStarters} from '@/utils/chatStarters';
 import type {AiProvider} from '@/contexts/SettingsContext';
+import {isDbaChatProviderSupported, SUPPORTED_DBA_PROVIDERS} from '@/utils/dbaChat';
 import {
     SettingButtonGroup,
     SettingNumberInput,
@@ -27,17 +28,6 @@ const ANALYSIS_PRESETS = {
 
 type AnalysisPreset = keyof typeof ANALYSIS_PRESETS | 'custom';
 
-const DBA_PROVIDERS: AiProvider[] = [
-    'openai',
-    'anthropic',
-    'deepseek',
-    'minimax',
-    'openrouter',
-    'requesty',
-    'custom-openai',
-    'ollama',
-];
-
 export function DbaChatTab() {
     const {t} = useTranslation();
     const navigate = useNavigate();
@@ -54,6 +44,7 @@ export function DbaChatTab() {
     const totalCalls = callsPerBatch * maxBatches;
     const effectiveProvider = settings.dbaChatProvider ?? settings.aiProvider;
     const effectiveModel = settings.dbaChatModel?.trim() || settings.aiModel;
+    const modelReady = isDbaChatProviderSupported(effectiveProvider);
     const activePreset: AnalysisPreset =
         (Object.entries(ANALYSIS_PRESETS).find(
             ([, preset]) =>
@@ -148,24 +139,30 @@ export function DbaChatTab() {
                 <SettingRow
                     label={t('settings.dbaChat.currentModel')}
                     description={
-                        effectiveProvider
+                        modelReady
                             ? t('settings.dbaChat.currentModelValue', {
                                   provider: effectiveProvider,
                                   model: effectiveModel || t('settings.dbaChat.defaultModel'),
                               })
-                            : t('settings.dbaChat.modelNotConfigured')
+                            : effectiveProvider
+                              ? t('settings.dbaChat.unsupportedProviderDesc', {
+                                    provider: effectiveProvider,
+                                })
+                              : t('settings.dbaChat.modelNotConfigured')
                     }
                 >
                     <span
                         className={
-                            effectiveProvider
+                            modelReady
                                 ? 'text-xs text-accent-success'
                                 : 'text-xs text-accent-warning'
                         }
                     >
-                        {effectiveProvider
+                        {modelReady
                             ? t('settings.dbaChat.modelReady')
-                            : t('settings.dbaChat.modelRequired')}
+                            : effectiveProvider
+                              ? t('settings.dbaChat.modelUnsupported')
+                              : t('settings.dbaChat.modelRequired')}
                     </span>
                 </SettingRow>
                 <SettingRow
@@ -184,7 +181,7 @@ export function DbaChatTab() {
                         aria-label={t('settings.dbaChat.dedicatedProvider')}
                     >
                         <option value="">{t('settings.dbaChat.inheritGlobal')}</option>
-                        {DBA_PROVIDERS.map((provider) => (
+                        {SUPPORTED_DBA_PROVIDERS.map((provider) => (
                             <option key={provider} value={provider}>
                                 {provider}
                             </option>

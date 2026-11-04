@@ -3,6 +3,7 @@ import {useSuperDBAClient} from './useSuperDBAClient';
 import {useSettings} from './useSettings';
 import {reduceChatStream, type ChatStreamState} from '@/utils/chat';
 import {sanitizeGeneratedStarters} from '@/utils/chatStarters';
+import {isDbaChatProviderSupported} from '@/utils/dbaChat';
 import type {
     ChatContext,
     ChatEvent,
@@ -86,6 +87,7 @@ export function useChatAgent() {
     const openSession = useCallback(
         async (sessionId: string) => {
             setError(null);
+            setContinuationRequired(null);
             try {
                 const loaded = await client.call('chat_get_session', {sessionId});
                 if (mounted.current) {
@@ -125,7 +127,10 @@ export function useChatAgent() {
             setError(null);
             try {
                 await client.call('chat_delete_session', {sessionId});
-                if (session?.id === sessionId) setSession(null);
+                if (session?.id === sessionId) {
+                    setSession(null);
+                    setContinuationRequired(null);
+                }
                 await refreshSessions();
             } catch (err) {
                 setError(String(err));
@@ -149,8 +154,12 @@ export function useChatAgent() {
             const trimmed = message.trim();
             if (!trimmed || sending) return;
             const provider = settings.dbaChatProvider ?? settings.aiProvider;
-            if (!provider) {
-                setError('Configure an AI provider in Settings → AI before using chat.');
+            if (!isDbaChatProviderSupported(provider)) {
+                setError(
+                    provider
+                        ? `${provider} does not support DBA tool calls. Choose a dedicated DBA provider in Settings.`
+                        : 'Configure an AI provider in Settings before using DBA chat.',
+                );
                 return;
             }
             const requestId = newRequestId();
@@ -210,7 +219,7 @@ export function useChatAgent() {
     const suggestStarters = useCallback(
         async (context: ChatContext, tables: string[], language: string): Promise<string[]> => {
             const provider = settings.dbaChatProvider ?? settings.aiProvider;
-            if (!provider || tables.length === 0) return [];
+            if (!isDbaChatProviderSupported(provider) || tables.length === 0) return [];
             try {
                 const values = await client.call('chat_suggest_starters', {
                     request: {

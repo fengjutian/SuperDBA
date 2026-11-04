@@ -41,6 +41,7 @@ import {
 } from '@/utils/chatStarters';
 import type {ChatMessage, ChatToolCall} from '@/types/chat';
 import {useCopyFeedback} from '@/hooks/useCopyFeedback';
+import {isDbaChatProviderSupported} from '@/utils/dbaChat';
 
 function ToolCallRow({call}: {call: ChatToolCall}) {
     const {t} = useTranslation();
@@ -384,7 +385,7 @@ export function ChatPanel() {
         await send(message, buildContext());
     };
 
-    const providerReady = Boolean(chatProvider);
+    const providerReady = isDbaChatProviderSupported(chatProvider);
     const includesCurrentSql =
         settings.dbaChatIncludeCurrentSql !== false && Boolean(activeTab?.selectedSql);
     const includesLastResult =
@@ -611,9 +612,12 @@ export function ChatPanel() {
 
             {!providerReady && (
                 <div className="mx-3 mb-2 text-[11px] text-accent-warning border border-accent-warning/30 rounded px-2 py-1">
-                    {t('chat.configureProvider', {
-                        defaultValue: 'Select an AI provider in Settings → AI to start chatting.',
-                    })}
+                    {chatProvider
+                        ? t('chat.unsupportedProvider', {provider: chatProvider})
+                        : t('chat.configureProvider', {
+                              defaultValue:
+                                  'Select an AI provider in Settings → AI to start chatting.',
+                          })}
                 </div>
             )}
 
