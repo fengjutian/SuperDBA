@@ -1,7 +1,8 @@
 use super::{
     validate_ai_sql, AUDIT_TIME_RANGE_MESSAGE, LOCKING_READ_MESSAGE, LOCK_HEAVY_MESSAGE,
-    MAX_AI_SQL_BYTES, RESOURCE_ABUSE_MESSAGE, SQL_TOO_LARGE_MESSAGE, TRANSACTION_CONTROL_MESSAGE,
-    UNBOUNDED_WRITE_MESSAGE,
+    MAX_AI_JOINS, MAX_AI_NESTING_DEPTH, MAX_AI_SET_OPERATIONS, MAX_AI_SQL_BYTES,
+    QUERY_COMPLEXITY_MESSAGE, RESOURCE_ABUSE_MESSAGE, ROW_GENERATOR_MESSAGE, SQL_TOO_LARGE_MESSAGE,
+    TRANSACTION_CONTROL_MESSAGE, UNBOUNDED_WRITE_MESSAGE,
 };
 
 #[test]
@@ -144,6 +145,50 @@ fn requires_an_indexable_time_range_for_audit_log() {
     ] {
         assert_eq!(validate_ai_sql(sql), Ok(()), "{sql}");
     }
+}
+
+#[test]
+fn blocks_recursive_queries_and_row_generators() {
+    for sql in [
+        "WITH RECURSIVE tree AS (SELECT 1 UNION ALL SELECT id + 1 FROM tree) SELECT * FROM tree",
+        "SELECT * FROM generate_series(1, 1000000000)",
+    ] {
+        assert_eq!(validate_ai_sql(sql), Err(ROW_GENERATOR_MESSAGE), "{sql}");
+    }
+}
+
+#[test]
+fn bounds_automated_query_complexity() {
+    let too_many_joins = format!(
+        "SELECT * FROM base {}",
+        (0..=MAX_AI_JOINS)
+            .map(|index| format!("JOIN table_{index} ON table_{index}.id = base.id"))
+            .collect::<Vec<_>>()
+            .join(" ")
+    );
+    assert_eq!(
+        validate_ai_sql(&too_many_joins),
+        Err(QUERY_COMPLEXITY_MESSAGE)
+    );
+
+    let too_many_unions = std::iter::repeat("SELECT 1")
+        .take(MAX_AI_SET_OPERATIONS + 2)
+        .collect::<Vec<_>>()
+        .join(" UNION ALL ");
+    assert_eq!(
+        validate_ai_sql(&too_many_unions),
+        Err(QUERY_COMPLEXITY_MESSAGE)
+    );
+
+    let deeply_nested = format!(
+        "SELECT {}1{}",
+        "(".repeat(MAX_AI_NESTING_DEPTH + 1),
+        ")".repeat(MAX_AI_NESTING_DEPTH + 1)
+    );
+    assert_eq!(
+        validate_ai_sql(&deeply_nested),
+        Err(QUERY_COMPLEXITY_MESSAGE)
+    );
 }
 
 #[test]

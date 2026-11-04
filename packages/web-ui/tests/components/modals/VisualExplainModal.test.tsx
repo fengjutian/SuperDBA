@@ -384,6 +384,37 @@ describe('VisualExplainModal display-only viewState', () => {
         expect(mockInvoke).not.toHaveBeenCalled();
     });
 
+    it('reports the normalized plan once when raw output is unavailable', async () => {
+        const onPlanLoaded = vi.fn();
+        const plan = {...makePlan('normalized-only'), raw_output: undefined};
+        const viewState: VisualExplainViewProps = {
+            plan,
+            isLoading: false,
+            error: null,
+            viewMode: 'graph',
+            selectedNodeId: null,
+            onViewModeChange: vi.fn(),
+            onSelectNode: vi.fn(),
+            aiEnabled: true,
+        };
+
+        render(
+            <StrictMode>
+                <VisualExplainModal
+                    {...defaults}
+                    viewState={viewState}
+                    onPlanLoaded={onPlanLoaded}
+                />
+            </StrictMode>,
+        );
+        await settle();
+
+        expect(onPlanLoaded).toHaveBeenCalledTimes(1);
+        expect(JSON.parse(onPlanLoaded.mock.calls[0][0])).toMatchObject({
+            original_query: 'normalized-only',
+        });
+    });
+
     it('reflects supplied loading, errors and view changes without running on query/schema/connection changes', async () => {
         const viewState: VisualExplainViewProps = {
             plan: makePlan(),

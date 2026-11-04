@@ -23,7 +23,14 @@ const RESOURCE_ABUSE_MESSAGE: &str =
     "AI query blocked: delay and benchmark operations are not allowed through automated channels because they occupy database workers without useful progress.";
 const AUDIT_TIME_RANGE_MESSAGE: &str =
     "AI query blocked: audit_log queries require a created_at range condition in WHERE. Start with a narrow time window and expand it explicitly if needed.";
+const ROW_GENERATOR_MESSAGE: &str =
+    "AI query blocked: recursive queries and automatic row generators must be reviewed and run explicitly in the SQL editor.";
+const QUERY_COMPLEXITY_MESSAGE: &str =
+    "AI query blocked: the statement exceeds automated-query complexity limits. Reduce joins, set operations, or nesting before retrying.";
 const MAX_AI_SQL_BYTES: usize = 256 * 1024;
+const MAX_AI_JOINS: usize = 8;
+const MAX_AI_SET_OPERATIONS: usize = 8;
+const MAX_AI_NESTING_DEPTH: usize = 32;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Token {
@@ -56,6 +63,12 @@ pub fn validate_ai_sql(sql: &str) -> Result<(), &'static str> {
     }
     if audit_log_without_time_range(&tokens) {
         return Err(AUDIT_TIME_RANGE_MESSAGE);
+    }
+    if contains_unbounded_row_generator(&tokens) {
+        return Err(ROW_GENERATOR_MESSAGE);
+    }
+    if exceeds_query_complexity(&tokens) {
+        return Err(QUERY_COMPLEXITY_MESSAGE);
     }
     if contains_unbounded_write(&tokens) {
         return Err(UNBOUNDED_WRITE_MESSAGE);
@@ -233,6 +246,53 @@ fn top_level_statement_prefixes(tokens: &[Token]) -> impl Iterator<Item = Vec<&s
     }
 
     prefixes.into_iter()
+}
+
+fn contains_unbounded_row_generator(tokens: &[Token]) -> bool {
+    tokens.windows(2).any(|pair| {
+        matches!(
+            pair,
+            [Token::Word(with), Token::Word(recursive)]
+                if with == "WITH" && recursive == "RECURSIVE"
+        ) || matches!(
+            pair,
+            [Token::Word(function), Token::OpenParen]
+                if function == "GENERATE_SERIES"
+        )
+    })
+}
+
+fn exceeds_query_complexity(tokens: &[Token]) -> bool {
+    let mut joins = 0usize;
+    let mut set_operations = 0usize;
+    let mut depth = 0usize;
+
+    for token in tokens {
+        match token {
+            Token::OpenParen => {
+                depth += 1;
+                if depth > MAX_AI_NESTING_DEPTH {
+                    return true;
+                }
+            }
+            Token::CloseParen => depth = depth.saturating_sub(1),
+            Token::Word(word) if word == "JOIN" => {
+                joins += 1;
+                if joins > MAX_AI_JOINS {
+                    return true;
+                }
+            }
+            Token::Word(word) if word == "UNION" => {
+                set_operations += 1;
+                if set_operations > MAX_AI_SET_OPERATIONS {
+                    return true;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    false
 }
 
 fn contains_unbounded_write(tokens: &[Token]) -> bool {

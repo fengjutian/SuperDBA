@@ -52,6 +52,8 @@ export function DbaChatTab() {
     const callsPerBatch = settings.aiChatCallsPerBatch ?? DEFAULT_CALLS_PER_BATCH;
     const maxBatches = settings.aiChatMaxBatches ?? DEFAULT_MAX_BATCHES;
     const totalCalls = callsPerBatch * maxBatches;
+    const effectiveProvider = settings.dbaChatProvider ?? settings.aiProvider;
+    const effectiveModel = settings.dbaChatModel?.trim() || settings.aiModel;
     const activePreset: AnalysisPreset =
         (Object.entries(ANALYSIS_PRESETS).find(
             ([, preset]) =>
@@ -146,22 +148,22 @@ export function DbaChatTab() {
                 <SettingRow
                     label={t('settings.dbaChat.currentModel')}
                     description={
-                        settings.aiProvider
+                        effectiveProvider
                             ? t('settings.dbaChat.currentModelValue', {
-                                  provider: settings.aiProvider,
-                                  model: settings.aiModel || t('settings.dbaChat.defaultModel'),
+                                  provider: effectiveProvider,
+                                  model: effectiveModel || t('settings.dbaChat.defaultModel'),
                               })
                             : t('settings.dbaChat.modelNotConfigured')
                     }
                 >
                     <span
                         className={
-                            settings.aiProvider
+                            effectiveProvider
                                 ? 'text-xs text-accent-success'
                                 : 'text-xs text-accent-warning'
                         }
                     >
-                        {settings.aiProvider
+                        {effectiveProvider
                             ? t('settings.dbaChat.modelReady')
                             : t('settings.dbaChat.modelRequired')}
                     </span>
@@ -179,6 +181,7 @@ export function DbaChatTab() {
                             )
                         }
                         className="rounded border border-default bg-base px-2 py-1.5 text-sm text-primary"
+                        aria-label={t('settings.dbaChat.dedicatedProvider')}
                     >
                         <option value="">{t('settings.dbaChat.inheritGlobal')}</option>
                         {DBA_PROVIDERS.map((provider) => (
@@ -197,6 +200,7 @@ export function DbaChatTab() {
                         onChange={(event) => void updateSetting('dbaChatModel', event.target.value)}
                         placeholder={settings.aiModel ?? t('settings.dbaChat.inheritGlobal')}
                         className="w-52 rounded border border-default bg-base px-2 py-1.5 text-sm text-primary"
+                        aria-label={t('settings.dbaChat.dedicatedModel')}
                     />
                 </SettingRow>
                 <SettingRow

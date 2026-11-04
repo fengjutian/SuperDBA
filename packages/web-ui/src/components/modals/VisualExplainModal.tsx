@@ -69,9 +69,13 @@ export const VisualExplainModal = ({
     const reportedPlanRef = useRef('');
 
     useEffect(() => {
-        if (!effectivePlan?.raw_output || !onPlanLoaded) return;
+        if (!effectivePlan || !onPlanLoaded) return;
         const raw = effectivePlan.raw_output;
-        const serialized = typeof raw === 'string' ? raw : JSON.stringify(raw, null, 2);
+        const serialized = raw
+            ? typeof raw === 'string'
+                ? raw
+                : JSON.stringify(raw, null, 2)
+            : JSON.stringify(effectivePlan, null, 2);
         if (serialized === reportedPlanRef.current) return;
         reportedPlanRef.current = serialized;
         onPlanLoaded(serialized);

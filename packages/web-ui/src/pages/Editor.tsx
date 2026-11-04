@@ -4222,7 +4222,12 @@ export const Editor = ({commandScopeId}: EditorProps) => {
         if (mountedTab?.type === 'console' && tabId === activeTabIdRef.current) {
             editor.focus();
         }
-        let lastSelectedSql = mountedTab?.selectedSql ?? '';
+        // Selection is transient UI state. Restored tabs may contain an old
+        // persisted value, so clear it before listening to the live editor.
+        let lastSelectedSql = '';
+        if (mountedTab?.selectedSql) {
+            updateTab(tabId, {selectedSql: undefined});
+        }
         editor.onDidChangeCursorSelection(({selection}) => {
             const model = editor.getModel();
             const selectedSql =

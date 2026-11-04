@@ -249,7 +249,9 @@ export function ChatPanel() {
     const totalBudget = callsPerBatch * maxBatches;
     const completedCalls =
         stream?.batchProgress?.completedCalls ?? continuationRequired?.completedCalls ?? 0;
-    const remainingBudget = Math.max(0, totalBudget - completedCalls);
+    const effectiveTotalBudget =
+        stream?.batchProgress?.totalCalls ?? continuationRequired?.totalCalls ?? totalBudget;
+    const remainingBudget = Math.max(0, effectiveTotalBudget - completedCalls);
     const analysisMode =
         callsPerBatch === 8 && maxBatches === 2
             ? t('settings.dbaChat.presetQuick')
@@ -439,7 +441,9 @@ export function ChatPanel() {
                 <span>{t('chat.statusMode', {mode: analysisMode})}</span>
                 <span aria-hidden="true">·</span>
                 <span title={`${chatProvider ?? ''} / ${chatModel}`}>
-                    {t('chat.statusModel', {model: chatModel || chatProvider || '-'})}
+                    {t('chat.statusModel', {
+                        model: [chatProvider, chatModel].filter(Boolean).join(' / ') || '-',
+                    })}
                 </span>
                 <span aria-hidden="true">·</span>
                 <span>{t('chat.statusBudget', {count: remainingBudget})}</span>
