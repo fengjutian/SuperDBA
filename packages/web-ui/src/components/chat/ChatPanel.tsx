@@ -14,6 +14,9 @@ import {
     Copy,
     Check,
     Settings,
+    Database,
+    Code2,
+    Table2,
 } from 'lucide-react';
 import {useNavigate} from 'react-router-dom';
 import {useChatAgent} from '@/hooks/useChat';
@@ -333,6 +336,10 @@ export function ChatPanel() {
     };
 
     const providerReady = Boolean(settings.aiProvider);
+    const includesCurrentSql =
+        settings.dbaChatIncludeCurrentSql !== false && Boolean(activeTab?.query?.trim());
+    const includesLastResult =
+        settings.dbaChatIncludeLastResult === true && Boolean(activeTab?.result);
 
     return (
         <div className="flex flex-col h-full min-h-0">
@@ -534,6 +541,39 @@ export function ChatPanel() {
             )}
 
             <footer className="border-t border-default p-2">
+                <div
+                    className="mb-2 flex flex-wrap items-center gap-1.5"
+                    aria-label={t('chat.attachedContext')}
+                >
+                    <span className="text-[10px] text-muted">{t('chat.contextLabel')}</span>
+                    {activeConnectionId ? (
+                        <span
+                            className="inline-flex items-center gap-1 rounded border border-default bg-surface-secondary px-1.5 py-0.5 text-[10px] text-secondary"
+                            title={connectionName}
+                        >
+                            <Database size={10} aria-hidden="true" />
+                            {t('chat.contextConnection')}
+                        </span>
+                    ) : (
+                        <span className="text-[10px] text-accent-warning">
+                            {t('chat.contextNoConnection')}
+                        </span>
+                    )}
+                    {includesCurrentSql && (
+                        <span className="inline-flex items-center gap-1 rounded border border-default bg-surface-secondary px-1.5 py-0.5 text-[10px] text-secondary">
+                            <Code2 size={10} aria-hidden="true" />
+                            {t('chat.contextSql')}
+                        </span>
+                    )}
+                    {includesLastResult && (
+                        <span className="inline-flex items-center gap-1 rounded border border-accent-warning/40 bg-accent-warning/10 px-1.5 py-0.5 text-[10px] text-accent-warning">
+                            <Table2 size={10} aria-hidden="true" />
+                            {t('chat.contextResult', {
+                                count: activeTab?.result?.rows.length ?? 0,
+                            })}
+                        </span>
+                    )}
+                </div>
                 <div className="flex items-end gap-2">
                     <textarea
                         value={input}

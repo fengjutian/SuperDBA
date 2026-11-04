@@ -11,6 +11,29 @@ async fn serializes_ai_work_per_connection() {
     assert!(second.try_acquire_owned().is_ok());
 }
 
+#[tokio::test]
+async fn bounds_ai_queries_across_connections() {
+    let global = Arc::new(Semaphore::new(1));
+    let first = acquire_ai_permits(
+        global.clone(),
+        Arc::new(Semaphore::new(1)),
+        Duration::from_millis(10),
+    )
+    .await
+    .expect("first global permit");
+
+    let error = acquire_ai_permits(
+        global,
+        Arc::new(Semaphore::new(1)),
+        Duration::from_millis(1),
+    )
+    .await
+    .expect_err("a second connection must respect the global limit");
+    assert_eq!(error, "Timed out waiting for AI query capacity.");
+
+    drop(first);
+}
+
 #[test]
 fn mcp_row_limits_are_bounded() {
     assert!(MCP_DEFAULT_ROWS > 0);

@@ -2966,6 +2966,12 @@
   },
   "chat": {
     "openSettings": "Open DBA chat settings",
+    "attachedContext": "Context attached to the next question",
+    "contextLabel": "Sending:",
+    "contextConnection": "connection scope",
+    "contextNoConnection": "No active connection",
+    "contextSql": "current SQL",
+    "contextResult": "result preview ({{count}} rows)",
     "title": "DBA chat",
     "sessions": "Conversations",
     "newSession": "New conversation",

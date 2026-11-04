@@ -13,19 +13,53 @@ pub const MCP_DEFAULT_ROWS: u32 = 100;
 pub const MCP_MAX_ROWS: u32 = 1_000;
 pub const MCP_MAX_OUTPUT_BYTES: usize = 8 * 1024 * 1024;
 pub const WORKLOADS_PER_CONNECTION: usize = 2;
+pub const GLOBAL_AI_QUERIES: usize = 4;
+
+static GLOBAL_QUERY_SEMAPHORE: once_cell::sync::Lazy<Arc<Semaphore>> =
+    once_cell::sync::Lazy::new(|| Arc::new(Semaphore::new(GLOBAL_AI_QUERIES)));
 
 static QUERY_SEMAPHORES: once_cell::sync::Lazy<Mutex<HashMap<String, Weak<Semaphore>>>> =
     once_cell::sync::Lazy::new(Default::default);
 static WORKLOAD_SEMAPHORES: once_cell::sync::Lazy<Mutex<HashMap<String, Weak<Semaphore>>>> =
     once_cell::sync::Lazy::new(Default::default);
 
-pub async fn acquire(connection_id: &str) -> Result<OwnedSemaphorePermit, String> {
-    acquire_with_timeout(
+/// Holds both the process-wide and per-connection capacity for one AI query.
+#[derive(Debug)]
+pub struct AiQueryPermit {
+    _global: OwnedSemaphorePermit,
+    _connection: OwnedSemaphorePermit,
+}
+
+pub async fn acquire(connection_id: &str) -> Result<AiQueryPermit, String> {
+    acquire_ai_permits(
+        GLOBAL_QUERY_SEMAPHORE.clone(),
         semaphore(connection_id),
         SCHEDULER_WAIT_TIMEOUT,
-        "Timed out waiting for another AI query on this connection.",
     )
     .await
+}
+
+async fn acquire_ai_permits(
+    global: Arc<Semaphore>,
+    connection: Arc<Semaphore>,
+    wait: Duration,
+) -> Result<AiQueryPermit, String> {
+    tokio::time::timeout(wait, async {
+        let global = global
+            .acquire_owned()
+            .await
+            .map_err(|_| "The global AI query scheduler is unavailable.".to_string())?;
+        let connection = connection
+            .acquire_owned()
+            .await
+            .map_err(|_| "The database query scheduler is unavailable.".to_string())?;
+        Ok(AiQueryPermit {
+            _global: global,
+            _connection: connection,
+        })
+    })
+    .await
+    .map_err(|_| "Timed out waiting for AI query capacity.".to_string())?
 }
 
 pub async fn acquire_workload(connection_id: &str) -> Result<OwnedSemaphorePermit, String> {

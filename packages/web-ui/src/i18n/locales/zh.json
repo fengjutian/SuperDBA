@@ -2797,6 +2797,12 @@
   },
   "chat": {
     "openSettings": "打开 DBA 对话设置",
+    "attachedContext": "下一次提问将附带的上下文",
+    "contextLabel": "将发送：",
+    "contextConnection": "连接范围",
+    "contextNoConnection": "无活动连接",
+    "contextSql": "当前 SQL",
+    "contextResult": "结果预览（{{count}} 行）",
     "title": "DBA 对话",
     "sessions": "历史会话",
     "newSession": "新建会话",
