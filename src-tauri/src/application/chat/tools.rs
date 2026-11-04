@@ -548,6 +548,7 @@ async fn execute_statement(
     let result = tokio::select! {
         result = &mut query => result,
         _ = tokio::time::sleep(QUERY_TIMEOUT) => {
+            ai_query_guard::record_query_failure(connection_id);
             return ToolOutcome::error(format!(
                 "Query timed out after {} seconds and was cancelled to protect database stability.",
                 QUERY_TIMEOUT.as_secs()
@@ -561,6 +562,7 @@ async fn execute_statement(
     };
     match result {
         Ok(result) => {
+            ai_query_guard::record_query_success(connection_id);
             let config = crate::application::persistence::load_config(tool.runtime);
             let masking_patterns = config.column_masking_patterns.unwrap_or_else(|| {
                 [
@@ -622,7 +624,10 @@ async fn execute_statement(
                 }),
             )
         }
-        Err(error) => ToolOutcome::error(format!("Query failed: {error}")),
+        Err(error) => {
+            ai_query_guard::record_query_failure(connection_id);
+            ToolOutcome::error(format!("Query failed: {error}"))
+        }
     }
 }
 

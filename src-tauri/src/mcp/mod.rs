@@ -1481,21 +1481,31 @@ async fn tool_run_query(
                 .await
         }
     };
-    let result = tokio::time::timeout(ai_query_guard::QUERY_TIMEOUT, execution)
-        .await
-        .map_err(|_| JsonRpcError {
-            code: -32000,
-            message: format!(
-                "Query timed out after {} seconds and was cancelled to protect database stability",
-                ai_query_guard::QUERY_TIMEOUT.as_secs()
-            ),
-            data: None,
-        })?
-        .map_err(|e| JsonRpcError {
-            code: -32000,
-            message: e,
-            data: None,
-        })?;
+    let result = match tokio::time::timeout(ai_query_guard::QUERY_TIMEOUT, execution).await {
+        Ok(Ok(result)) => {
+            ai_query_guard::record_query_success(conn_id);
+            result
+        }
+        Ok(Err(message)) => {
+            ai_query_guard::record_query_failure(conn_id);
+            return Err(JsonRpcError {
+                code: -32000,
+                message,
+                data: None,
+            });
+        }
+        Err(_) => {
+            ai_query_guard::record_query_failure(conn_id);
+            return Err(JsonRpcError {
+                code: -32000,
+                message: format!(
+                    "Query timed out after {} seconds and was cancelled to protect database stability",
+                    ai_query_guard::QUERY_TIMEOUT.as_secs()
+                ),
+                data: None,
+            });
+        }
+    };
 
     audit.rows = Some(result.rows.len());
 

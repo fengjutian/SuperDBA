@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, Weak};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
 pub const QUERY_TIMEOUT: Duration = Duration::from_secs(30);
@@ -14,6 +14,8 @@ pub const MCP_MAX_ROWS: u32 = 1_000;
 pub const MCP_MAX_OUTPUT_BYTES: usize = 8 * 1024 * 1024;
 pub const WORKLOADS_PER_CONNECTION: usize = 2;
 pub const GLOBAL_AI_QUERIES: usize = 4;
+pub const CIRCUIT_FAILURE_THRESHOLD: u32 = 3;
+pub const CIRCUIT_COOLDOWN: Duration = Duration::from_secs(30);
 
 static GLOBAL_QUERY_SEMAPHORE: once_cell::sync::Lazy<Arc<Semaphore>> =
     once_cell::sync::Lazy::new(|| Arc::new(Semaphore::new(GLOBAL_AI_QUERIES)));
@@ -22,6 +24,15 @@ static QUERY_SEMAPHORES: once_cell::sync::Lazy<Mutex<HashMap<String, Weak<Semaph
     once_cell::sync::Lazy::new(Default::default);
 static WORKLOAD_SEMAPHORES: once_cell::sync::Lazy<Mutex<HashMap<String, Weak<Semaphore>>>> =
     once_cell::sync::Lazy::new(Default::default);
+static QUERY_CIRCUITS: once_cell::sync::Lazy<Mutex<HashMap<String, CircuitState>>> =
+    once_cell::sync::Lazy::new(Default::default);
+
+#[derive(Clone, Copy, Debug)]
+struct CircuitState {
+    consecutive_failures: u32,
+    last_failure: Instant,
+    open_until: Option<Instant>,
+}
 
 /// Holds both the process-wide and per-connection capacity for one AI query.
 #[derive(Debug)]
@@ -31,12 +42,64 @@ pub struct AiQueryPermit {
 }
 
 pub async fn acquire(connection_id: &str) -> Result<AiQueryPermit, String> {
+    ensure_circuit_closed(connection_id)?;
     acquire_ai_permits(
         GLOBAL_QUERY_SEMAPHORE.clone(),
         semaphore(connection_id),
         SCHEDULER_WAIT_TIMEOUT,
     )
     .await
+}
+
+fn ensure_circuit_closed(connection_id: &str) -> Result<(), String> {
+    let now = Instant::now();
+    let mut circuits = QUERY_CIRCUITS
+        .lock()
+        .unwrap_or_else(|error| error.into_inner());
+    circuits.retain(|_, state| now.duration_since(state.last_failure) < CIRCUIT_COOLDOWN);
+
+    let Some(state) = circuits.get(connection_id) else {
+        return Ok(());
+    };
+    let Some(open_until) = state.open_until else {
+        return Ok(());
+    };
+    if open_until <= now {
+        circuits.remove(connection_id);
+        return Ok(());
+    }
+
+    let retry_after = open_until.duration_since(now).as_secs().max(1);
+    Err(format!(
+        "AI queries for this connection are temporarily paused after repeated failures. Retry in {retry_after} seconds."
+    ))
+}
+
+pub fn record_query_success(connection_id: &str) {
+    QUERY_CIRCUITS
+        .lock()
+        .unwrap_or_else(|error| error.into_inner())
+        .remove(connection_id);
+}
+
+pub fn record_query_failure(connection_id: &str) {
+    let now = Instant::now();
+    let mut circuits = QUERY_CIRCUITS
+        .lock()
+        .unwrap_or_else(|error| error.into_inner());
+    circuits.retain(|_, state| now.duration_since(state.last_failure) < CIRCUIT_COOLDOWN);
+    let state = circuits
+        .entry(connection_id.to_string())
+        .or_insert(CircuitState {
+            consecutive_failures: 0,
+            last_failure: now,
+            open_until: None,
+        });
+    state.consecutive_failures = state.consecutive_failures.saturating_add(1);
+    state.last_failure = now;
+    if state.consecutive_failures >= CIRCUIT_FAILURE_THRESHOLD {
+        state.open_until = Some(now + CIRCUIT_COOLDOWN);
+    }
 }
 
 async fn acquire_ai_permits(

@@ -65,3 +65,36 @@ async fn scheduler_wait_is_bounded() {
         .expect_err("a saturated scheduler must time out");
     assert_eq!(error, "queue timeout");
 }
+
+#[test]
+fn repeated_failures_open_and_success_resets_the_circuit() {
+    let connection_id = format!("circuit-guard-{}", uuid::Uuid::new_v4());
+
+    for _ in 0..CIRCUIT_FAILURE_THRESHOLD - 1 {
+        record_query_failure(&connection_id);
+        assert!(ensure_circuit_closed(&connection_id).is_ok());
+    }
+    record_query_failure(&connection_id);
+    assert!(ensure_circuit_closed(&connection_id).is_err());
+
+    record_query_success(&connection_id);
+    assert!(ensure_circuit_closed(&connection_id).is_ok());
+}
+
+#[test]
+fn expired_circuit_allows_queries_again() {
+    let connection_id = format!("expired-circuit-{}", uuid::Uuid::new_v4());
+    QUERY_CIRCUITS
+        .lock()
+        .unwrap_or_else(|error| error.into_inner())
+        .insert(
+            connection_id.clone(),
+            CircuitState {
+                consecutive_failures: CIRCUIT_FAILURE_THRESHOLD,
+                last_failure: Instant::now(),
+                open_until: Some(Instant::now() - Duration::from_millis(1)),
+            },
+        );
+
+    assert!(ensure_circuit_closed(&connection_id).is_ok());
+}
