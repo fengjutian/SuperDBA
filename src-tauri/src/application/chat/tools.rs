@@ -601,11 +601,15 @@ async fn explain_query(
     connection_id: &str,
     args: ExplainQueryArgs,
 ) -> ToolOutcome {
+    let _permit = match acquire_query_permit(tool, connection_id).await {
+        Ok(permit) => permit,
+        Err(outcome) => return outcome,
+    };
     let scope = QueryRequestScope {
         session_id: tool.web_session_id,
-        request_id: Some("ai-chat"),
+        request_id: Some(tool.request_id),
     };
-    let result = queries::explain_query_plan(
+    let query = queries::explain_query_plan(
         tool.runtime,
         &tool.state.query_cancellation,
         scope,
@@ -614,8 +618,22 @@ async fn explain_query(
         args.analyze,
         tool.chat.schema.clone(),
         tool.chat.database.clone(),
-    )
-    .await;
+    );
+    tokio::pin!(query);
+    let result = tokio::select! {
+        result = &mut query => result,
+        _ = tokio::time::sleep(QUERY_TIMEOUT) => {
+            return ToolOutcome::error(format!(
+                "Explain timed out after {} seconds and was cancelled to protect database stability.",
+                QUERY_TIMEOUT.as_secs()
+            ));
+        }
+        _ = wait_for_cancellation(tool) => {
+            return ToolOutcome::denied(
+                "The user stopped the turn. The running explain was cancelled."
+            );
+        }
+    };
     match result {
         Ok(plan) => match serde_json::to_value(&plan) {
             Ok(value) => ToolOutcome::ok("Execution plan captured", value),

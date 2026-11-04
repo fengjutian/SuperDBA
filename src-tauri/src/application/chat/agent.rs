@@ -27,7 +27,7 @@ const MAX_TOOL_RESULT_BYTES: usize = 8 * 1024;
 const MAX_SELECTED_SQL_CHARS: usize = 2000;
 const MAX_RESULT_PREVIEW_CHARS: usize = 2000;
 const MAX_PLAN_CHARS: usize = 3000;
-const MAX_RUN_QUERIES_PER_TURN: usize = 12;
+const MAX_DATABASE_QUERIES_PER_TURN: usize = 12;
 
 pub async fn run_turn(
     runtime: &RuntimeContext,
@@ -91,7 +91,7 @@ pub async fn run_turn(
         }),
     );
     let mut tool_cache = HashMap::new();
-    let mut run_query_count = 0;
+    let mut database_query_count = 0;
 
     for round in 0..limits.total_calls {
         if is_cancelled(web_session_id, &request_id) {
@@ -200,7 +200,7 @@ pub async fn run_turn(
             &session.id,
             &reply.tool_calls,
             &mut tool_cache,
-            &mut run_query_count,
+            &mut database_query_count,
         )
         .await;
         session.messages[index].tool_calls = calls;
@@ -361,7 +361,7 @@ async fn execute_calls(
     chat_session_id: &str,
     calls: &[ProviderToolCall],
     cache: &mut HashMap<String, ChatToolCall>,
-    run_query_count: &mut usize,
+    database_query_count: &mut usize,
 ) -> Vec<ChatToolCall> {
     let mut executed = Vec::with_capacity(calls.len());
     let config = crate::application::persistence::load_config(runtime);
@@ -415,15 +415,15 @@ async fn execute_calls(
             request_id,
             chat: context,
         };
-        let outcome = if !reserve_run_query_budget(&call.name, run_query_count) {
+        let outcome = if !reserve_database_query_budget(&call.name, database_query_count) {
             tools::ToolOutcome {
                 status: ChatToolStatus::Denied,
                 summary: format!(
-                    "Stopped after {MAX_RUN_QUERIES_PER_TURN} queries in one turn to protect database stability. Ask a follow-up to continue."
+                    "Stopped after {MAX_DATABASE_QUERIES_PER_TURN} queries in one turn to protect database stability. Ask a follow-up to continue."
                 ),
                 result: json!({
                     "error": format!(
-                        "The per-turn query budget of {MAX_RUN_QUERIES_PER_TURN} was reached."
+                        "The per-turn query budget of {MAX_DATABASE_QUERIES_PER_TURN} was reached."
                     ),
                     "denied": true,
                 }),
@@ -486,11 +486,11 @@ async fn execute_calls(
     executed
 }
 
-pub(crate) fn reserve_run_query_budget(tool_name: &str, used: &mut usize) -> bool {
-    if tool_name != "run_query" {
+pub(crate) fn reserve_database_query_budget(tool_name: &str, used: &mut usize) -> bool {
+    if !matches!(tool_name, "run_query" | "explain_query") {
         return true;
     }
-    if *used >= MAX_RUN_QUERIES_PER_TURN {
+    if *used >= MAX_DATABASE_QUERIES_PER_TURN {
         return false;
     }
     *used += 1;

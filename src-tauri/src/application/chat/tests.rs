@@ -1,6 +1,6 @@
 use super::agent::{
     batch_limits, bound_result, build_audit_event, is_batch_boundary, messages_for_model,
-    reserve_run_query_budget, system_prompt, tool_cache_key,
+    reserve_database_query_budget, system_prompt, tool_cache_key,
 };
 use super::provider::{self, ProviderToolCall};
 use super::store;
@@ -41,10 +41,10 @@ async fn chat_queries_on_different_connections_do_not_block_each_other() {
 fn chat_turn_query_budget_stops_repeated_database_scans() {
     let mut used = 0;
     for _ in 0..12 {
-        assert!(reserve_run_query_budget("run_query", &mut used));
+        assert!(reserve_database_query_budget("run_query", &mut used));
     }
-    assert!(!reserve_run_query_budget("run_query", &mut used));
-    assert!(reserve_run_query_budget("describe_table", &mut used));
+    assert!(!reserve_database_query_budget("explain_query", &mut used));
+    assert!(reserve_database_query_budget("describe_table", &mut used));
     assert_eq!(used, 12);
 }
 
