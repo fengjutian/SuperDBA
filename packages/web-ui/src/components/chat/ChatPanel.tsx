@@ -13,7 +13,9 @@ import {
     Wrench,
     Copy,
     Check,
+    Settings,
 } from 'lucide-react';
+import {useNavigate} from 'react-router-dom';
 import {useChatAgent} from '@/hooks/useChat';
 import {ChatMarkdown} from '@/components/chat/ChatMarkdown';
 import {useDatabase} from '@/hooks/useDatabase';
@@ -167,6 +169,7 @@ function MessageBubble({
 
 export function ChatPanel() {
     const {t, i18n} = useTranslation();
+    const navigate = useNavigate();
     const {close} = useRightSidebar();
     const {activeTab, updateTab, addTab} = useEditor();
     const {activeConnectionId, activeSchema, activeDatabaseName, connections, tables} =
@@ -320,6 +323,9 @@ export function ChatPanel() {
             ...(connectionName ? {connectionName} : {}),
             ...(activeSchema ? {schema: activeSchema} : {}),
             ...(activeDatabaseName ? {database: activeDatabaseName} : {}),
+            ...(settings.dbaChatIncludeCurrentSql !== false && activeTab?.query?.trim()
+                ? {selectedSql: activeTab.query.trim()}
+                : {}),
         });
     };
 
@@ -332,6 +338,15 @@ export function ChatPanel() {
                 <h2 className="text-sm font-semibold text-primary flex-1">
                     {t('chat.title', {defaultValue: 'DBA chat'})}
                 </h2>
+                <button
+                    type="button"
+                    onClick={() => navigate('/settings?tab=dba-chat')}
+                    aria-label={t('chat.openSettings')}
+                    title={t('chat.openSettings')}
+                    className="p-1 rounded text-muted hover:text-primary hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                >
+                    <Settings size={14} aria-hidden="true" />
+                </button>
                 <button
                     type="button"
                     onClick={() => setShowSessions((value) => !value)}

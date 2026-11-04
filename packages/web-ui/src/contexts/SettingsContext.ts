@@ -81,6 +81,8 @@ export interface Settings {
     dbaChatShowSuggestions?: boolean;
     /** Let the configured model replace local starter questions with schema-aware suggestions. Default: true. */
     dbaChatGenerateSuggestions?: boolean;
+    /** Attach the current SQL editor contents to each DBA chat question. Default: true. */
+    dbaChatIncludeCurrentSql?: boolean;
     autoCheckUpdatesOnStartup?: boolean;
     /** Last plugin release shown in a startup notification, keyed by plugin id. */
     notifiedPluginVersions?: Record<string, string>;
@@ -255,6 +257,7 @@ export const DEFAULT_SETTINGS: Settings = {
     aiChatMaxBatches: 4,
     dbaChatShowSuggestions: true,
     dbaChatGenerateSuggestions: true,
+    dbaChatIncludeCurrentSql: true,
     loggingEnabled: true,
     maxLogEntries: 1000,
     copyFormat: 'csv',

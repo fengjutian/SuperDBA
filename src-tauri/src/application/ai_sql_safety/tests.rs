@@ -1,4 +1,6 @@
-use super::{validate_ai_sql, LOCK_HEAVY_MESSAGE, UNBOUNDED_WRITE_MESSAGE};
+use super::{
+    validate_ai_sql, LOCK_HEAVY_MESSAGE, TRANSACTION_CONTROL_MESSAGE, UNBOUNDED_WRITE_MESSAGE,
+};
 
 #[test]
 fn allows_bounded_updates_and_deletes() {
@@ -63,6 +65,28 @@ fn blocks_lock_heavy_ddl_and_maintenance() {
 }
 
 #[test]
+fn blocks_transaction_control() {
+    for sql in [
+        "BEGIN",
+        "START TRANSACTION READ ONLY",
+        "COMMIT",
+        "END TRANSACTION",
+        "ROLLBACK TO SAVEPOINT before_update",
+        "SAVEPOINT before_update",
+        "RELEASE SAVEPOINT before_update",
+        "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE",
+        "SET SESSION TRANSACTION READ ONLY",
+        "SET autocommit = 0",
+    ] {
+        assert_eq!(
+            validate_ai_sql(sql),
+            Err(TRANSACTION_CONTROL_MESSAGE),
+            "{sql}"
+        );
+    }
+}
+
+#[test]
 fn does_not_treat_read_only_text_as_an_operation() {
     assert_eq!(
         validate_ai_sql("SELECT operation FROM jobs WHERE operation = 'VACUUM'"),
@@ -70,6 +94,10 @@ fn does_not_treat_read_only_text_as_an_operation() {
     );
     assert_eq!(
         validate_ai_sql("SELECT cluster, vacuum, optimize FROM job_metrics"),
+        Ok(())
+    );
+    assert_eq!(
+        validate_ai_sql("SELECT 'BEGIN', 'COMMIT', autocommit FROM settings"),
         Ok(())
     );
 }

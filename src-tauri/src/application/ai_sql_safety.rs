@@ -13,6 +13,8 @@ const UNBOUNDED_WRITE_MESSAGE: &str =
     "AI query blocked: UPDATE and DELETE statements require a WHERE clause. Review and run the statement explicitly in the SQL editor if a full-table change is intended.";
 const LOCK_HEAVY_MESSAGE: &str =
     "AI query blocked: lock-heavy DDL or maintenance statements must be reviewed and run explicitly in the SQL editor.";
+const TRANSACTION_CONTROL_MESSAGE: &str =
+    "AI query blocked: transaction-control statements are not allowed through automated channels because they can leave pooled connections holding locks. Run the transaction explicitly in the SQL editor.";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Token {
@@ -28,6 +30,9 @@ pub fn validate_ai_sql(sql: &str) -> Result<(), &'static str> {
 
     if contains_lock_heavy_operation(&tokens) {
         return Err(LOCK_HEAVY_MESSAGE);
+    }
+    if contains_transaction_control(&tokens) {
+        return Err(TRANSACTION_CONTROL_MESSAGE);
     }
     if contains_unbounded_write(&tokens) {
         return Err(UNBOUNDED_WRITE_MESSAGE);
@@ -77,6 +82,22 @@ fn contains_lock_heavy_operation(tokens: &[Token]) -> bool {
         | ["CREATE", "INDEX", ..]
         | ["CREATE", "UNIQUE", "INDEX", ..]
         | ["DROP", "INDEX", ..] => true,
+        _ => false,
+    })
+}
+
+fn contains_transaction_control(tokens: &[Token]) -> bool {
+    top_level_statement_prefixes(tokens).any(|words| match words.as_slice() {
+        ["BEGIN", ..]
+        | ["START", "TRANSACTION", ..]
+        | ["COMMIT", ..]
+        | ["END", ..]
+        | ["ROLLBACK", ..]
+        | ["SAVEPOINT", ..]
+        | ["RELEASE", "SAVEPOINT", ..]
+        | ["SET", "TRANSACTION", ..]
+        | ["SET", "SESSION", "TRANSACTION", ..]
+        | ["SET", "AUTOCOMMIT", ..] => true,
         _ => false,
     })
 }

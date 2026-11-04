@@ -703,6 +703,7 @@ describe('settings', () => {
         it('shows local and generated conversation starters by default', () => {
             expect(DEFAULT_SETTINGS.dbaChatShowSuggestions).toBe(true);
             expect(DEFAULT_SETTINGS.dbaChatGenerateSuggestions).toBe(true);
+            expect(DEFAULT_SETTINGS.dbaChatIncludeCurrentSql).toBe(true);
         });
     });
 

@@ -1092,12 +1092,23 @@
       "showSuggestionsDesc": "Display relevant starter questions when a conversation is empty.",
       "generateSuggestions": "Generate schema-aware suggestions",
       "generateSuggestionsDesc": "Use the selected AI model to tailor starter questions to tables in the active database. Local suggestions are used when disabled.",
+      "contextSection": "Question context",
+      "contextSectionDesc": "Choose which editor information is attached to a question. Connection, database and schema names are always included when available.",
+      "includeCurrentSql": "Include current SQL",
+      "includeCurrentSqlDesc": "Attach the active editor contents so the assistant can explain, review or improve the query.",
       "analysisSection": "Analysis limits",
       "analysisSectionDesc": "Bound automatic continuation for long investigations. Lower limits use fewer model calls; higher limits can inspect more evidence.",
+      "analysisPreset": "Analysis mode",
+      "analysisPresetDesc": "Choose a balanced preset, then fine-tune the limits below if needed.",
+      "presetQuick": "Quick",
+      "presetStandard": "Standard",
+      "presetDeep": "Deep",
+      "presetCustom": "Custom",
       "callsPerBatch": "Model calls per batch",
       "callsPerBatchDesc": "Pause and summarize progress after this many model calls. Range: 1–32.",
       "maxBatches": "Maximum automatic batches",
       "maxBatchesDesc": "Maximum number of batches the agent may run for one message. Range: 1–8.",
+      "callBudget": "Up to {{count}} model calls may be used for one message.",
       "resetDefaults": "Restore defaults"
     },
     "storage": {
@@ -2952,6 +2963,7 @@
     "diagnostics": { "unsupportedKey": "Unsupported field", "unsupportedColor": "Unsupported color", "unsupportedScope": "Unsupported scope", "scopeApproximation": "Approximate SQL scope mapping", "unsupportedStyle": "Unsupported style", "ignoredInclude": "Include not loaded", "ignoredSemanticTokens": "Semantic tokens ignored", "unsupportedReference": "External reference not loaded", "unsupportedSetting": "Unsupported setting", "tokenAlphaFlattened": "Token opacity materialized against the base background", "modeApproximation": "Mode overridden or approximated", "diagnosticsTruncated": "Additional diagnostics omitted" }
   },
   "chat": {
+    "openSettings": "Open DBA chat settings",
     "title": "DBA chat",
     "sessions": "Conversations",
     "newSession": "New conversation",

@@ -986,12 +986,23 @@
       "showSuggestionsDesc": "在空对话中显示与当前数据库相关的引导问题。",
       "generateSuggestions": "生成感知表结构的建议",
       "generateSuggestionsDesc": "使用当前 AI 模型，根据活动数据库中的表生成建议问题；关闭后使用本地建议。",
+      "contextSection": "问题上下文",
+      "contextSectionDesc": "选择提问时附带的编辑器信息。连接、数据库和 Schema 名称在可用时始终包含。",
+      "includeCurrentSql": "包含当前 SQL",
+      "includeCurrentSqlDesc": "附带活动编辑器中的内容，让助手能够解释、审查或优化查询。",
       "analysisSection": "分析限制",
       "analysisSectionDesc": "限制长时间调查的自动续跑范围。较低的值可减少模型调用，较高的值可检查更多证据。",
+      "analysisPreset": "分析模式",
+      "analysisPresetDesc": "先选择合适的预设，再根据需要微调下方限制。",
+      "presetQuick": "快速",
+      "presetStandard": "标准",
+      "presetDeep": "深度",
+      "presetCustom": "自定义",
       "callsPerBatch": "每批模型调用次数",
       "callsPerBatchDesc": "达到此调用次数后暂停并总结进度，范围为 1–32。",
       "maxBatches": "最大自动批次数",
       "maxBatchesDesc": "一条消息最多允许助手运行的批次数，范围为 1–8。",
+      "callBudget": "一条消息最多可能使用 {{count}} 次模型调用。",
       "resetDefaults": "恢复默认值"
     },
     "storage": {
@@ -2783,6 +2794,7 @@
     "diagnostics": { "unsupportedKey": "不支持的字段", "unsupportedColor": "不支持的颜色", "unsupportedScope": "不支持的作用域", "scopeApproximation": "近似 SQL 作用域映射", "unsupportedStyle": "不支持的样式", "ignoredInclude": "未加载 include", "ignoredSemanticTokens": "已忽略语义词法标记", "unsupportedReference": "未加载外部引用", "unsupportedSetting": "不支持的设置", "tokenAlphaFlattened": "词法标记不透明度按基础背景计算", "modeApproximation": "模式已覆盖或近似转换", "diagnosticsTruncated": "已省略其他诊断信息" }
   },
   "chat": {
+    "openSettings": "打开 DBA 对话设置",
     "title": "DBA 对话",
     "sessions": "历史会话",
     "newSession": "新建会话",

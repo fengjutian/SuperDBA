@@ -2,21 +2,50 @@ import {RotateCcw} from 'lucide-react';
 import {useTranslation} from 'react-i18next';
 import {useSettings} from '@/hooks/useSettings';
 import {Button} from '@/components/ui/Button';
-import {SettingNumberInput, SettingRow, SettingSection, SettingToggle} from './SettingControls';
+import {
+    SettingButtonGroup,
+    SettingNumberInput,
+    SettingRow,
+    SettingSection,
+    SettingToggle,
+} from './SettingControls';
 
 const DEFAULT_CALLS_PER_BATCH = 16;
 const DEFAULT_MAX_BATCHES = 4;
+const ANALYSIS_PRESETS = {
+    quick: {callsPerBatch: 8, maxBatches: 2},
+    standard: {callsPerBatch: DEFAULT_CALLS_PER_BATCH, maxBatches: DEFAULT_MAX_BATCHES},
+    deep: {callsPerBatch: 24, maxBatches: 6},
+} as const;
+
+type AnalysisPreset = keyof typeof ANALYSIS_PRESETS | 'custom';
 
 export function DbaChatTab() {
     const {t} = useTranslation();
     const {settings, updateSetting} = useSettings();
     const showSuggestions = settings.dbaChatShowSuggestions !== false;
+    const callsPerBatch = settings.aiChatCallsPerBatch ?? DEFAULT_CALLS_PER_BATCH;
+    const maxBatches = settings.aiChatMaxBatches ?? DEFAULT_MAX_BATCHES;
+    const totalCalls = callsPerBatch * maxBatches;
+    const activePreset: AnalysisPreset =
+        (Object.entries(ANALYSIS_PRESETS).find(
+            ([, preset]) =>
+                preset.callsPerBatch === callsPerBatch && preset.maxBatches === maxBatches,
+        )?.[0] as Exclude<AnalysisPreset, 'custom'> | undefined) ?? 'custom';
+
+    const applyPreset = (preset: AnalysisPreset) => {
+        if (preset === 'custom') return;
+        const values = ANALYSIS_PRESETS[preset];
+        void updateSetting('aiChatCallsPerBatch', values.callsPerBatch);
+        void updateSetting('aiChatMaxBatches', values.maxBatches);
+    };
 
     const resetDefaults = () => {
         void updateSetting('aiChatCallsPerBatch', DEFAULT_CALLS_PER_BATCH);
         void updateSetting('aiChatMaxBatches', DEFAULT_MAX_BATCHES);
         void updateSetting('dbaChatShowSuggestions', true);
         void updateSetting('dbaChatGenerateSuggestions', true);
+        void updateSetting('dbaChatIncludeCurrentSql', true);
     };
 
     return (
@@ -60,6 +89,21 @@ export function DbaChatTab() {
             </SettingSection>
 
             <SettingSection
+                title={t('settings.dbaChat.contextSection')}
+                description={t('settings.dbaChat.contextSectionDesc')}
+            >
+                <SettingRow
+                    label={t('settings.dbaChat.includeCurrentSql')}
+                    description={t('settings.dbaChat.includeCurrentSqlDesc')}
+                >
+                    <SettingToggle
+                        checked={settings.dbaChatIncludeCurrentSql !== false}
+                        onChange={(value) => void updateSetting('dbaChatIncludeCurrentSql', value)}
+                    />
+                </SettingRow>
+            </SettingSection>
+
+            <SettingSection
                 title={t('settings.dbaChat.analysisSection')}
                 description={t('settings.dbaChat.analysisSectionDesc')}
                 action={
@@ -71,6 +115,29 @@ export function DbaChatTab() {
             >
                 <div className="divide-y divide-default">
                     <SettingRow
+                        label={t('settings.dbaChat.analysisPreset')}
+                        description={t('settings.dbaChat.analysisPresetDesc')}
+                        vertical
+                    >
+                        <SettingButtonGroup
+                            value={activePreset}
+                            onChange={applyPreset}
+                            options={[
+                                {value: 'quick', label: t('settings.dbaChat.presetQuick')},
+                                {value: 'standard', label: t('settings.dbaChat.presetStandard')},
+                                {value: 'deep', label: t('settings.dbaChat.presetDeep')},
+                                ...(activePreset === 'custom'
+                                    ? [
+                                          {
+                                              value: 'custom' as const,
+                                              label: t('settings.dbaChat.presetCustom'),
+                                          },
+                                      ]
+                                    : []),
+                            ]}
+                        />
+                    </SettingRow>
+                    <SettingRow
                         label={t('settings.dbaChat.callsPerBatch')}
                         description={t('settings.dbaChat.callsPerBatchDesc')}
                     >
@@ -78,7 +145,7 @@ export function DbaChatTab() {
                             min={1}
                             max={32}
                             fallback={1}
-                            value={settings.aiChatCallsPerBatch ?? DEFAULT_CALLS_PER_BATCH}
+                            value={callsPerBatch}
                             onChange={(value) =>
                                 void updateSetting(
                                     'aiChatCallsPerBatch',
@@ -95,7 +162,7 @@ export function DbaChatTab() {
                             min={1}
                             max={8}
                             fallback={1}
-                            value={settings.aiChatMaxBatches ?? DEFAULT_MAX_BATCHES}
+                            value={maxBatches}
                             onChange={(value) =>
                                 void updateSetting(
                                     'aiChatMaxBatches',
@@ -104,6 +171,9 @@ export function DbaChatTab() {
                             }
                         />
                     </SettingRow>
+                </div>
+                <div className="mt-3 rounded border border-accent-info/40 bg-accent-info/10 px-3 py-2 text-xs text-accent-info">
+                    {t('settings.dbaChat.callBudget', {count: totalCalls})}
                 </div>
             </SettingSection>
         </div>
