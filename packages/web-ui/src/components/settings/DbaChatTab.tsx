@@ -7,11 +7,13 @@ import {useToast} from '@/hooks/useToast';
 import {Button} from '@/components/ui/Button';
 import {ConfirmModal} from '@/components/modals/ConfirmModal';
 import {sanitizeGeneratedStarters} from '@/utils/chatStarters';
+import type {AiProvider} from '@/contexts/SettingsContext';
 import {
     SettingButtonGroup,
     SettingNumberInput,
     SettingRow,
     SettingSection,
+    SettingSlider,
     SettingToggle,
 } from './SettingControls';
 
@@ -24,6 +26,17 @@ const ANALYSIS_PRESETS = {
 } as const;
 
 type AnalysisPreset = keyof typeof ANALYSIS_PRESETS | 'custom';
+
+const DBA_PROVIDERS: AiProvider[] = [
+    'openai',
+    'anthropic',
+    'deepseek',
+    'minimax',
+    'openrouter',
+    'requesty',
+    'custom-openai',
+    'ollama',
+];
 
 export function DbaChatTab() {
     const {t} = useTranslation();
@@ -83,6 +96,14 @@ export function DbaChatTab() {
                 updateSetting('dbaChatIncludeLastResult', false),
                 updateSetting('dbaChatSendOnEnter', true),
                 updateSetting('dbaChatCustomStarters', []),
+                updateSetting('dbaChatProvider', null),
+                updateSetting('dbaChatModel', ''),
+                updateSetting('dbaChatTemperature', 0),
+                updateSetting('dbaChatMaxOutputTokens', 2048),
+                updateSetting('dbaChatAutoContinue', false),
+                updateSetting('dbaChatIncludeLastPlan', true),
+                updateSetting('dbaChatProductionStrictMode', true),
+                updateSetting('dbaChatMaskSensitiveResults', true),
             ]);
             setCustomStartersDraft('');
             showToast(t('settings.dbaChat.defaultsRestored'), {kind: 'success'});
@@ -144,6 +165,72 @@ export function DbaChatTab() {
                             ? t('settings.dbaChat.modelReady')
                             : t('settings.dbaChat.modelRequired')}
                     </span>
+                </SettingRow>
+                <SettingRow
+                    label={t('settings.dbaChat.dedicatedProvider')}
+                    description={t('settings.dbaChat.dedicatedProviderDesc')}
+                >
+                    <select
+                        value={settings.dbaChatProvider ?? ''}
+                        onChange={(event) =>
+                            void updateSetting(
+                                'dbaChatProvider',
+                                (event.target.value || null) as AiProvider | null,
+                            )
+                        }
+                        className="rounded border border-default bg-base px-2 py-1.5 text-sm text-primary"
+                    >
+                        <option value="">{t('settings.dbaChat.inheritGlobal')}</option>
+                        {DBA_PROVIDERS.map((provider) => (
+                            <option key={provider} value={provider}>
+                                {provider}
+                            </option>
+                        ))}
+                    </select>
+                </SettingRow>
+                <SettingRow
+                    label={t('settings.dbaChat.dedicatedModel')}
+                    description={t('settings.dbaChat.dedicatedModelDesc')}
+                >
+                    <input
+                        value={settings.dbaChatModel ?? ''}
+                        onChange={(event) => void updateSetting('dbaChatModel', event.target.value)}
+                        placeholder={settings.aiModel ?? t('settings.dbaChat.inheritGlobal')}
+                        className="w-52 rounded border border-default bg-base px-2 py-1.5 text-sm text-primary"
+                    />
+                </SettingRow>
+                <SettingRow
+                    label={t('settings.dbaChat.temperature')}
+                    description={t('settings.dbaChat.temperatureDesc')}
+                >
+                    <SettingSlider
+                        min={0}
+                        max={2}
+                        step={0.1}
+                        value={settings.dbaChatTemperature ?? 0}
+                        formatValue={(value) => value.toFixed(1)}
+                        onChange={(value) =>
+                            void updateSetting('dbaChatTemperature', Math.min(2, Math.max(0, value)))
+                        }
+                    />
+                </SettingRow>
+                <SettingRow
+                    label={t('settings.dbaChat.maxOutputTokens')}
+                    description={t('settings.dbaChat.maxOutputTokensDesc')}
+                >
+                    <SettingNumberInput
+                        min={256}
+                        max={32768}
+                        step={256}
+                        fallback={2048}
+                        value={settings.dbaChatMaxOutputTokens ?? 2048}
+                        onChange={(value) =>
+                            void updateSetting(
+                                'dbaChatMaxOutputTokens',
+                                Math.min(32768, Math.max(256, value)),
+                            )
+                        }
+                    />
                 </SettingRow>
             </SettingSection>
 
@@ -258,6 +345,15 @@ export function DbaChatTab() {
                         onChange={(value) => void updateSetting('dbaChatIncludeLastResult', value)}
                     />
                 </SettingRow>
+                <SettingRow
+                    label={t('settings.dbaChat.includeLastPlan')}
+                    description={t('settings.dbaChat.includeLastPlanDesc')}
+                >
+                    <SettingToggle
+                        checked={settings.dbaChatIncludeLastPlan !== false}
+                        onChange={(value) => void updateSetting('dbaChatIncludeLastPlan', value)}
+                    />
+                </SettingRow>
             </SettingSection>
 
             <SettingSection
@@ -271,6 +367,15 @@ export function DbaChatTab() {
                 }
             >
                 <div className="divide-y divide-default">
+                    <SettingRow
+                        label={t('settings.dbaChat.autoContinue')}
+                        description={t('settings.dbaChat.autoContinueDesc')}
+                    >
+                        <SettingToggle
+                            checked={settings.dbaChatAutoContinue === true}
+                            onChange={(value) => void updateSetting('dbaChatAutoContinue', value)}
+                        />
+                    </SettingRow>
                     <SettingRow
                         label={t('settings.dbaChat.analysisPreset')}
                         description={t('settings.dbaChat.analysisPresetDesc')}
@@ -332,6 +437,34 @@ export function DbaChatTab() {
                 <div className="mt-3 rounded border border-accent-info/40 bg-accent-info/10 px-3 py-2 text-xs text-accent-info">
                     {t('settings.dbaChat.callBudget', {count: totalCalls})}
                 </div>
+            </SettingSection>
+
+            <SettingSection
+                title={t('settings.dbaChat.securitySection')}
+                description={t('settings.dbaChat.securitySectionDesc')}
+            >
+                <SettingRow
+                    label={t('settings.dbaChat.productionStrictMode')}
+                    description={t('settings.dbaChat.productionStrictModeDesc')}
+                >
+                    <SettingToggle
+                        checked={settings.dbaChatProductionStrictMode !== false}
+                        onChange={(value) =>
+                            void updateSetting('dbaChatProductionStrictMode', value)
+                        }
+                    />
+                </SettingRow>
+                <SettingRow
+                    label={t('settings.dbaChat.maskSensitiveResults')}
+                    description={t('settings.dbaChat.maskSensitiveResultsDesc')}
+                >
+                    <SettingToggle
+                        checked={settings.dbaChatMaskSensitiveResults !== false}
+                        onChange={(value) =>
+                            void updateSetting('dbaChatMaskSensitiveResults', value)
+                        }
+                    />
+                </SettingRow>
             </SettingSection>
         </div>
     );

@@ -33,6 +33,35 @@ pub struct AssistantReply {
     pub notice: Option<String>,
 }
 
+#[derive(Clone, Copy, Debug, Default)]
+pub struct GenerationOptions {
+    pub temperature: Option<f32>,
+    pub max_output_tokens: Option<u32>,
+}
+
+fn apply_generation_options(body: &mut Value, provider: &str, options: GenerationOptions) {
+    if provider == "ollama" {
+        let config = body
+            .as_object_mut()
+            .expect("Ollama request body must be an object")
+            .entry("options")
+            .or_insert_with(|| json!({}));
+        if let Some(temperature) = options.temperature {
+            config["temperature"] = json!(temperature);
+        }
+        if let Some(max_tokens) = options.max_output_tokens {
+            config["num_predict"] = json!(max_tokens);
+        }
+        return;
+    }
+    if let Some(temperature) = options.temperature {
+        body["temperature"] = json!(temperature);
+    }
+    if let Some(max_tokens) = options.max_output_tokens {
+        body["max_tokens"] = json!(max_tokens);
+    }
+}
+
 const UNSUPPORTED_TOOL_CALLING: &str =
     "This provider does not support chat tools yet. Pick an OpenAI, Anthropic, DeepSeek, MiniMax, OpenRouter, Requesty, custom OpenAI-compatible, or Ollama model in Settings → AI.";
 
@@ -596,6 +625,7 @@ pub async fn complete_streaming(
     system: &str,
     messages: &[ChatMessage],
     tools: &[ToolSchema],
+    options: GenerationOptions,
     on_text: &mut (dyn FnMut(&str) + Send),
     is_cancelled: &(dyn Fn() -> bool + Send + Sync),
 ) -> Result<StreamOutcome, String> {
@@ -603,16 +633,20 @@ pub async fn complete_streaming(
         return Err(UNSUPPORTED_TOOL_CALLING.to_string());
     }
     match provider {
-        "minimax" => Ok(StreamOutcome::Reply(
-            complete(
-                runtime, cache, config, provider, model, system, messages, tools,
-            )
-            .await?,
-        )),
+        "minimax" => {
+            let api_key = get_api_key(runtime, cache, provider)?;
+            let client = crate::proxy::ai_http_client(provider)?;
+            let mut body = minimax_body(model, system, messages, tools);
+            apply_generation_options(&mut body, provider, options);
+            Ok(StreamOutcome::Reply(
+                minimax_complete(&client, &api_key, &body).await?,
+            ))
+        }
         "anthropic" => {
             let api_key = get_api_key(runtime, cache, provider)?;
             let client = crate::proxy::ai_http_client(provider)?;
             let mut body = anthropic_body(model, system, messages, tools);
+            apply_generation_options(&mut body, provider, options);
             body["stream"] = json!(true);
             let response = client
                 .post("https://api.anthropic.com/v1/messages")
@@ -653,6 +687,7 @@ pub async fn complete_streaming(
             let client = crate::proxy::direct_http_client()?;
             let port = config.ai_ollama_port.unwrap_or(11434);
             let mut body = ollama_body(model, system, messages, tools);
+            apply_generation_options(&mut body, provider, options);
             body["stream"] = json!(true);
             let response = client
                 .post(format!("http://localhost:{port}/api/chat"))
@@ -686,6 +721,7 @@ pub async fn complete_streaming(
             let client = crate::proxy::ai_http_client(provider)?;
             let url = openai_endpoint(provider, config)?;
             let mut body = openai_body(model, system, messages, tools);
+            apply_generation_options(&mut body, provider, options);
             body["stream"] = json!(true);
             let mut request = client
                 .post(&url)

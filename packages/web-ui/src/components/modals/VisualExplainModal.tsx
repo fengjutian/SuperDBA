@@ -27,6 +27,8 @@ interface VisualExplainModalProps {
     connectionLabel?: string;
     /** Display an existing plan without issuing another database request. */
     viewState?: VisualExplainViewProps;
+    /** Receives the resolved plan so callers can attach it to DBA chat context. */
+    onPlanLoaded?: (rawPlan: string) => void;
 }
 
 export const VisualExplainModal = ({
@@ -38,6 +40,7 @@ export const VisualExplainModal = ({
     database,
     connectionLabel,
     viewState,
+    onPlanLoaded,
 }: VisualExplainModalProps) => {
     const {t} = useTranslation();
     const {settings} = useSettings();
@@ -62,6 +65,13 @@ export const VisualExplainModal = ({
         defaultEnabled: true,
     });
     const hasExternalPlan = !!viewState;
+    const effectivePlan = viewState?.plan ?? plan;
+
+    useEffect(() => {
+        if (!effectivePlan?.raw_output || !onPlanLoaded) return;
+        const raw = effectivePlan.raw_output;
+        onPlanLoaded(typeof raw === 'string' ? raw : JSON.stringify(raw, null, 2));
+    }, [effectivePlan, onPlanLoaded]);
     const connectionData = getConnectionData(connectionId);
     const effectiveDriver =
         connectionData?.driver ?? viewState?.plan?.driver ?? plan?.driver ?? 'sqlite';

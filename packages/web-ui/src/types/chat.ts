@@ -62,6 +62,7 @@ export interface ChatContext {
     selectedSql?: string;
     lastResult?: string;
     lastPlan?: string;
+    strictMode?: boolean;
 }
 
 export interface ChatSendRequest {
@@ -72,6 +73,9 @@ export interface ChatSendRequest {
     requestId?: string;
     message: string;
     context: ChatContext;
+    autoContinue?: boolean;
+    temperature?: number;
+    maxOutputTokens?: number;
 }
 
 /**
@@ -120,6 +124,13 @@ export type ChatEvent =
           sessionId: string;
           completedBatch: number;
           totalBatches: number;
+          completedCalls: number;
+          totalCalls: number;
+      }
+    | {
+          type: 'continuationRequired';
+          requestId: string;
+          sessionId: string;
           completedCalls: number;
           totalCalls: number;
       }

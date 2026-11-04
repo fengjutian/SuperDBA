@@ -33,6 +33,10 @@ export function useChatAgent() {
     const [sending, setSending] = useState(false);
     const [stream, setStream] = useState<ChatStreamState | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [continuationRequired, setContinuationRequired] = useState<{
+        completedCalls: number;
+        totalCalls: number;
+    } | null>(null);
     const mounted = useRef(true);
     const activeRequest = useRef<string | null>(null);
 
@@ -49,6 +53,12 @@ export function useChatAgent() {
         if (event.type === 'failed') {
             setError(event.message);
             return;
+        }
+        if (event.type === 'continuationRequired') {
+            setContinuationRequired({
+                completedCalls: event.completedCalls,
+                totalCalls: event.totalCalls,
+            });
         }
         setStream((current) => reduceChatStream(current, event));
     }, []);
@@ -104,6 +114,7 @@ export function useChatAgent() {
         setSession(null);
         setStream(null);
         setError(null);
+        setContinuationRequired(null);
     }, []);
 
     const deleteSession = useCallback(
@@ -134,7 +145,7 @@ export function useChatAgent() {
         async (message: string, context: ChatContext) => {
             const trimmed = message.trim();
             if (!trimmed || sending) return;
-            const provider = settings.aiProvider;
+            const provider = settings.dbaChatProvider ?? settings.aiProvider;
             if (!provider) {
                 setError('Configure an AI provider in Settings → AI before using chat.');
                 return;
@@ -143,14 +154,18 @@ export function useChatAgent() {
             activeRequest.current = requestId;
             setSending(true);
             setError(null);
+            setContinuationRequired(null);
             setStream({requestId, text: '', tools: [], cancelled: false});
             const request: ChatSendRequest = {
                 provider,
-                model: settings.aiModel ?? '',
+                model: settings.dbaChatModel?.trim() || settings.aiModel || '',
                 ...(session?.id ? {sessionId: session.id} : {}),
                 requestId,
                 message: trimmed,
                 context,
+                autoContinue: settings.dbaChatAutoContinue === true,
+                temperature: settings.dbaChatTemperature ?? 0,
+                maxOutputTokens: settings.dbaChatMaxOutputTokens ?? 2048,
             };
             try {
                 const updated = await client.call('chat_send', {request});
@@ -167,7 +182,19 @@ export function useChatAgent() {
                 activeRequest.current = null;
             }
         },
-        [client, refreshSessions, sending, session?.id, settings.aiModel, settings.aiProvider],
+        [
+            client,
+            refreshSessions,
+            sending,
+            session?.id,
+            settings.aiModel,
+            settings.aiProvider,
+            settings.dbaChatProvider,
+            settings.dbaChatModel,
+            settings.dbaChatAutoContinue,
+            settings.dbaChatTemperature,
+            settings.dbaChatMaxOutputTokens,
+        ],
     );
 
     /**
@@ -178,13 +205,13 @@ export function useChatAgent() {
      */
     const suggestStarters = useCallback(
         async (context: ChatContext, tables: string[], language: string): Promise<string[]> => {
-            const provider = settings.aiProvider;
+            const provider = settings.dbaChatProvider ?? settings.aiProvider;
             if (!provider || tables.length === 0) return [];
             try {
                 const values = await client.call('chat_suggest_starters', {
                     request: {
                         provider,
-                        model: settings.aiModel ?? '',
+                        model: settings.dbaChatModel?.trim() || settings.aiModel || '',
                         language,
                         context,
                         tables,
@@ -195,7 +222,13 @@ export function useChatAgent() {
                 return [];
             }
         },
-        [client, settings.aiModel, settings.aiProvider],
+        [
+            client,
+            settings.aiModel,
+            settings.aiProvider,
+            settings.dbaChatModel,
+            settings.dbaChatProvider,
+        ],
     );
 
     return {
@@ -205,6 +238,7 @@ export function useChatAgent() {
         sending,
         stream,
         error,
+        continuationRequired,
         send,
         suggestStarters,
         cancel,

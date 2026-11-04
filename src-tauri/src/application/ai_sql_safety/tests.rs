@@ -1,5 +1,6 @@
 use super::{
-    validate_ai_sql, LOCK_HEAVY_MESSAGE, TRANSACTION_CONTROL_MESSAGE, UNBOUNDED_WRITE_MESSAGE,
+    validate_ai_sql, LOCKING_READ_MESSAGE, LOCK_HEAVY_MESSAGE, MAX_AI_SQL_BYTES,
+    SQL_TOO_LARGE_MESSAGE, TRANSACTION_CONTROL_MESSAGE, UNBOUNDED_WRITE_MESSAGE,
 };
 
 #[test]
@@ -87,6 +88,29 @@ fn blocks_transaction_control() {
 }
 
 #[test]
+fn blocks_locking_reads_and_advisory_locks() {
+    for sql in [
+        "SELECT * FROM jobs WHERE id = 7 FOR UPDATE",
+        "SELECT * FROM jobs FOR NO KEY UPDATE",
+        "SELECT * FROM jobs FOR SHARE",
+        "SELECT * FROM jobs FOR KEY SHARE",
+        "SELECT * FROM jobs LOCK IN SHARE MODE",
+        "SELECT pg_advisory_lock(42)",
+        "SELECT pg_try_advisory_xact_lock(42)",
+        "SELECT GET_LOCK('maintenance', 10)",
+        "EXEC sp_getapplock @Resource = 'maintenance'",
+    ] {
+        assert_eq!(validate_ai_sql(sql), Err(LOCKING_READ_MESSAGE), "{sql}");
+    }
+}
+
+#[test]
+fn blocks_oversized_sql_before_tokenizing_it() {
+    let sql = "x".repeat(MAX_AI_SQL_BYTES + 1);
+    assert_eq!(validate_ai_sql(&sql), Err(SQL_TOO_LARGE_MESSAGE));
+}
+
+#[test]
 fn does_not_treat_read_only_text_as_an_operation() {
     assert_eq!(
         validate_ai_sql("SELECT operation FROM jobs WHERE operation = 'VACUUM'"),
@@ -98,6 +122,10 @@ fn does_not_treat_read_only_text_as_an_operation() {
     );
     assert_eq!(
         validate_ai_sql("SELECT 'BEGIN', 'COMMIT', autocommit FROM settings"),
+        Ok(())
+    );
+    assert_eq!(
+        validate_ai_sql("SELECT 'FOR UPDATE', 'GET_LOCK', advisory_lock_count FROM metrics"),
         Ok(())
     );
 }

@@ -126,6 +126,10 @@ pub async fn run_turn(
             &request_prompt,
             &model_messages,
             request_tools,
+            provider::GenerationOptions {
+                temperature: request.temperature.map(|value| value.clamp(0.0, 2.0)),
+                max_output_tokens: request.max_output_tokens.map(|value| value.clamp(256, 32_768)),
+            },
             &mut |delta| {
                 emit_chat_event(
                     runtime,
@@ -220,6 +224,26 @@ pub async fn run_turn(
                 limits,
                 completed_calls,
             );
+            if !request.auto_continue {
+                session.messages[index].notice = Some(format!(
+                    "Paused after {completed_calls} model calls. Continue the investigation when you are ready."
+                ));
+                persist(runtime, &session).await?;
+                emit_chat_event(
+                    runtime,
+                    web_session_id,
+                    json!({
+                        "type": "continuationRequired",
+                        "requestId": request_id,
+                        "sessionId": session.id,
+                        "completedCalls": completed_calls,
+                        "totalCalls": limits.total_calls,
+                    }),
+                );
+                emit_finished(runtime, web_session_id, &request_id, &session.id);
+                clear_cancelled(web_session_id, &request_id);
+                return Ok(session);
+            }
             log::debug!(
                 "AI chat session {} completed a {}-call batch; continuing automatically ({}/{})",
                 session.id,
@@ -415,7 +439,24 @@ async fn execute_calls(
             request_id,
             chat: context,
         };
-        let outcome = if !reserve_database_query_budget(&call.name, database_query_count) {
+        let strict_mode_denied = context.strict_mode
+            && if call.name == "run_query" {
+                call.arguments
+                    .get("sql")
+                    .and_then(Value::as_str)
+                    .is_some_and(|sql| {
+                        !matches!(tools::classify_statement(sql), tools::StatementClass::ReadOnly)
+                    })
+            } else {
+                !crate::application::tool_registry::is_read_only(&call.name)
+            };
+        let outcome = if strict_mode_denied {
+            tools::ToolOutcome {
+                status: ChatToolStatus::Denied,
+                summary: "Denied by production strict mode (read-only tools only).".to_string(),
+                result: json!({"error": "Production strict mode blocks write operations.", "denied": true}),
+            }
+        } else if !reserve_database_query_budget(&call.name, database_query_count) {
             tools::ToolOutcome {
                 status: ChatToolStatus::Denied,
                 summary: format!(

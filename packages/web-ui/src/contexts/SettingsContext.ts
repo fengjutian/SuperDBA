@@ -89,6 +89,22 @@ export interface Settings {
     dbaChatSendOnEnter?: boolean;
     /** Optional user-authored starter questions shown before generated suggestions. */
     dbaChatCustomStarters?: string[];
+    /** Dedicated provider for DBA chat; unset inherits the global AI provider. */
+    dbaChatProvider?: AiProvider | null;
+    /** Dedicated model for DBA chat; empty inherits the global AI model. */
+    dbaChatModel?: string;
+    /** Sampling temperature for DBA chat. Default: 0. */
+    dbaChatTemperature?: number;
+    /** Maximum output tokens for each DBA model call. Default: 2048. */
+    dbaChatMaxOutputTokens?: number;
+    /** Continue into the next analysis batch without user confirmation. Default: false. */
+    dbaChatAutoContinue?: boolean;
+    /** Attach the latest real EXPLAIN output from the active editor. Default: true. */
+    dbaChatIncludeLastPlan?: boolean;
+    /** Enforce read-only tools on production connections. Default: true. */
+    dbaChatProductionStrictMode?: boolean;
+    /** Mask sensitive columns before results are sent to the model. Default: true. */
+    dbaChatMaskSensitiveResults?: boolean;
     autoCheckUpdatesOnStartup?: boolean;
     /** Last plugin release shown in a startup notification, keyed by plugin id. */
     notifiedPluginVersions?: Record<string, string>;
@@ -267,6 +283,14 @@ export const DEFAULT_SETTINGS: Settings = {
     dbaChatIncludeLastResult: false,
     dbaChatSendOnEnter: true,
     dbaChatCustomStarters: [],
+    dbaChatProvider: null,
+    dbaChatModel: '',
+    dbaChatTemperature: 0,
+    dbaChatMaxOutputTokens: 2048,
+    dbaChatAutoContinue: false,
+    dbaChatIncludeLastPlan: true,
+    dbaChatProductionStrictMode: true,
+    dbaChatMaskSensitiveResults: true,
     loggingEnabled: true,
     maxLogEntries: 1000,
     copyFormat: 'csv',

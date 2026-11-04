@@ -125,6 +125,9 @@ pub struct ChatContext {
     pub last_result: Option<String>,
     #[serde(default)]
     pub last_plan: Option<String>,
+    /// Enforces read-only tool execution, normally for production connections.
+    #[serde(default)]
+    pub strict_mode: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -141,6 +144,12 @@ pub struct ChatSendRequest {
     pub message: String,
     #[serde(default)]
     pub context: ChatContext,
+    #[serde(default)]
+    pub auto_continue: bool,
+    #[serde(default)]
+    pub temperature: Option<f32>,
+    #[serde(default)]
+    pub max_output_tokens: Option<u32>,
 }
 
 /// Asks the configured model for the opening questions of an empty conversation.

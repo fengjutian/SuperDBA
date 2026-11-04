@@ -15,6 +15,11 @@ const LOCK_HEAVY_MESSAGE: &str =
     "AI query blocked: lock-heavy DDL or maintenance statements must be reviewed and run explicitly in the SQL editor.";
 const TRANSACTION_CONTROL_MESSAGE: &str =
     "AI query blocked: transaction-control statements are not allowed through automated channels because they can leave pooled connections holding locks. Run the transaction explicitly in the SQL editor.";
+const LOCKING_READ_MESSAGE: &str =
+    "AI query blocked: locking reads and advisory-lock functions are not allowed through automated channels. Run the statement explicitly in the SQL editor.";
+const SQL_TOO_LARGE_MESSAGE: &str =
+    "AI query blocked: the SQL text exceeds the 256 KiB automated-query limit. Review and run it explicitly in the SQL editor.";
+const MAX_AI_SQL_BYTES: usize = 256 * 1024;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Token {
@@ -26,6 +31,10 @@ enum Token {
 
 /// Reject SQL patterns that are too risky for an automated execution channel.
 pub fn validate_ai_sql(sql: &str) -> Result<(), &'static str> {
+    if sql.len() > MAX_AI_SQL_BYTES {
+        return Err(SQL_TOO_LARGE_MESSAGE);
+    }
+
     let tokens = tokens(sql);
 
     if contains_lock_heavy_operation(&tokens) {
@@ -33,6 +42,9 @@ pub fn validate_ai_sql(sql: &str) -> Result<(), &'static str> {
     }
     if contains_transaction_control(&tokens) {
         return Err(TRANSACTION_CONTROL_MESSAGE);
+    }
+    if contains_locking_read(&tokens) {
+        return Err(LOCKING_READ_MESSAGE);
     }
     if contains_unbounded_write(&tokens) {
         return Err(UNBOUNDED_WRITE_MESSAGE);
@@ -100,6 +112,39 @@ fn contains_transaction_control(tokens: &[Token]) -> bool {
         | ["SET", "AUTOCOMMIT", ..] => true,
         _ => false,
     })
+}
+
+fn contains_locking_read(tokens: &[Token]) -> bool {
+    let words = tokens
+        .iter()
+        .filter_map(|token| match token {
+            Token::Word(word) => Some(word.as_str()),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    words.iter().any(|word| {
+        matches!(
+            *word,
+            "PG_ADVISORY_LOCK"
+                | "PG_ADVISORY_XACT_LOCK"
+                | "PG_TRY_ADVISORY_LOCK"
+                | "PG_TRY_ADVISORY_XACT_LOCK"
+                | "GET_LOCK"
+                | "SP_GETAPPLOCK"
+        )
+    }) || words
+        .windows(2)
+        .any(|pair| matches!(pair, ["FOR", "UPDATE" | "SHARE"]))
+        || words
+            .windows(3)
+            .any(|triple| matches!(triple, ["FOR", "KEY" | "NO", "SHARE" | "KEY"]))
+        || words.windows(4).any(|quad| {
+            matches!(
+                quad,
+                ["FOR", "NO", "KEY", "UPDATE"] | ["LOCK", "IN", "SHARE", "MODE"]
+            )
+        })
 }
 
 fn top_level_statement_prefixes(tokens: &[Token]) -> impl Iterator<Item = Vec<&str>> {

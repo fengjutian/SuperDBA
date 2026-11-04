@@ -99,6 +99,10 @@ export interface Tab {
     title: string;
     type: 'console' | 'table' | 'query_builder' | 'notebook' | 'users';
     query: string;
+    /** Current non-empty Monaco selection, used as explicit DBA chat context. */
+    selectedSql?: string;
+    /** Most recently resolved raw EXPLAIN output for this tab. */
+    lastExplainPlan?: string;
     result: QueryResult | null;
     error: string;
     executionTime: number | null;

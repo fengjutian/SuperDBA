@@ -2,6 +2,12 @@
 
 import type {ChatEvent, ChatToolCall} from '@/types/chat';
 import type {QueryResult} from '@/types/editor';
+import {
+    DEFAULT_MASKING_PATTERNS,
+    isColumnMasked,
+    MASKED_PLACEHOLDER,
+    type ColumnMaskingOverride,
+} from '@/utils/columnMasking';
 
 const SQL_FENCE = /```sql\s*([\s\S]*?)```/i;
 
@@ -33,8 +39,32 @@ export function formatQueryResultSummary(
     result: QueryResult,
     rowLimit = 20,
     charLimit = 2000,
+    masking?: {
+        enabled: boolean;
+        patterns?: string[];
+        overrides?: Record<string, ColumnMaskingOverride>;
+        connectionId?: string;
+        tableName?: string;
+    },
 ): string {
-    const rows = result.rows.slice(0, rowLimit);
+    const rows = result.rows.slice(0, rowLimit).map((row) =>
+        masking?.enabled
+            ? row.map((value, index) =>
+                  isColumnMasked(
+                      result.columns[index] ?? '',
+                      masking.tableName,
+                      masking.connectionId,
+                      {
+                          enabled: true,
+                          patterns: masking.patterns ?? DEFAULT_MASKING_PATTERNS,
+                          overrides: masking.overrides,
+                      },
+                  )
+                    ? MASKED_PLACEHOLDER
+                    : value,
+              )
+            : row,
+    );
     const omittedRows = Math.max(0, result.rows.length - rows.length);
     const text = JSON.stringify(
         {

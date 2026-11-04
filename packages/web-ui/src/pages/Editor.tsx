@@ -4222,6 +4222,15 @@ export const Editor = ({commandScopeId}: EditorProps) => {
         if (mountedTab?.type === 'console' && tabId === activeTabIdRef.current) {
             editor.focus();
         }
+        let lastSelectedSql = mountedTab?.selectedSql ?? '';
+        editor.onDidChangeCursorSelection(({selection}) => {
+            const model = editor.getModel();
+            const selectedSql =
+                model && !selection.isEmpty() ? model.getValueInRange(selection).trim() : '';
+            if (selectedSql === lastSelectedSql) return;
+            lastSelectedSql = selectedSql;
+            updateTab(tabId, {selectedSql: selectedSql || undefined});
+        });
         editor.addAction({
             id: 'run-selection',
             label: 'Execute Selection',
@@ -6054,6 +6063,9 @@ export const Editor = ({commandScopeId}: EditorProps) => {
                 connectionId={activeConnectionId ?? ''}
                 schema={activeTab?.schema ?? activeSchema ?? undefined}
                 database={activeTab?.database}
+                onPlanLoaded={(rawPlan) => {
+                    if (activeTab) updateTab(activeTab.id, {lastExplainPlan: rawPlan});
+                }}
             />
             <ExplainSelectionModal
                 isOpen={isExplainSelectionOpen}
