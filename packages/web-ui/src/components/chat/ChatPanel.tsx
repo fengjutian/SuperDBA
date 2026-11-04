@@ -22,7 +22,7 @@ import {useDatabase} from '@/hooks/useDatabase';
 import {useEditor} from '@/hooks/useEditor';
 import {useRightSidebar} from '@/hooks/useRightSidebar';
 import {useSettings} from '@/hooks/useSettings';
-import {extractSqlBlock, formatToolResult} from '@/utils/chat';
+import {extractSqlBlock, formatQueryResultSummary, formatToolResult} from '@/utils/chat';
 import {
     buildLocalStarters,
     cachedStarters,
@@ -325,6 +325,9 @@ export function ChatPanel() {
             ...(activeDatabaseName ? {database: activeDatabaseName} : {}),
             ...(settings.dbaChatIncludeCurrentSql !== false && activeTab?.query?.trim()
                 ? {selectedSql: activeTab.query.trim()}
+                : {}),
+            ...(settings.dbaChatIncludeLastResult === true && activeTab?.result
+                ? {lastResult: formatQueryResultSummary(activeTab.result)}
                 : {}),
         });
     };

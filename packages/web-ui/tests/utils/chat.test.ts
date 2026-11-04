@@ -1,5 +1,10 @@
 import {describe, expect, it} from 'vitest';
-import {extractSqlBlock, formatToolResult, reduceChatStream} from '@/utils/chat';
+import {
+    extractSqlBlock,
+    formatQueryResultSummary,
+    formatToolResult,
+    reduceChatStream,
+} from '@/utils/chat';
 
 describe('chat utils', () => {
     describe('extractSqlBlock', () => {
@@ -37,6 +42,52 @@ describe('chat utils', () => {
 
         it('returns an empty string for undefined', () => {
             expect(formatToolResult(undefined)).toBe('');
+        });
+    });
+
+    describe('formatQueryResultSummary', () => {
+        it('includes columns, rows and result metadata', () => {
+            const summary = formatQueryResultSummary({
+                columns: ['id', 'name'],
+                rows: [[1, 'Ada']],
+                affected_rows: 0,
+            });
+            expect(JSON.parse(summary)).toEqual({
+                columns: ['id', 'name'],
+                rows: [[1, 'Ada']],
+                rowCount: 1,
+                affectedRows: 0,
+            });
+        });
+
+        it('limits rows and reports omissions', () => {
+            const summary = formatQueryResultSummary(
+                {columns: ['id'], rows: [[1], [2], [3]], affected_rows: 0},
+                2,
+            );
+            expect(JSON.parse(summary)).toMatchObject({
+                rows: [[1], [2]],
+                rowCount: 3,
+                omittedRows: 1,
+            });
+        });
+
+        it('serializes bigint cells', () => {
+            const summary = formatQueryResultSummary({
+                columns: ['value'],
+                rows: [[123n]],
+                affected_rows: 0,
+            });
+            expect(JSON.parse(summary).rows).toEqual([['123']]);
+        });
+
+        it('bounds the character count', () => {
+            const summary = formatQueryResultSummary(
+                {columns: ['value'], rows: [['x'.repeat(100)]], affected_rows: 0},
+                20,
+                60,
+            );
+            expect(summary.endsWith('… (truncated)')).toBe(true);
         });
     });
 

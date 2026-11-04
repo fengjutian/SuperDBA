@@ -1096,6 +1096,8 @@
       "contextSectionDesc": "Choose which editor information is attached to a question. Connection, database and schema names are always included when available.",
       "includeCurrentSql": "Include current SQL",
       "includeCurrentSqlDesc": "Attach the active editor contents so the assistant can explain, review or improve the query.",
+      "includeLastResult": "Include latest query result",
+      "includeLastResultDesc": "Attach a preview of up to 20 rows from the active result. Keep this off when results may contain sensitive data.",
       "analysisSection": "Analysis limits",
       "analysisSectionDesc": "Bound automatic continuation for long investigations. Lower limits use fewer model calls; higher limits can inspect more evidence.",
       "analysisPreset": "Analysis mode",

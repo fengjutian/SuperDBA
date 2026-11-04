@@ -46,6 +46,7 @@ export function DbaChatTab() {
         void updateSetting('dbaChatShowSuggestions', true);
         void updateSetting('dbaChatGenerateSuggestions', true);
         void updateSetting('dbaChatIncludeCurrentSql', true);
+        void updateSetting('dbaChatIncludeLastResult', false);
     };
 
     return (
@@ -99,6 +100,15 @@ export function DbaChatTab() {
                     <SettingToggle
                         checked={settings.dbaChatIncludeCurrentSql !== false}
                         onChange={(value) => void updateSetting('dbaChatIncludeCurrentSql', value)}
+                    />
+                </SettingRow>
+                <SettingRow
+                    label={t('settings.dbaChat.includeLastResult')}
+                    description={t('settings.dbaChat.includeLastResultDesc')}
+                >
+                    <SettingToggle
+                        checked={settings.dbaChatIncludeLastResult === true}
+                        onChange={(value) => void updateSetting('dbaChatIncludeLastResult', value)}
                     />
                 </SettingRow>
             </SettingSection>

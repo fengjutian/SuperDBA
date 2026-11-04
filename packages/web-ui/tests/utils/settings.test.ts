@@ -704,6 +704,7 @@ describe('settings', () => {
             expect(DEFAULT_SETTINGS.dbaChatShowSuggestions).toBe(true);
             expect(DEFAULT_SETTINGS.dbaChatGenerateSuggestions).toBe(true);
             expect(DEFAULT_SETTINGS.dbaChatIncludeCurrentSql).toBe(true);
+            expect(DEFAULT_SETTINGS.dbaChatIncludeLastResult).toBe(false);
         });
     });
 

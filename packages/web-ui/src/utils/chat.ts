@@ -1,6 +1,7 @@
 /** Pure helpers for the DBA chat panel. */
 
 import type {ChatEvent, ChatToolCall} from '@/types/chat';
+import type {QueryResult} from '@/types/editor';
 
 const SQL_FENCE = /```sql\s*([\s\S]*?)```/i;
 
@@ -22,6 +23,33 @@ export function formatToolResult(value: unknown, limit = 1600): string {
     const text = JSON.stringify(value, null, 2) ?? '';
     if (text.length <= limit) return text;
     return `${text.slice(0, limit)}\n…`;
+}
+
+/**
+ * Produces a bounded JSON preview for the model without forwarding an entire
+ * result set. BigInt cells are stringified because JSON does not support them.
+ */
+export function formatQueryResultSummary(
+    result: QueryResult,
+    rowLimit = 20,
+    charLimit = 2000,
+): string {
+    const rows = result.rows.slice(0, rowLimit);
+    const omittedRows = Math.max(0, result.rows.length - rows.length);
+    const text = JSON.stringify(
+        {
+            columns: result.columns,
+            rows,
+            rowCount: result.rows.length,
+            affectedRows: result.affected_rows,
+            ...(omittedRows > 0 ? {omittedRows} : {}),
+            ...(result.truncated ? {sourceTruncated: true} : {}),
+        },
+        (_key, value: unknown) => (typeof value === 'bigint' ? value.toString() : value),
+        2,
+    );
+    if (text.length <= charLimit) return text;
+    return `${text.slice(0, Math.max(0, charLimit))}\n… (truncated)`;
 }
 
 /** Draft of the assistant message currently streaming in. */

@@ -990,6 +990,8 @@
       "contextSectionDesc": "选择提问时附带的编辑器信息。连接、数据库和 Schema 名称在可用时始终包含。",
       "includeCurrentSql": "包含当前 SQL",
       "includeCurrentSqlDesc": "附带活动编辑器中的内容，让助手能够解释、审查或优化查询。",
+      "includeLastResult": "包含最近查询结果",
+      "includeLastResultDesc": "附带活动结果中最多 20 行的预览。结果可能包含敏感数据时请保持关闭。",
       "analysisSection": "分析限制",
       "analysisSectionDesc": "限制长时间调查的自动续跑范围。较低的值可减少模型调用，较高的值可检查更多证据。",
       "analysisPreset": "分析模式",

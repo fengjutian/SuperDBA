@@ -83,6 +83,8 @@ export interface Settings {
     dbaChatGenerateSuggestions?: boolean;
     /** Attach the current SQL editor contents to each DBA chat question. Default: true. */
     dbaChatIncludeCurrentSql?: boolean;
+    /** Attach a bounded preview of the latest query result. Default: false. */
+    dbaChatIncludeLastResult?: boolean;
     autoCheckUpdatesOnStartup?: boolean;
     /** Last plugin release shown in a startup notification, keyed by plugin id. */
     notifiedPluginVersions?: Record<string, string>;
@@ -258,6 +260,7 @@ export const DEFAULT_SETTINGS: Settings = {
     dbaChatShowSuggestions: true,
     dbaChatGenerateSuggestions: true,
     dbaChatIncludeCurrentSql: true,
+    dbaChatIncludeLastResult: false,
     loggingEnabled: true,
     maxLogEntries: 1000,
     copyFormat: 'csv',
