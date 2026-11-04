@@ -16,3 +16,20 @@ fn mcp_row_limits_are_bounded() {
     assert!(MCP_DEFAULT_ROWS > 0);
     assert!(MCP_DEFAULT_ROWS <= MCP_MAX_ROWS);
 }
+
+#[tokio::test]
+async fn bounds_total_database_workloads_without_fully_serializing_the_editor() {
+    let connection_id = format!("workload-guard-{}", uuid::Uuid::new_v4());
+    let first = acquire_workload(&connection_id)
+        .await
+        .expect("first permit");
+    let second = acquire_workload(&connection_id)
+        .await
+        .expect("second permit");
+    let semaphore = workload_semaphore(&connection_id);
+
+    assert!(semaphore.clone().try_acquire_owned().is_err());
+    drop(first);
+    assert!(semaphore.try_acquire_owned().is_ok());
+    drop(second);
+}

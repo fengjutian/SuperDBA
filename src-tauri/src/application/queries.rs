@@ -272,6 +272,7 @@ pub async fn execute_query(
     let dropped = crate::sql_database_statements::dropped_database(&sanitized_query);
     let (driver, params) =
         driver_and_params(runtime, scope.session_id, &connection_id, database).await?;
+    let _workload_permit = super::ai_query_guard::acquire_workload(&connection_id).await?;
 
     let effective_limit = response_limit(policy, limit);
     let driver_session = query_session_id.as_deref().map(|id| {
@@ -375,6 +376,7 @@ pub async fn execute_query_batch(
         .collect();
     let (driver, params) =
         driver_and_params(runtime, scope.session_id, &connection_id, database).await?;
+    let _workload_permit = super::ai_query_guard::acquire_workload(&connection_id).await?;
 
     let progress: Option<Arc<BatchProgressFn>> = batch_id.map(|batch_id| {
         let events = runtime.events.clone();
@@ -473,6 +475,7 @@ pub async fn explain_query_plan(
     let sanitized_query = sanitize_user_query(&query);
     let (driver, params) =
         driver_and_params(runtime, scope.session_id, &connection_id, database).await?;
+    let _workload_permit = super::ai_query_guard::acquire_workload(&connection_id).await?;
     // Leading comments are skipped with the driver's own comment rules, so a
     // `# note` header on MySQL does not hide an explainable statement.
     let hash_comments =

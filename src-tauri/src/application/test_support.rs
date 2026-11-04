@@ -34,7 +34,10 @@ pub(crate) fn saved_connection(
 }
 
 /// A saved connection wrapping `params`, named after its id.
-pub(crate) fn saved_connection_with_params(params: ConnectionParams, id: &str) -> SavedConnection {
+pub(crate) fn saved_connection_with_params(
+    params: ConnectionParams,
+    id: &str,
+) -> SavedConnection {
     SavedConnection {
         id: id.to_string(),
         name: "Test".to_string(),

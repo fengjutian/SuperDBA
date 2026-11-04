@@ -1390,6 +1390,13 @@ async fn tool_run_query(
             message,
             data: None,
         })?;
+    let _workload_permit = ai_query_guard::acquire_workload(conn_id)
+        .await
+        .map_err(|message| JsonRpcError {
+            code: -32000,
+            message,
+            data: None,
+        })?;
     let execution = async {
         if run_read_only {
             driver

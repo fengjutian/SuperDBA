@@ -329,8 +329,9 @@ pub fn remove_query_history_for_connection(
 
 fn get_saved_queries(config_dir: &Path, connection_id: &str) -> Result<Vec<SavedQuery>, String> {
     let meta = read_saved_query_meta(config_dir)?;
-    let folders =
-        saved_query_folders::read_folders_file_lenient(&saved_query_folders_path(config_dir)?);
+    let folders = saved_query_folders::read_folders_file_lenient(&saved_query_folders_path(
+        config_dir,
+    )?);
     let directory = saved_queries_dir(config_dir)?;
     meta.into_iter()
         .filter(|item| item.connection_id == connection_id)
@@ -418,8 +419,9 @@ fn update_saved_query(
     meta[index].database = database.clone();
     meta[index].updated_at = Some(now.clone());
     write_saved_query_meta(config_dir, &meta)?;
-    let folders =
-        saved_query_folders::read_folders_file_lenient(&saved_query_folders_path(config_dir)?);
+    let folders = saved_query_folders::read_folders_file_lenient(&saved_query_folders_path(
+        config_dir,
+    )?);
 
     Ok(SavedQuery {
         id: meta[index].id.clone(),

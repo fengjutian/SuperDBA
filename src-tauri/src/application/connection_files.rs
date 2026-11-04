@@ -199,13 +199,8 @@ pub async fn execute(
             .await?;
             Ok(Value::Null)
         }
-        ConnectionFilesCommand::GetDatabaseBackupStatus => {
-            json(crate::database_backup::get_database_backup_status(runtime).await?)
-        }
-        ConnectionFilesCommand::RunDatabaseBackup => json(
-            crate::database_backup::run_database_backup_now(runtime, &state.dump_cancellation)
-                .await?,
-        ),
+        ConnectionFilesCommand::GetDatabaseBackupStatus => json(crate::database_backup::get_database_backup_status(runtime).await?),
+        ConnectionFilesCommand::RunDatabaseBackup => json(crate::database_backup::run_database_backup_now(runtime, &state.dump_cancellation).await?),
         ConnectionFilesCommand::CancelDatabaseBackup => {
             crate::database_backup::cancel_database_backup(&state.dump_cancellation).await?;
             Ok(Value::Null)
@@ -315,7 +310,8 @@ pub async fn export_payload(
         if include_secrets {
             // A missing keychain entry must not abort the whole export (or a
             // scheduled backup): the connection is exported without that value.
-            let values = crate::application::connections::load_plugin_secrets(runtime, connection);
+            let values =
+                crate::application::connections::load_plugin_secrets(runtime, connection);
             if !values.is_empty() {
                 plugin_secrets.insert(connection.id.clone(), values);
             }
@@ -420,7 +416,8 @@ pub async fn preview_superdba_import_file(
     file: ConnectionImportFile,
     password: Option<String>,
 ) -> Result<SuperDBAImportPreviewResult, String> {
-    let (content, upload_to_consume) = read_superdba_import_file(runtime, session_id, file).await?;
+    let (content, upload_to_consume) =
+        read_superdba_import_file(runtime, session_id, file).await?;
     let value: Value = serde_json::from_str(&content)
         .map_err(|error| format!("Invalid connection export: {error}"))?;
     let payload = if value.get("encrypted").and_then(Value::as_bool) == Some(true) {
