@@ -1124,7 +1124,12 @@
       "maxBatches": "Maximum automatic batches",
       "maxBatchesDesc": "Maximum number of batches the agent may run for one message. Range: 1–8.",
       "callBudget": "Up to {{count}} model calls may be used for one message.",
-      "resetDefaults": "Restore defaults"
+      "resetDefaults": "Restore defaults",
+      "resetConfirmTitle": "Restore DBA chat defaults?",
+      "resetConfirmMessage": "This replaces all DBA chat preferences, including context sharing and input behavior.",
+      "defaultsRestored": "DBA chat defaults restored.",
+      "presetSaved": "Analysis mode saved.",
+      "saveFailed": "Could not save DBA chat settings: {{error}}"
     },
     "storage": {
       "title": "Storage",

@@ -1018,7 +1018,12 @@
       "maxBatches": "最大自动批次数",
       "maxBatchesDesc": "一条消息最多允许助手运行的批次数，范围为 1–8。",
       "callBudget": "一条消息最多可能使用 {{count}} 次模型调用。",
-      "resetDefaults": "恢复默认值"
+      "resetDefaults": "恢复默认值",
+      "resetConfirmTitle": "恢复 DBA 对话默认值？",
+      "resetConfirmMessage": "这将覆盖所有 DBA 对话偏好，包括上下文共享和输入行为。",
+      "defaultsRestored": "已恢复 DBA 对话默认值。",
+      "presetSaved": "已保存分析模式。",
+      "saveFailed": "无法保存 DBA 对话设置：{{error}}"
     },
     "storage": {
       "title": "存储",

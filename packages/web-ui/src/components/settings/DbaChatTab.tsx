@@ -1,8 +1,11 @@
 import {RotateCcw} from 'lucide-react';
+import {useState} from 'react';
 import {useTranslation} from 'react-i18next';
 import {useNavigate} from 'react-router-dom';
 import {useSettings} from '@/hooks/useSettings';
+import {useToast} from '@/hooks/useToast';
 import {Button} from '@/components/ui/Button';
+import {ConfirmModal} from '@/components/modals/ConfirmModal';
 import {
     SettingButtonGroup,
     SettingNumberInput,
@@ -25,6 +28,8 @@ export function DbaChatTab() {
     const {t} = useTranslation();
     const navigate = useNavigate();
     const {settings, updateSetting} = useSettings();
+    const {showToast} = useToast();
+    const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
     const showSuggestions = settings.dbaChatShowSuggestions !== false;
     const callsPerBatch = settings.aiChatCallsPerBatch ?? DEFAULT_CALLS_PER_BATCH;
     const maxBatches = settings.aiChatMaxBatches ?? DEFAULT_MAX_BATCHES;
@@ -35,25 +40,49 @@ export function DbaChatTab() {
                 preset.callsPerBatch === callsPerBatch && preset.maxBatches === maxBatches,
         )?.[0] as Exclude<AnalysisPreset, 'custom'> | undefined) ?? 'custom';
 
-    const applyPreset = (preset: AnalysisPreset) => {
+    const applyPreset = async (preset: AnalysisPreset) => {
         if (preset === 'custom') return;
         const values = ANALYSIS_PRESETS[preset];
-        void updateSetting('aiChatCallsPerBatch', values.callsPerBatch);
-        void updateSetting('aiChatMaxBatches', values.maxBatches);
+        try {
+            await Promise.all([
+                updateSetting('aiChatCallsPerBatch', values.callsPerBatch),
+                updateSetting('aiChatMaxBatches', values.maxBatches),
+            ]);
+            showToast(t('settings.dbaChat.presetSaved'), {kind: 'success'});
+        } catch (error) {
+            showToast(t('settings.dbaChat.saveFailed', {error: String(error)}), {kind: 'error'});
+        }
     };
 
-    const resetDefaults = () => {
-        void updateSetting('aiChatCallsPerBatch', DEFAULT_CALLS_PER_BATCH);
-        void updateSetting('aiChatMaxBatches', DEFAULT_MAX_BATCHES);
-        void updateSetting('dbaChatShowSuggestions', true);
-        void updateSetting('dbaChatGenerateSuggestions', true);
-        void updateSetting('dbaChatIncludeCurrentSql', true);
-        void updateSetting('dbaChatIncludeLastResult', false);
-        void updateSetting('dbaChatSendOnEnter', true);
+    const resetDefaults = async () => {
+        setResetConfirmOpen(false);
+        try {
+            await Promise.all([
+                updateSetting('aiChatCallsPerBatch', DEFAULT_CALLS_PER_BATCH),
+                updateSetting('aiChatMaxBatches', DEFAULT_MAX_BATCHES),
+                updateSetting('dbaChatShowSuggestions', true),
+                updateSetting('dbaChatGenerateSuggestions', true),
+                updateSetting('dbaChatIncludeCurrentSql', true),
+                updateSetting('dbaChatIncludeLastResult', false),
+                updateSetting('dbaChatSendOnEnter', true),
+            ]);
+            showToast(t('settings.dbaChat.defaultsRestored'), {kind: 'success'});
+        } catch (error) {
+            showToast(t('settings.dbaChat.saveFailed', {error: String(error)}), {kind: 'error'});
+        }
     };
 
     return (
         <div className="max-w-3xl">
+            <ConfirmModal
+                isOpen={resetConfirmOpen}
+                onClose={() => setResetConfirmOpen(false)}
+                title={t('settings.dbaChat.resetConfirmTitle')}
+                message={t('settings.dbaChat.resetConfirmMessage')}
+                confirmLabel={t('settings.dbaChat.resetDefaults')}
+                onConfirm={() => void resetDefaults()}
+                variant="warning"
+            />
             <div className="mb-6">
                 <h2 className="text-lg font-semibold text-primary">
                     {t('settings.dbaChat.title')}
@@ -173,7 +202,7 @@ export function DbaChatTab() {
                 title={t('settings.dbaChat.analysisSection')}
                 description={t('settings.dbaChat.analysisSectionDesc')}
                 action={
-                    <Button variant="ghost" size="sm" onClick={resetDefaults}>
+                    <Button variant="ghost" size="sm" onClick={() => setResetConfirmOpen(true)}>
                         <RotateCcw size={13} aria-hidden="true" />
                         {t('settings.dbaChat.resetDefaults')}
                     </Button>
@@ -187,7 +216,7 @@ export function DbaChatTab() {
                     >
                         <SettingButtonGroup
                             value={activePreset}
-                            onChange={applyPreset}
+                            onChange={(preset) => void applyPreset(preset)}
                             options={[
                                 {value: 'quick', label: t('settings.dbaChat.presetQuick')},
                                 {value: 'standard', label: t('settings.dbaChat.presetStandard')},
