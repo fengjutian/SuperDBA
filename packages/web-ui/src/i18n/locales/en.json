@@ -1082,6 +1082,24 @@
       "selectColumn": "Select column"
     },
     "aiActivity": "AI Activity",
+    "dbaChat": {
+      "tab": "DBA chat",
+      "title": "DBA chat",
+      "description": "Choose how conversations start and how far the DBA agent may continue an analysis automatically.",
+      "suggestionsSection": "Conversation starters",
+      "suggestionsSectionDesc": "Configure the suggestions shown before the first message in a conversation.",
+      "showSuggestions": "Show suggested questions",
+      "showSuggestionsDesc": "Display relevant starter questions when a conversation is empty.",
+      "generateSuggestions": "Generate schema-aware suggestions",
+      "generateSuggestionsDesc": "Use the selected AI model to tailor starter questions to tables in the active database. Local suggestions are used when disabled.",
+      "analysisSection": "Analysis limits",
+      "analysisSectionDesc": "Bound automatic continuation for long investigations. Lower limits use fewer model calls; higher limits can inspect more evidence.",
+      "callsPerBatch": "Model calls per batch",
+      "callsPerBatchDesc": "Pause and summarize progress after this many model calls. Range: 1–32.",
+      "maxBatches": "Maximum automatic batches",
+      "maxBatchesDesc": "Maximum number of batches the agent may run for one message. Range: 1–8.",
+      "resetDefaults": "Restore defaults"
+    },
     "storage": {
       "title": "Storage",
       "locations": "Locations",

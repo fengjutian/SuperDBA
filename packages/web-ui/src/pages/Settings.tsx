@@ -6,6 +6,7 @@ import {
     Palette,
     Languages,
     Sparkles,
+    MessagesSquare,
     ScrollText,
     Keyboard,
     Plug,
@@ -25,6 +26,7 @@ import {PrivacyTab} from '@/components/settings/PrivacyTab';
 import {AppearanceTab} from '@/components/settings/AppearanceTab';
 import {LocalizationTab} from '@/components/settings/LocalizationTab';
 import {AiTab} from '@/components/settings/AiTab';
+import {DbaChatTab} from '@/components/settings/DbaChatTab';
 import {LogsTab} from '@/components/settings/LogsTab';
 import {ShortcutsTab} from '@/components/settings/ShortcutsTab';
 import {PluginsTab} from '@/components/settings/PluginsTab';
@@ -51,6 +53,7 @@ type SettingsTab =
     | 'appearance'
     | 'localization'
     | 'ai'
+    | 'dba-chat'
     | 'ai-activity'
     | 'logs'
     | 'shortcuts'
@@ -79,6 +82,7 @@ const TAB_ITEMS: Array<{
     {id: 'privacy', icon: EyeOff, labelKey: 'settings.privacy'},
     {id: 'localization', icon: Languages, labelKey: 'settings.localization'},
     {id: 'ai', icon: Sparkles, labelKey: 'settings.ai.tab'},
+    {id: 'dba-chat', icon: MessagesSquare, labelKey: 'settings.dbaChat.tab'},
     {id: 'ai-activity', icon: Shield, labelKey: 'settings.aiActivity'},
     {id: 'logs', icon: ScrollText, labelKey: 'settings.logs'},
     {id: 'shortcuts', icon: Keyboard, labelKey: 'settings.shortcuts.title'},
@@ -95,6 +99,7 @@ const TAB_COMPONENTS: Partial<Record<SettingsTab, React.ComponentType>> = {
     appearance: AppearanceTab,
     localization: LocalizationTab,
     ai: AiTab,
+    'dba-chat': DbaChatTab,
     'ai-activity': AiActivityPanel,
     logs: LogsTab,
     shortcuts: ShortcutsTab,

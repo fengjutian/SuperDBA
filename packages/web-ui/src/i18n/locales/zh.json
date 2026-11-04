@@ -976,6 +976,24 @@
       "selectColumn": "选择列"
     },
     "aiActivity": "AI 活动",
+    "dbaChat": {
+      "tab": "DBA 对话",
+      "title": "DBA 对话",
+      "description": "设置对话的开始方式，以及 DBA 助手自动继续分析的范围。",
+      "suggestionsSection": "对话引导",
+      "suggestionsSectionDesc": "配置发送第一条消息前显示的建议问题。",
+      "showSuggestions": "显示建议问题",
+      "showSuggestionsDesc": "在空对话中显示与当前数据库相关的引导问题。",
+      "generateSuggestions": "生成感知表结构的建议",
+      "generateSuggestionsDesc": "使用当前 AI 模型，根据活动数据库中的表生成建议问题；关闭后使用本地建议。",
+      "analysisSection": "分析限制",
+      "analysisSectionDesc": "限制长时间调查的自动续跑范围。较低的值可减少模型调用，较高的值可检查更多证据。",
+      "callsPerBatch": "每批模型调用次数",
+      "callsPerBatchDesc": "达到此调用次数后暂停并总结进度，范围为 1–32。",
+      "maxBatches": "最大自动批次数",
+      "maxBatchesDesc": "一条消息最多允许助手运行的批次数，范围为 1–8。",
+      "resetDefaults": "恢复默认值"
+    },
     "storage": {
       "title": "存储",
       "locations": "位置",

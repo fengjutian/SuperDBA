@@ -694,6 +694,18 @@ describe('settings', () => {
         });
     });
 
+    describe('DEFAULT_SETTINGS DBA chat fields', () => {
+        it('uses bounded analysis defaults', () => {
+            expect(DEFAULT_SETTINGS.aiChatCallsPerBatch).toBe(16);
+            expect(DEFAULT_SETTINGS.aiChatMaxBatches).toBe(4);
+        });
+
+        it('shows local and generated conversation starters by default', () => {
+            expect(DEFAULT_SETTINGS.dbaChatShowSuggestions).toBe(true);
+            expect(DEFAULT_SETTINGS.dbaChatGenerateSuggestions).toBe(true);
+        });
+    });
+
     describe('mergeSettings with editor fields', () => {
         const defaults: Settings = {
             ...DEFAULT_SETTINGS,

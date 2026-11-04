@@ -265,8 +265,9 @@ export function ChatPanel() {
     // Model-written questions are a progressive enhancement: the empty state
     // paints the local set immediately and this effect only swaps it in later.
     useEffect(() => {
-        if (!showEmptyState) return;
+        if (!showEmptyState || settings.dbaChatShowSuggestions === false) return;
         if (cachedStarters(startersKey)) return;
+        if (settings.dbaChatGenerateSuggestions === false) return;
         if (!settings.aiProvider || promptTables.length === 0) return;
         let cancelled = false;
         void suggestStarters(
@@ -294,15 +295,21 @@ export function ChatPanel() {
         i18n.language,
         promptTables,
         settings.aiProvider,
+        settings.dbaChatGenerateSuggestions,
+        settings.dbaChatShowSuggestions,
         showEmptyState,
         startersKey,
         suggestStarters,
     ]);
 
     const starterPrompts =
-        (generatedStarters?.key === startersKey ? generatedStarters.values : null) ??
-        cachedStarters(startersKey) ??
-        localStarters;
+        settings.dbaChatShowSuggestions === false
+            ? []
+            : settings.dbaChatGenerateSuggestions === false
+              ? localStarters
+              : ((generatedStarters?.key === startersKey ? generatedStarters.values : null) ??
+                cachedStarters(startersKey) ??
+                localStarters);
 
     const submit = async () => {
         if (!input.trim() || sending) return;

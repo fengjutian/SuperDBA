@@ -77,6 +77,10 @@ export interface Settings {
     aiCustomOpenaiModel?: string;
     aiChatCallsPerBatch?: number;
     aiChatMaxBatches?: number;
+    /** Show starter questions when a DBA chat has no messages. Default: true. */
+    dbaChatShowSuggestions?: boolean;
+    /** Let the configured model replace local starter questions with schema-aware suggestions. Default: true. */
+    dbaChatGenerateSuggestions?: boolean;
     autoCheckUpdatesOnStartup?: boolean;
     /** Last plugin release shown in a startup notification, keyed by plugin id. */
     notifiedPluginVersions?: Record<string, string>;
@@ -249,6 +253,8 @@ export const DEFAULT_SETTINGS: Settings = {
     aiCustomOpenaiModel: '',
     aiChatCallsPerBatch: 16,
     aiChatMaxBatches: 4,
+    dbaChatShowSuggestions: true,
+    dbaChatGenerateSuggestions: true,
     loggingEnabled: true,
     maxLogEntries: 1000,
     copyFormat: 'csv',

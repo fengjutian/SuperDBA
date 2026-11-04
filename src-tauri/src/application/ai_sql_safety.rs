@@ -66,23 +66,44 @@ fn tokens(sql: &str) -> Vec<Token> {
 }
 
 fn contains_lock_heavy_operation(tokens: &[Token]) -> bool {
-    let words = tokens.iter().filter_map(|token| match token {
-        Token::Word(word) => Some(word.as_str()),
-        _ => None,
-    });
-    let words = words.collect::<Vec<_>>();
+    top_level_statement_prefixes(tokens).any(|words| match words.as_slice() {
+        ["ALTER", ..]
+        | ["TRUNCATE", ..]
+        | ["VACUUM", ..]
+        | ["OPTIMIZE", ..]
+        | ["REINDEX", ..]
+        | ["CLUSTER", ..]
+        | ["LOCK", ..]
+        | ["CREATE", "INDEX", ..]
+        | ["CREATE", "UNIQUE", "INDEX", ..]
+        | ["DROP", "INDEX", ..] => true,
+        _ => false,
+    })
+}
 
-    words.iter().any(|word| {
-        matches!(
-            *word,
-            "ALTER" | "TRUNCATE" | "VACUUM" | "OPTIMIZE" | "REINDEX" | "CLUSTER" | "LOCK"
-        )
-    }) || words
-        .windows(2)
-        .any(|pair| matches!(pair, ["CREATE" | "DROP", "INDEX"]))
-        || words
-            .windows(3)
-            .any(|triple| matches!(triple, ["CREATE", "UNIQUE", "INDEX"]))
+fn top_level_statement_prefixes(tokens: &[Token]) -> impl Iterator<Item = Vec<&str>> {
+    let mut prefixes = Vec::new();
+    let mut prefix = Vec::new();
+    let mut depth = 0usize;
+
+    for token in tokens {
+        match token {
+            Token::OpenParen => depth += 1,
+            Token::CloseParen => depth = depth.saturating_sub(1),
+            Token::Semicolon if depth == 0 => {
+                if !prefix.is_empty() {
+                    prefixes.push(std::mem::take(&mut prefix));
+                }
+            }
+            Token::Word(word) if depth == 0 && prefix.len() < 3 => prefix.push(word.as_str()),
+            _ => {}
+        }
+    }
+    if !prefix.is_empty() {
+        prefixes.push(prefix);
+    }
+
+    prefixes.into_iter()
 }
 
 fn contains_unbounded_write(tokens: &[Token]) -> bool {

@@ -68,4 +68,8 @@ fn does_not_treat_read_only_text_as_an_operation() {
         validate_ai_sql("SELECT operation FROM jobs WHERE operation = 'VACUUM'"),
         Ok(())
     );
+    assert_eq!(
+        validate_ai_sql("SELECT cluster, vacuum, optimize FROM job_metrics"),
+        Ok(())
+    );
 }
