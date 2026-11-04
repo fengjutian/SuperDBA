@@ -20,6 +20,7 @@ use crate::persistence;
 use crate::plugins;
 use serde::Serialize;
 use serde_json::{json, Value};
+use std::future::Future;
 use std::io::{self, BufRead, Write};
 use std::sync::Arc;
 
@@ -984,6 +985,16 @@ fn tool_result<T: Serialize>(value: &T, format: ToolOutputFormat) -> Result<Valu
         },
         data: None,
     })?;
+    if text.len() > ai_query_guard::MCP_MAX_OUTPUT_BYTES {
+        return Err(JsonRpcError {
+            code: -32000,
+            message: format!(
+                "MCP tool output exceeds the {} byte safety limit; request fewer rows or a narrower schema scope",
+                ai_query_guard::MCP_MAX_OUTPUT_BYTES
+            ),
+            data: None,
+        });
+    }
 
     Ok(json!({
         "content": [{
@@ -991,6 +1002,45 @@ fn tool_result<T: Serialize>(value: &T, format: ToolOutputFormat) -> Result<Valu
             "text": text
         }]
     }))
+}
+
+async fn guarded_mcp_database_call<T, F>(
+    connection_id: &str,
+    label: &str,
+    future: F,
+) -> Result<T, JsonRpcError>
+where
+    F: Future<Output = Result<T, String>>,
+{
+    let _ai_permit = ai_query_guard::acquire(connection_id)
+        .await
+        .map_err(|message| JsonRpcError {
+            code: -32000,
+            message,
+            data: None,
+        })?;
+    let _workload_permit = ai_query_guard::acquire_workload(connection_id)
+        .await
+        .map_err(|message| JsonRpcError {
+            code: -32000,
+            message,
+            data: None,
+        })?;
+    tokio::time::timeout(ai_query_guard::METADATA_TIMEOUT, future)
+        .await
+        .map_err(|_| JsonRpcError {
+            code: -32000,
+            message: format!(
+                "{label} timed out after {} seconds",
+                ai_query_guard::METADATA_TIMEOUT.as_secs()
+            ),
+            data: None,
+        })?
+        .map_err(|message| JsonRpcError {
+            code: -32000,
+            message,
+            data: None,
+        })
 }
 
 async fn tool_list_connections(
@@ -1053,14 +1103,12 @@ async fn tool_list_tables(
     apply_database_override(&mut db_params, database, &driver.manifest().capabilities)?;
 
     let effective_schema = resolve_default_schema(&driver, schema);
-    let tables = driver
-        .get_tables(&db_params, effective_schema)
-        .await
-        .map_err(|e| JsonRpcError {
-            code: -32000,
-            message: e,
-            data: None,
-        })?;
+    let tables = guarded_mcp_database_call(
+        conn_id,
+        "Table listing",
+        driver.get_tables(&db_params, effective_schema),
+    )
+    .await?;
 
     let names: Vec<&str> = tables.iter().map(|t| t.name.as_str()).collect();
     audit.rows = Some(names.len());
@@ -1088,14 +1136,12 @@ async fn tool_list_databases(
         resolve_db_driver(conn_id, config.active_external_drivers.as_deref()).await?;
     audit.connection_name = Some(conn.name.clone());
 
-    let databases = driver
-        .get_databases(&db_params)
-        .await
-        .map_err(|e| JsonRpcError {
-            code: -32000,
-            message: e,
-            data: None,
-        })?;
+    let databases = guarded_mcp_database_call(
+        conn_id,
+        "Database listing",
+        driver.get_databases(&db_params),
+    )
+    .await?;
 
     audit.rows = Some(databases.len());
     tool_result(&json!(databases), format)
@@ -1135,20 +1181,26 @@ async fn tool_describe_table(
     apply_database_override(&mut db_params, database, &driver.manifest().capabilities)?;
 
     let effective_schema = resolve_default_schema(&driver, schema);
-    // Run the three metadata fetches concurrently so a slow driver costs one
-    // round-trip's worth of latency, not three (and at most one call timeout
-    // rather than three sequential ones blocking the MCP request loop).
-    let (columns, foreign_keys, indexes) = tokio::join!(
-        driver.get_columns(&db_params, table_name, effective_schema),
-        driver.get_foreign_keys(&db_params, table_name, effective_schema),
-        driver.get_indexes(&db_params, table_name, effective_schema),
-    );
+    let (columns, foreign_keys, indexes) =
+        guarded_mcp_database_call(conn_id, "Table description", async {
+            let columns = driver
+                .get_columns(&db_params, table_name, effective_schema)
+                .await?;
+            let foreign_keys = driver
+                .get_foreign_keys(&db_params, table_name, effective_schema)
+                .await?;
+            let indexes = driver
+                .get_indexes(&db_params, table_name, effective_schema)
+                .await?;
+            Ok((columns, foreign_keys, indexes))
+        })
+        .await?;
 
     let result = json!({
         "table": table_name,
-        "columns": columns.map_err(|e| JsonRpcError { code: -32000, message: e, data: None })?,
-        "foreign_keys": foreign_keys.map_err(|e| JsonRpcError { code: -32000, message: e, data: None })?,
-        "indexes": indexes.map_err(|e| JsonRpcError { code: -32000, message: e, data: None })?
+        "columns": columns,
+        "foreign_keys": foreign_keys,
+        "indexes": indexes
     });
 
     tool_result(&result, format)

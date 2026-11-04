@@ -8,8 +8,10 @@ use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 pub const QUERY_TIMEOUT: Duration = Duration::from_secs(30);
 pub const METADATA_TIMEOUT: Duration = Duration::from_secs(15);
 pub const PREFLIGHT_EXPLAIN_TIMEOUT: Duration = Duration::from_secs(10);
+pub const SCHEDULER_WAIT_TIMEOUT: Duration = Duration::from_secs(5);
 pub const MCP_DEFAULT_ROWS: u32 = 100;
 pub const MCP_MAX_ROWS: u32 = 1_000;
+pub const MCP_MAX_OUTPUT_BYTES: usize = 8 * 1024 * 1024;
 pub const WORKLOADS_PER_CONNECTION: usize = 2;
 
 static QUERY_SEMAPHORES: once_cell::sync::Lazy<Mutex<HashMap<String, Weak<Semaphore>>>> =
@@ -18,17 +20,32 @@ static WORKLOAD_SEMAPHORES: once_cell::sync::Lazy<Mutex<HashMap<String, Weak<Sem
     once_cell::sync::Lazy::new(Default::default);
 
 pub async fn acquire(connection_id: &str) -> Result<OwnedSemaphorePermit, String> {
-    semaphore(connection_id)
-        .acquire_owned()
-        .await
-        .map_err(|_| "The AI query scheduler is unavailable.".to_string())
+    acquire_with_timeout(
+        semaphore(connection_id),
+        SCHEDULER_WAIT_TIMEOUT,
+        "Timed out waiting for another AI query on this connection.",
+    )
+    .await
 }
 
 pub async fn acquire_workload(connection_id: &str) -> Result<OwnedSemaphorePermit, String> {
-    workload_semaphore(connection_id)
-        .acquire_owned()
+    acquire_with_timeout(
+        workload_semaphore(connection_id),
+        SCHEDULER_WAIT_TIMEOUT,
+        "Timed out waiting for database capacity on this connection.",
+    )
+    .await
+}
+
+async fn acquire_with_timeout(
+    semaphore: Arc<Semaphore>,
+    wait: Duration,
+    timeout_message: &str,
+) -> Result<OwnedSemaphorePermit, String> {
+    tokio::time::timeout(wait, semaphore.acquire_owned())
         .await
-        .map_err(|_| "The database workload scheduler is unavailable.".to_string())
+        .map_err(|_| timeout_message.to_string())?
+        .map_err(|_| "The database query scheduler is unavailable.".to_string())
 }
 
 pub(crate) fn semaphore(connection_id: &str) -> Arc<Semaphore> {

@@ -33,3 +33,12 @@ async fn bounds_total_database_workloads_without_fully_serializing_the_editor() 
     assert!(semaphore.try_acquire_owned().is_ok());
     drop(second);
 }
+
+#[tokio::test]
+async fn scheduler_wait_is_bounded() {
+    let semaphore = Arc::new(Semaphore::new(0));
+    let error = acquire_with_timeout(semaphore, Duration::from_millis(1), "queue timeout")
+        .await
+        .expect_err("a saturated scheduler must time out");
+    assert_eq!(error, "queue timeout");
+}

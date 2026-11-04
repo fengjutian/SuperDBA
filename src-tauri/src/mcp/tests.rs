@@ -33,6 +33,15 @@ fn run_query_schema_and_runtime_cap_returned_rows() {
 }
 
 #[test]
+fn tool_output_rejects_oversized_payloads() {
+    let oversized = "x".repeat(ai_query_guard::MCP_MAX_OUTPUT_BYTES + 1);
+    let error = tool_result(&oversized, ToolOutputFormat::Json)
+        .expect_err("oversized MCP output must be rejected");
+    assert_eq!(error.code, -32000);
+    assert!(error.message.contains("safety limit"));
+}
+
+#[test]
 fn every_tool_advertises_optional_json_or_toon_output() {
     let result = handle_list_tools(&AppConfig::default()).expect("tool discovery should succeed");
     let tools = result["tools"].as_array().expect("tools must be an array");
