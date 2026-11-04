@@ -18,7 +18,7 @@ use serde_json::{json, Value};
 use std::future::Future;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::sync::{OwnedSemaphorePermit, Semaphore};
+use tokio::sync::Semaphore;
 use uuid::Uuid;
 
 pub const MAX_TABLES_PER_PAGE: usize = 50;
@@ -600,7 +600,7 @@ pub(super) fn query_semaphore(connection_id: &str) -> Arc<Semaphore> {
 async fn acquire_query_permit(
     tool: &ToolCallContext<'_>,
     connection_id: &str,
-) -> Result<OwnedSemaphorePermit, ToolOutcome> {
+) -> Result<ai_query_guard::AiQueryPermit, ToolOutcome> {
     tokio::select! {
         permit = ai_query_guard::acquire(connection_id) => permit.map_err(ToolOutcome::error),
         _ = wait_for_cancellation(tool) => Err(ToolOutcome::denied(

@@ -1,5 +1,6 @@
 import {RotateCcw} from 'lucide-react';
 import {useTranslation} from 'react-i18next';
+import {useNavigate} from 'react-router-dom';
 import {useSettings} from '@/hooks/useSettings';
 import {Button} from '@/components/ui/Button';
 import {
@@ -22,6 +23,7 @@ type AnalysisPreset = keyof typeof ANALYSIS_PRESETS | 'custom';
 
 export function DbaChatTab() {
     const {t} = useTranslation();
+    const navigate = useNavigate();
     const {settings, updateSetting} = useSettings();
     const showSuggestions = settings.dbaChatShowSuggestions !== false;
     const callsPerBatch = settings.aiChatCallsPerBatch ?? DEFAULT_CALLS_PER_BATCH;
@@ -47,6 +49,7 @@ export function DbaChatTab() {
         void updateSetting('dbaChatGenerateSuggestions', true);
         void updateSetting('dbaChatIncludeCurrentSql', true);
         void updateSetting('dbaChatIncludeLastResult', false);
+        void updateSetting('dbaChatSendOnEnter', true);
     };
 
     return (
@@ -57,6 +60,44 @@ export function DbaChatTab() {
                 </h2>
                 <p className="mt-1 text-sm text-muted">{t('settings.dbaChat.description')}</p>
             </div>
+
+            <SettingSection
+                title={t('settings.dbaChat.modelSection')}
+                description={t('settings.dbaChat.modelSectionDesc')}
+                action={
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => navigate('/settings?tab=ai')}
+                    >
+                        {t('settings.dbaChat.configureModel')}
+                    </Button>
+                }
+            >
+                <SettingRow
+                    label={t('settings.dbaChat.currentModel')}
+                    description={
+                        settings.aiProvider
+                            ? t('settings.dbaChat.currentModelValue', {
+                                  provider: settings.aiProvider,
+                                  model: settings.aiModel || t('settings.dbaChat.defaultModel'),
+                              })
+                            : t('settings.dbaChat.modelNotConfigured')
+                    }
+                >
+                    <span
+                        className={
+                            settings.aiProvider
+                                ? 'text-xs text-accent-success'
+                                : 'text-xs text-accent-warning'
+                        }
+                    >
+                        {settings.aiProvider
+                            ? t('settings.dbaChat.modelReady')
+                            : t('settings.dbaChat.modelRequired')}
+                    </span>
+                </SettingRow>
+            </SettingSection>
 
             <SettingSection
                 title={t('settings.dbaChat.suggestionsSection')}
@@ -87,6 +128,21 @@ export function DbaChatTab() {
                         />
                     </SettingRow>
                 </div>
+            </SettingSection>
+
+            <SettingSection
+                title={t('settings.dbaChat.inputSection')}
+                description={t('settings.dbaChat.inputSectionDesc')}
+            >
+                <SettingRow
+                    label={t('settings.dbaChat.sendOnEnter')}
+                    description={t('settings.dbaChat.sendOnEnterDesc')}
+                >
+                    <SettingToggle
+                        checked={settings.dbaChatSendOnEnter !== false}
+                        onChange={(value) => void updateSetting('dbaChatSendOnEnter', value)}
+                    />
+                </SettingRow>
             </SettingSection>
 
             <SettingSection

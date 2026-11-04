@@ -25,7 +25,12 @@ import {useDatabase} from '@/hooks/useDatabase';
 import {useEditor} from '@/hooks/useEditor';
 import {useRightSidebar} from '@/hooks/useRightSidebar';
 import {useSettings} from '@/hooks/useSettings';
-import {extractSqlBlock, formatQueryResultSummary, formatToolResult} from '@/utils/chat';
+import {
+    extractSqlBlock,
+    formatQueryResultSummary,
+    formatToolResult,
+    shouldSubmitChat,
+} from '@/utils/chat';
 import {
     buildLocalStarters,
     cachedStarters,
@@ -579,7 +584,7 @@ export function ChatPanel() {
                         value={input}
                         onChange={(event) => setInput(event.target.value)}
                         onKeyDown={(event) => {
-                            if (event.key === 'Enter' && !event.shiftKey) {
+                            if (shouldSubmitChat(event, settings.dbaChatSendOnEnter !== false)) {
                                 event.preventDefault();
                                 void submit();
                             }
@@ -614,6 +619,11 @@ export function ChatPanel() {
                     </button>
                 </div>
                 <p className="mt-1 text-[10px] text-muted">
+                    {t(
+                        settings.dbaChatSendOnEnter !== false
+                            ? 'chat.inputHintEnter'
+                            : 'chat.inputHintModifiedEnter',
+                    )}{' '}
                     {t('chat.readOnlyHint', {
                         defaultValue: 'Read-only tools. Writes stay in the editor.',
                     })}

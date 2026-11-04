@@ -52,6 +52,15 @@ export function formatQueryResultSummary(
     return `${text.slice(0, Math.max(0, charLimit))}\n… (truncated)`;
 }
 
+/** Resolves the configured chat submit shortcut without depending on React events. */
+export function shouldSubmitChat(
+    event: Pick<KeyboardEvent, 'key' | 'shiftKey' | 'ctrlKey' | 'metaKey'>,
+    sendOnEnter: boolean,
+): boolean {
+    if (event.key !== 'Enter' || event.shiftKey) return false;
+    return sendOnEnter || event.ctrlKey || event.metaKey;
+}
+
 /** Draft of the assistant message currently streaming in. */
 export interface ChatStreamState {
     requestId: string;

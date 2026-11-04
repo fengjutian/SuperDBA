@@ -85,6 +85,8 @@ export interface Settings {
     dbaChatIncludeCurrentSql?: boolean;
     /** Attach a bounded preview of the latest query result. Default: false. */
     dbaChatIncludeLastResult?: boolean;
+    /** Send on Enter; when false, only Ctrl/Cmd+Enter sends. Default: true. */
+    dbaChatSendOnEnter?: boolean;
     autoCheckUpdatesOnStartup?: boolean;
     /** Last plugin release shown in a startup notification, keyed by plugin id. */
     notifiedPluginVersions?: Record<string, string>;
@@ -261,6 +263,7 @@ export const DEFAULT_SETTINGS: Settings = {
     dbaChatGenerateSuggestions: true,
     dbaChatIncludeCurrentSql: true,
     dbaChatIncludeLastResult: false,
+    dbaChatSendOnEnter: true,
     loggingEnabled: true,
     maxLogEntries: 1000,
     copyFormat: 'csv',

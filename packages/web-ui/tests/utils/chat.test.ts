@@ -4,6 +4,7 @@ import {
     formatQueryResultSummary,
     formatToolResult,
     reduceChatStream,
+    shouldSubmitChat,
 } from '@/utils/chat';
 
 describe('chat utils', () => {
@@ -88,6 +89,30 @@ describe('chat utils', () => {
                 60,
             );
             expect(summary.endsWith('… (truncated)')).toBe(true);
+        });
+    });
+
+    describe('shouldSubmitChat', () => {
+        const keyEvent = (overrides: Partial<KeyboardEvent> = {}) => ({
+            key: 'Enter',
+            shiftKey: false,
+            ctrlKey: false,
+            metaKey: false,
+            ...overrides,
+        });
+
+        it('sends with plain Enter when enabled', () => {
+            expect(shouldSubmitChat(keyEvent(), true)).toBe(true);
+        });
+
+        it('keeps Shift+Enter for a new line', () => {
+            expect(shouldSubmitChat(keyEvent({shiftKey: true}), true)).toBe(false);
+        });
+
+        it('requires Ctrl or Command when plain Enter is disabled', () => {
+            expect(shouldSubmitChat(keyEvent(), false)).toBe(false);
+            expect(shouldSubmitChat(keyEvent({ctrlKey: true}), false)).toBe(true);
+            expect(shouldSubmitChat(keyEvent({metaKey: true}), false)).toBe(true);
         });
     });
 
