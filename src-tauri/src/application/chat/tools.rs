@@ -8,13 +8,14 @@
 
 use super::{emit_chat_event, is_cancelled, ChatContext, ChatToolStatus};
 use crate::ai_approval::{self, PendingApproval};
+use crate::application::ai_query_guard;
 use crate::application::metadata;
 use crate::application::queries::{self, QueryRequestScope, QueryResponsePolicy};
 use crate::runtime::{state::ApplicationState, RuntimeContext};
 use serde::Deserialize;
 use serde_json::{json, Value};
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex, Weak};
+use std::future::Future;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use uuid::Uuid;
@@ -24,14 +25,11 @@ pub const MAX_TABLES_PER_BATCH: usize = 5;
 pub const MAX_ROWS: u32 = 50;
 pub const DEFAULT_ROWS: u32 = 20;
 /// Keep automated diagnostics bounded even when the database has no statement timeout.
-pub const QUERY_TIMEOUT: Duration = Duration::from_secs(30);
+pub const QUERY_TIMEOUT: Duration = ai_query_guard::QUERY_TIMEOUT;
 /// How long a chat tool waits for the user to approve a write.
 const APPROVAL_TIMEOUT: Duration = Duration::from_secs(180);
 const APPROVAL_POLL_INTERVAL: Duration = Duration::from_millis(200);
 const CANCELLATION_POLL_INTERVAL: Duration = Duration::from_millis(100);
-
-static QUERY_SEMAPHORES: once_cell::sync::Lazy<Mutex<HashMap<String, Weak<Semaphore>>>> =
-    once_cell::sync::Lazy::new(Default::default);
 
 /// Everything a tool needs: the runtime, the live turn identity, and the
 /// connection context the user is looking at.
@@ -152,8 +150,7 @@ fn chat_input_schema(name: &str) -> Value {
         "explain_query" => json!({
             "type": "object",
             "properties": {
-                "sql": {"type": "string", "description": "Statement to explain."},
-                "analyze": {"type": "boolean", "description": "Run the statement to collect runtime statistics. Defaults to false."}
+                "sql": {"type": "string", "description": "Statement to explain without executing it."}
             },
             "required": ["sql"],
             "additionalProperties": false
@@ -302,15 +299,25 @@ async fn list_tables(
     offset: usize,
     limit: usize,
 ) -> ToolOutcome {
-    match metadata::get_tables(
-        tool.runtime,
-        tool.web_session_id,
+    let tables = match guarded_database_call(
+        tool,
         connection_id,
-        schema,
-        database,
+        "table listing",
+        ai_query_guard::METADATA_TIMEOUT,
+        metadata::get_tables(
+            tool.runtime,
+            tool.web_session_id,
+            connection_id,
+            schema,
+            database,
+        ),
     )
     .await
     {
+        Ok(tables) => tables,
+        Err(outcome) => return outcome,
+    };
+    match tables {
         Ok(tables) => {
             let total = tables.len();
             let limit = limit.clamp(1, MAX_TABLES_PER_PAGE);
@@ -399,33 +406,47 @@ async fn describe_table(
     schema: Option<String>,
     database: Option<String>,
 ) -> ToolOutcome {
-    let columns = metadata::get_columns(
-        tool.runtime,
-        tool.web_session_id,
+    let description = guarded_database_call(
+        tool,
         connection_id,
-        table.clone(),
-        schema.clone(),
-        database.clone(),
+        "table description",
+        ai_query_guard::METADATA_TIMEOUT,
+        async {
+            let columns = metadata::get_columns(
+                tool.runtime,
+                tool.web_session_id,
+                connection_id,
+                table.clone(),
+                schema.clone(),
+                database.clone(),
+            )
+            .await;
+            let indexes = metadata::get_indexes(
+                tool.runtime,
+                tool.web_session_id,
+                connection_id,
+                table.clone(),
+                schema.clone(),
+                database.clone(),
+            )
+            .await;
+            let foreign_keys = metadata::get_foreign_keys(
+                tool.runtime,
+                tool.web_session_id,
+                connection_id,
+                table.clone(),
+                schema,
+                database,
+            )
+            .await;
+            (columns, indexes, foreign_keys)
+        },
     )
     .await;
-    let indexes = metadata::get_indexes(
-        tool.runtime,
-        tool.web_session_id,
-        connection_id,
-        table.clone(),
-        schema.clone(),
-        database.clone(),
-    )
-    .await;
-    let foreign_keys = metadata::get_foreign_keys(
-        tool.runtime,
-        tool.web_session_id,
-        connection_id,
-        table.clone(),
-        schema,
-        database,
-    )
-    .await;
+    let (columns, indexes, foreign_keys) = match description {
+        Ok(description) => description,
+        Err(outcome) => return outcome,
+    };
 
     let (columns, indexes, foreign_keys) = match (columns, indexes, foreign_keys) {
         (Ok(columns), Ok(indexes), Ok(foreign_keys)) => (columns, indexes, foreign_keys),
@@ -564,16 +585,7 @@ async fn execute_statement(
 }
 
 pub(super) fn query_semaphore(connection_id: &str) -> Arc<Semaphore> {
-    let mut semaphores = QUERY_SEMAPHORES
-        .lock()
-        .unwrap_or_else(|error| error.into_inner());
-    semaphores.retain(|_, semaphore| semaphore.strong_count() > 0);
-    if let Some(semaphore) = semaphores.get(connection_id).and_then(Weak::upgrade) {
-        return semaphore;
-    }
-    let semaphore = Arc::new(Semaphore::new(1));
-    semaphores.insert(connection_id.to_string(), Arc::downgrade(&semaphore));
-    semaphore
+    ai_query_guard::semaphore(connection_id)
 }
 
 async fn acquire_query_permit(
@@ -581,12 +593,34 @@ async fn acquire_query_permit(
     connection_id: &str,
 ) -> Result<OwnedSemaphorePermit, ToolOutcome> {
     tokio::select! {
-        permit = query_semaphore(connection_id).acquire_owned() => permit.map_err(|_| {
-            ToolOutcome::error("The query scheduler is unavailable.")
-        }),
+        permit = ai_query_guard::acquire(connection_id) => permit.map_err(ToolOutcome::error),
         _ = wait_for_cancellation(tool) => Err(ToolOutcome::denied(
             "The user stopped the turn before the query started."
         )),
+    }
+}
+
+async fn guarded_database_call<T, F>(
+    tool: &ToolCallContext<'_>,
+    connection_id: &str,
+    label: &str,
+    timeout: Duration,
+    future: F,
+) -> Result<T, ToolOutcome>
+where
+    F: Future<Output = T>,
+{
+    let _permit = acquire_query_permit(tool, connection_id).await?;
+    tokio::pin!(future);
+    tokio::select! {
+        result = &mut future => Ok(result),
+        _ = tokio::time::sleep(timeout) => Err(ToolOutcome::error(format!(
+            "{label} timed out after {} seconds and was cancelled to protect database stability.",
+            timeout.as_secs()
+        ))),
+        _ = wait_for_cancellation(tool) => Err(ToolOutcome::denied(format!(
+            "The user stopped the turn. The running {label} was cancelled."
+        ))),
     }
 }
 
@@ -601,6 +635,11 @@ async fn explain_query(
     connection_id: &str,
     args: ExplainQueryArgs,
 ) -> ToolOutcome {
+    if args.analyze {
+        return ToolOutcome::denied(
+            "EXPLAIN ANALYZE is disabled in DBA chat because it executes the statement. Use plain EXPLAIN or run it explicitly in the editor.",
+        );
+    }
     let _permit = match acquire_query_permit(tool, connection_id).await {
         Ok(permit) => permit,
         Err(outcome) => return outcome,

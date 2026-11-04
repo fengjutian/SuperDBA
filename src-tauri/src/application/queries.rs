@@ -78,7 +78,11 @@ impl QueryTaskRegistration {
         slot: String,
         handle: Arc<AbortHandle>,
     ) -> Self {
-        super::cancellation::register_abort_handle(&cancellation.handles, slot.clone(), handle.clone());
+        super::cancellation::register_abort_handle(
+            &cancellation.handles,
+            slot.clone(),
+            handle.clone(),
+        );
         Self {
             handles: cancellation.handles.clone(),
             slot,

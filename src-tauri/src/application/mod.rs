@@ -1,4 +1,5 @@
 pub mod ai;
+pub mod ai_query_guard;
 pub mod api;
 pub mod cancellation;
 pub mod chat;

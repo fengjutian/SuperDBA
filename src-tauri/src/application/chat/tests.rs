@@ -379,6 +379,12 @@ fn chat_tools_expose_pagination_and_batch_schema_inspection() {
         describe_tables.input_schema["properties"]["tables"]["maxItems"],
         json!(5)
     );
+
+    let explain = definitions
+        .iter()
+        .find(|tool| tool.name == "explain_query")
+        .expect("explain_query is registered");
+    assert!(explain.input_schema["properties"].get("analyze").is_none());
 }
 
 #[test]

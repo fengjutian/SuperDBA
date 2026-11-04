@@ -1,5 +1,6 @@
 use crate::ai_activity::{self, AiActivityEvent};
 use crate::ai_approval::{self, PendingApproval, PollOutcome};
+use crate::application::ai_query_guard;
 use crate::application::connection_params;
 use crate::config::{
     self, AppConfig, DEFAULT_AI_AUDIT_ENABLED, DEFAULT_AI_AUDIT_MAX_ENTRIES,
@@ -44,6 +45,13 @@ mod output_tests;
 mod tests;
 
 const APPROVAL_POLL_INTERVAL_MS: u64 = 500;
+
+fn requested_row_limit(args: &serde_json::Map<String, Value>) -> u32 {
+    args.get("limit")
+        .and_then(|value| value.as_u64())
+        .unwrap_or(ai_query_guard::MCP_DEFAULT_ROWS as u64)
+        .clamp(1, ai_query_guard::MCP_MAX_ROWS as u64) as u32
+}
 
 /// Async-friendly mirror of the data we want to record on every tool call.
 struct CallAudit {
@@ -781,7 +789,7 @@ fn mcp_input_schema(name: &str, default_output_format: &str) -> Value {
                 "connection_id": { "type": "string", "description": "The ID or name of the connection" },
                 "query": { "type": "string", "description": "The SQL query to execute" },
                 "database": { "type": "string", "description": "Database to use on a connection with several databases selected (optional, defaults to the first one)" },
-                "limit": { "type": "integer", "description": "Maximum number of rows to return (default: 100). If the query already contains a LIMIT clause smaller than this value, the query's LIMIT takes precedence." },
+                "limit": { "type": "integer", "minimum": 1, "maximum": ai_query_guard::MCP_MAX_ROWS, "description": "Maximum number of rows to return (default: 100, maximum: 1000). If the query already contains a LIMIT clause smaller than this value, the query's LIMIT takes precedence." },
                 "output_format": output_format_schema(default_output_format)
             },
             "required": ["connection_id", "query"]
@@ -1170,7 +1178,7 @@ async fn tool_run_query(
             data: None,
         })?;
 
-    let max_rows = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(100) as u32;
+    let max_rows = requested_row_limit(args);
 
     audit.connection_id = Some(conn_id.to_string());
     audit.query = Some(query.to_string());
@@ -1375,20 +1383,39 @@ async fn tool_run_query(
     // does, so have the database refuse writes too.
     let run_read_only = config::is_connection_readonly(config, &conn.id)
         || (approval_mode != "off" && !needs_approval);
-    let result = if run_read_only {
-        driver
-            .execute_read_only_query(&db_params, &effective_query, Some(max_rows), 1, None)
-            .await
-    } else {
-        driver
-            .execute_query(&db_params, &effective_query, Some(max_rows), 1, None)
-            .await
-    }
-    .map_err(|e| JsonRpcError {
-        code: -32000,
-        message: e,
-        data: None,
-    })?;
+    let _permit = ai_query_guard::acquire(conn_id)
+        .await
+        .map_err(|message| JsonRpcError {
+            code: -32000,
+            message,
+            data: None,
+        })?;
+    let execution = async {
+        if run_read_only {
+            driver
+                .execute_read_only_query(&db_params, &effective_query, Some(max_rows), 1, None)
+                .await
+        } else {
+            driver
+                .execute_query(&db_params, &effective_query, Some(max_rows), 1, None)
+                .await
+        }
+    };
+    let result = tokio::time::timeout(ai_query_guard::QUERY_TIMEOUT, execution)
+        .await
+        .map_err(|_| JsonRpcError {
+            code: -32000,
+            message: format!(
+                "Query timed out after {} seconds and was cancelled to protect database stability",
+                ai_query_guard::QUERY_TIMEOUT.as_secs()
+            ),
+            data: None,
+        })?
+        .map_err(|e| JsonRpcError {
+            code: -32000,
+            message: e,
+            data: None,
+        })?;
 
     audit.rows = Some(result.rows.len());
 

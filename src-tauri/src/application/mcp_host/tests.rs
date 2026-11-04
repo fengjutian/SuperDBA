@@ -31,9 +31,7 @@ fn builds_codex_manual_command() {
 fn builds_claude_code_manual_command() {
     assert_eq!(
         build_manual_command("claude_code", "/Applications/SuperDBA.app/superdba").as_deref(),
-        Some(
-            "claude mcp add --scope user superdba /Applications/SuperDBA.app/superdba -- --mcp"
-        )
+        Some("claude mcp add --scope user superdba /Applications/SuperDBA.app/superdba -- --mcp")
     );
 }
 

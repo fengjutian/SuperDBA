@@ -6,9 +6,35 @@ use crate::models::DatabaseSelection;
 use serde_json::{json, Map, Value};
 
 #[test]
+fn run_query_schema_and_runtime_cap_returned_rows() {
+    let result = handle_list_tools(&AppConfig::default()).expect("tool discovery should succeed");
+    let run_query = result["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|tool| tool["name"] == "run_query")
+        .expect("run_query tool");
+    let limit = &run_query["inputSchema"]["properties"]["limit"];
+    assert_eq!(limit["minimum"], 1);
+    assert_eq!(limit["maximum"], ai_query_guard::MCP_MAX_ROWS);
+
+    let default_args = Map::new();
+    assert_eq!(
+        requested_row_limit(&default_args),
+        ai_query_guard::MCP_DEFAULT_ROWS
+    );
+    let oversized = json!({"limit": u64::MAX}).as_object().unwrap().clone();
+    assert_eq!(
+        requested_row_limit(&oversized),
+        ai_query_guard::MCP_MAX_ROWS
+    );
+    let zero = json!({"limit": 0}).as_object().unwrap().clone();
+    assert_eq!(requested_row_limit(&zero), 1);
+}
+
+#[test]
 fn every_tool_advertises_optional_json_or_toon_output() {
-    let result =
-        handle_list_tools(&AppConfig::default()).expect("tool discovery should succeed");
+    let result = handle_list_tools(&AppConfig::default()).expect("tool discovery should succeed");
     let tools = result["tools"].as_array().expect("tools must be an array");
 
     assert_eq!(tools.len(), 5);
@@ -238,8 +264,7 @@ async fn resolve_driver_for_params_does_not_retry_on_a_registered_drivers_own_fa
 /// `database` to pick another.
 #[test]
 fn data_tools_advertise_an_optional_database() {
-    let result =
-        handle_list_tools(&AppConfig::default()).expect("tool discovery should succeed");
+    let result = handle_list_tools(&AppConfig::default()).expect("tool discovery should succeed");
     let tools = result["tools"].as_array().expect("tools must be an array");
 
     for name in ["list_tables", "describe_table", "run_query"] {

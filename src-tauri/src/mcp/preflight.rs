@@ -10,6 +10,7 @@
 
 use serde_json::Value;
 
+use crate::application::ai_query_guard;
 use crate::drivers::registry as driver_registry;
 use crate::models::ConnectionParams;
 
@@ -35,7 +36,23 @@ pub async fn preflight_explain(
             };
         }
     };
-    let plan_result = registered.explain_query(params, query, false, schema).await;
+    let plan_result = match tokio::time::timeout(
+        ai_query_guard::PREFLIGHT_EXPLAIN_TIMEOUT,
+        registered.explain_query(params, query, false, schema),
+    )
+    .await
+    {
+        Ok(result) => result,
+        Err(_) => {
+            return PreflightOutcome {
+                plan: None,
+                error: Some(format!(
+                    "Pre-flight EXPLAIN timed out after {} seconds",
+                    ai_query_guard::PREFLIGHT_EXPLAIN_TIMEOUT.as_secs()
+                )),
+            }
+        }
+    };
 
     match plan_result {
         Ok(plan) => match serde_json::to_value(&plan) {
