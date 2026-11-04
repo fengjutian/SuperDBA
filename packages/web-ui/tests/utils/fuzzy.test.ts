@@ -35,4 +35,20 @@ describe('fuzzyFilter', () => {
     it('excludes clearly unrelated names', () => {
         expect(fuzzyFilter(tables, 'audit', byName).map(byName)).not.toContain('orders');
     });
+
+    // The filter caches one Fuse index per array so sidebar filters do not
+    // re-index every table on each keystroke. These guard the cache invalidation.
+    it('reuses its index across queries without changing the matches', () => {
+        const first = fuzzyFilter(tables, 'user', byName).map(byName);
+        const second = fuzzyFilter(tables, 'user', byName).map(byName);
+        expect(second).toEqual(first);
+        expect(fuzzyFilter(tables, 'order', byName).map(byName)).toContain('order_items');
+    });
+
+    it('picks up items appended to a cached array', () => {
+        const rows = [{name: 'users'}];
+        expect(fuzzyFilter(rows, 'orders', byName)).toEqual([]);
+        rows.push({name: 'orders'});
+        expect(fuzzyFilter(rows, 'orders', byName).map(byName)).toEqual(['orders']);
+    });
 });

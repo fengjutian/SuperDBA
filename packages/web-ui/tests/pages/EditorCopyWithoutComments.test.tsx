@@ -194,6 +194,7 @@ function mountEditor(sql: string) {
             return {set: (next: unknown) => contextKeys.set(key, next)};
         },
         onDidDispose: vi.fn(),
+        onDidChangeCursorSelection: vi.fn(),
         getSelection: () => null,
         getModel: () => ({getValue: () => sql, getValueInRange: () => ''}),
         getValue: () => sql,

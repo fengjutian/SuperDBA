@@ -816,6 +816,14 @@ export const Editor = ({commandScopeId}: EditorProps) => {
         [activeTab?.pkColumns, activeTab?.columnMetadata, activeTab?.result?.columns],
     );
 
+    // DataGrid's memo and its per-row context compare props by identity. Building
+    // the selection Set inline created a new one on every Editor render, which
+    // re-rendered every visible row even when the selection had not changed.
+    const gridSelectedRows = useMemo(
+        () => new Set(activeTab?.selectedRows ?? []),
+        [activeTab?.selectedRows],
+    );
+
     const selectionHasPending = useMemo(() => {
         if (!activeTab) return false;
         const {pendingChanges, pendingDeletions, pendingInsertions, selectedRows, result} =
@@ -5889,7 +5897,7 @@ export const Editor = ({commandScopeId}: EditorProps) => {
                                                     handleMarkMultipleForDeletion
                                                 }
                                                 onDuplicateRow={handleDuplicateRow}
-                                                selectedRows={new Set(activeTab.selectedRows || [])}
+                                                selectedRows={gridSelectedRows}
                                                 onSelectionChange={handleSelectionChange}
                                                 copyFormat={copyFormat}
                                                 csvDelimiter={csvDelimiter}

@@ -2,7 +2,14 @@ import {describe, expect, it, vi} from 'vitest';
 import {loader} from '@monaco-editor/react';
 import {ensureMonaco} from '@/utils/monaco';
 
-vi.mock('monaco-editor', () => ({editor: {colorize: vi.fn()}, languages: {}}));
+// `monacoLoader` imports the language-free editor entry so the bundle does not
+// carry Monaco's full language pack; mock that entry, not the package root.
+vi.mock('monaco-editor/esm/vs/editor/edcore.main', () => ({
+    editor: {colorize: vi.fn()},
+    languages: {},
+}));
+vi.mock('monaco-editor/esm/vs/basic-languages/sql/sql.contribution', () => ({}));
+vi.mock('monaco-editor/esm/vs/language/json/monaco.contribution', () => ({}));
 vi.mock('@monaco-editor/react', () => ({loader: {config: vi.fn()}}));
 vi.mock('@/utils/monacoInputArea', () => ({installMonacoInputAreaSelectionFix: vi.fn()}));
 vi.mock('monaco-editor/esm/vs/editor/editor.worker?worker', () => ({
