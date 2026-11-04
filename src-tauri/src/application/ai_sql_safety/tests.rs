@@ -1,8 +1,9 @@
 use super::{
-    validate_ai_sql, AUDIT_TIME_RANGE_MESSAGE, EXPENSIVE_PLAN_MESSAGE, LOCKING_READ_MESSAGE,
-    LOCK_HEAVY_MESSAGE, MAX_AI_JOINS, MAX_AI_NESTING_DEPTH, MAX_AI_SET_OPERATIONS,
-    MAX_AI_SQL_BYTES, QUERY_COMPLEXITY_MESSAGE, RESOURCE_ABUSE_MESSAGE, ROW_GENERATOR_MESSAGE,
-    SQL_TOO_LARGE_MESSAGE, TRANSACTION_CONTROL_MESSAGE, UNBOUNDED_WRITE_MESSAGE,
+    validate_ai_sql, AUDIT_TIME_RANGE_MESSAGE, AUDIT_TIME_WINDOW_MESSAGE, EXPENSIVE_PLAN_MESSAGE,
+    LOCKING_READ_MESSAGE, LOCK_HEAVY_MESSAGE, MAX_AI_JOINS, MAX_AI_NESTING_DEPTH,
+    MAX_AI_SET_OPERATIONS, MAX_AI_SQL_BYTES, QUERY_COMPLEXITY_MESSAGE, RESOURCE_ABUSE_MESSAGE,
+    ROW_GENERATOR_MESSAGE, SQL_TOO_LARGE_MESSAGE, TRANSACTION_CONTROL_MESSAGE,
+    UNBOUNDED_WRITE_MESSAGE,
 };
 
 #[test]
@@ -163,6 +164,31 @@ fn requires_an_indexable_time_range_for_audit_log() {
         "SELECT * FROM audit_log WHERE created_at >= NOW() - INTERVAL 7 DAY",
         "SELECT * FROM audit_log WHERE created_at BETWEEN '2026-11-01' AND '2026-11-04'",
         "SELECT * FROM audit_log WHERE '2026-11-01' < created_at",
+    ] {
+        assert_eq!(validate_ai_sql(sql), Ok(()), "{sql}");
+    }
+}
+
+#[test]
+fn limits_numeric_audit_log_intervals_to_thirty_days() {
+    for sql in [
+        "SELECT * FROM audit_log WHERE created_at >= NOW() - INTERVAL 31 DAY",
+        "SELECT * FROM audit_log WHERE created_at >= NOW() - INTERVAL 5 WEEK",
+        "SELECT * FROM audit_log WHERE created_at >= NOW() - INTERVAL 721 HOUR",
+        "SELECT * FROM audit_log WHERE created_at >= NOW() - INTERVAL 1 MONTH",
+        "SELECT * FROM audit_log WHERE created_at >= NOW() - INTERVAL 1 YEAR",
+    ] {
+        assert_eq!(
+            validate_ai_sql(sql),
+            Err(AUDIT_TIME_WINDOW_MESSAGE),
+            "{sql}"
+        );
+    }
+
+    for sql in [
+        "SELECT * FROM audit_log WHERE created_at >= NOW() - INTERVAL 30 DAY",
+        "SELECT * FROM audit_log WHERE created_at >= NOW() - INTERVAL 720 HOUR",
+        "SELECT * FROM audit_log WHERE created_at >= NOW() - INTERVAL 43200 MINUTE",
     ] {
         assert_eq!(validate_ai_sql(sql), Ok(()), "{sql}");
     }

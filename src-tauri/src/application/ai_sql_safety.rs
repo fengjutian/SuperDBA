@@ -23,6 +23,8 @@ const RESOURCE_ABUSE_MESSAGE: &str =
     "AI query blocked: delay and benchmark operations are not allowed through automated channels because they occupy database workers without useful progress.";
 const AUDIT_TIME_RANGE_MESSAGE: &str =
     "AI query blocked: audit_log queries require a created_at range condition in WHERE. Start with a narrow time window and expand it explicitly if needed.";
+const AUDIT_TIME_WINDOW_MESSAGE: &str =
+    "AI query blocked: audit_log automated queries are limited to a 30-day time window. Split larger investigations into smaller ranges.";
 const ROW_GENERATOR_MESSAGE: &str =
     "AI query blocked: recursive queries and automatic row generators must be reviewed and run explicitly in the SQL editor.";
 const QUERY_COMPLEXITY_MESSAGE: &str =
@@ -33,6 +35,7 @@ const MAX_AI_SQL_BYTES: usize = 256 * 1024;
 const MAX_AI_JOINS: usize = 8;
 const MAX_AI_SET_OPERATIONS: usize = 8;
 const MAX_AI_NESTING_DEPTH: usize = 32;
+const MAX_AUDIT_WINDOW_SECONDS: u64 = 30 * 24 * 60 * 60;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Token {
@@ -66,6 +69,9 @@ pub fn validate_ai_sql(sql: &str) -> Result<(), &'static str> {
     }
     if audit_log_without_time_range(&tokens) {
         return Err(AUDIT_TIME_RANGE_MESSAGE);
+    }
+    if audit_log_interval_too_wide(&tokens) {
+        return Err(AUDIT_TIME_WINDOW_MESSAGE);
     }
     if contains_unbounded_row_generator(&tokens) {
         return Err(ROW_GENERATOR_MESSAGE);
@@ -227,6 +233,36 @@ fn has_created_at_range(tokens: &[Token]) -> bool {
             [Token::Word(column), Token::Word(operator)]
                 if column == "CREATED_AT" && operator == "BETWEEN"
         )
+    })
+}
+
+fn audit_log_interval_too_wide(tokens: &[Token]) -> bool {
+    let references_audit_log = tokens
+        .iter()
+        .any(|token| matches!(token, Token::Word(word) if word == "AUDIT_LOG"));
+    if !references_audit_log {
+        return false;
+    }
+
+    tokens.windows(3).any(|window| match window {
+        [Token::Word(interval), Token::Word(amount), Token::Word(unit)]
+            if interval == "INTERVAL" =>
+        {
+            let Ok(amount) = amount.parse::<u64>() else {
+                return false;
+            };
+            let seconds_per_unit = match unit.as_str() {
+                "SECOND" | "SECONDS" => 1,
+                "MINUTE" | "MINUTES" => 60,
+                "HOUR" | "HOURS" => 60 * 60,
+                "DAY" | "DAYS" => 24 * 60 * 60,
+                "WEEK" | "WEEKS" => 7 * 24 * 60 * 60,
+                "MONTH" | "MONTHS" | "YEAR" | "YEARS" => return true,
+                _ => return false,
+            };
+            amount.saturating_mul(seconds_per_unit) > MAX_AUDIT_WINDOW_SECONDS
+        }
+        _ => false,
     })
 }
 

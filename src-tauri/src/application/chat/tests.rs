@@ -1,6 +1,6 @@
 use super::agent::{
-    batch_limits, bound_result, build_audit_event, is_batch_boundary, messages_for_model,
-    reserve_database_query_budget, system_prompt, tool_cache_key,
+    batch_limits, bound_result, build_audit_event, is_batch_boundary, is_production_environment,
+    messages_for_model, reserve_database_query_budget, system_prompt, tool_cache_key,
 };
 use super::provider::{self, ProviderToolCall};
 use super::store;
@@ -87,6 +87,14 @@ fn title_is_collapsed_and_bounded() {
     let title = store::title_from_message(&long);
     assert_eq!(title.chars().count(), 61);
     assert!(title.ends_with('…'));
+}
+
+#[test]
+fn production_environment_matching_is_case_insensitive() {
+    assert!(is_production_environment(Some("production")));
+    assert!(is_production_environment(Some("PRODUCTION")));
+    assert!(!is_production_environment(Some("staging")));
+    assert!(!is_production_environment(None));
 }
 
 #[test]

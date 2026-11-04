@@ -68,7 +68,16 @@ pub async fn run_turn(
     session.model = model.clone();
     session.continuation = None;
 
-    let context = merged_context(&request.context, &session);
+    let mut context = merged_context(&request.context, &session);
+    if context
+        .connection_id
+        .as_deref()
+        .is_some_and(|connection_id| {
+            production_connection_requires_strict_mode(runtime, connection_id)
+        })
+    {
+        context.strict_mode = true;
+    }
     if context.connection_id.is_some() {
         session.connection_id = context.connection_id.clone();
     }
@@ -659,6 +668,30 @@ fn merged_context(request: &ChatContext, session: &ChatSession) -> ChatContext {
         strict_mode: request.strict_mode,
         mask_sensitive_results: request.mask_sensitive_results,
     }
+}
+
+fn production_connection_requires_strict_mode(
+    runtime: &RuntimeContext,
+    connection_id: &str,
+) -> bool {
+    match crate::application::connections::load_connections(&runtime.paths.connections_file()) {
+        Ok(connections) => connections.iter().any(|connection| {
+            connection.id == connection_id
+                && is_production_environment(connection.environment.as_deref())
+        }),
+        Err(error) => {
+            log::warn!(
+                "Failed to verify the environment for DBA chat connection {connection_id}: {error}"
+            );
+            // Fail closed: an unreadable connection registry must never turn
+            // a potentially production-scoped chat into a writable session.
+            true
+        }
+    }
+}
+
+pub(crate) fn is_production_environment(environment: Option<&str>) -> bool {
+    environment.is_some_and(|value| value.eq_ignore_ascii_case("production"))
 }
 
 /// Instruction text shared by every provider.

@@ -240,9 +240,7 @@ export function ChatPanel() {
 
     const connectionName = connections.find((entry) => entry.id === activeConnectionId)?.name;
     const activeConnection = connections.find((entry) => entry.id === activeConnectionId);
-    const strictMode =
-        activeConnection?.environment === 'production' &&
-        settings.dbaChatProductionStrictMode !== false;
+    const strictMode = activeConnection?.environment === 'production';
     const chatProvider = settings.dbaChatProvider ?? settings.aiProvider;
     const chatModel = settings.dbaChatModel?.trim() || settings.aiModel || '';
     const callsPerBatch = settings.aiChatCallsPerBatch ?? 16;

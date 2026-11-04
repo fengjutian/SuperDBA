@@ -95,7 +95,6 @@ export function DbaChatTab() {
                 updateSetting('dbaChatMaxOutputTokens', 2048),
                 updateSetting('dbaChatAutoContinue', false),
                 updateSetting('dbaChatIncludeLastPlan', true),
-                updateSetting('dbaChatProductionStrictMode', true),
                 updateSetting('dbaChatMaskSensitiveResults', true),
             ]);
             setCustomStartersDraft('');
@@ -451,12 +450,9 @@ export function DbaChatTab() {
                     label={t('settings.dbaChat.productionStrictMode')}
                     description={t('settings.dbaChat.productionStrictModeDesc')}
                 >
-                    <SettingToggle
-                        checked={settings.dbaChatProductionStrictMode !== false}
-                        onChange={(value) =>
-                            void updateSetting('dbaChatProductionStrictMode', value)
-                        }
-                    />
+                    <span className="rounded bg-accent-success/15 px-2 py-1 text-xs font-medium text-accent-success">
+                        {t('settings.dbaChat.alwaysEnabled')}
+                    </span>
                 </SettingRow>
                 <SettingRow
                     label={t('settings.dbaChat.maskSensitiveResults')}
