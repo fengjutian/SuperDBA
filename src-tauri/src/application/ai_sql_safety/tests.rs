@@ -1,6 +1,6 @@
 use super::{
-    validate_ai_sql, LOCKING_READ_MESSAGE, LOCK_HEAVY_MESSAGE, MAX_AI_SQL_BYTES,
-    RESOURCE_ABUSE_MESSAGE, SQL_TOO_LARGE_MESSAGE, TRANSACTION_CONTROL_MESSAGE,
+    validate_ai_sql, AUDIT_TIME_RANGE_MESSAGE, LOCKING_READ_MESSAGE, LOCK_HEAVY_MESSAGE,
+    MAX_AI_SQL_BYTES, RESOURCE_ABUSE_MESSAGE, SQL_TOO_LARGE_MESSAGE, TRANSACTION_CONTROL_MESSAGE,
     UNBOUNDED_WRITE_MESSAGE,
 };
 
@@ -123,6 +123,26 @@ fn blocks_delay_and_benchmark_operations() {
         "WAITFOR TIME '23:59:59'",
     ] {
         assert_eq!(validate_ai_sql(sql), Err(RESOURCE_ABUSE_MESSAGE), "{sql}");
+    }
+}
+
+#[test]
+fn requires_an_indexable_time_range_for_audit_log() {
+    for sql in [
+        "SELECT COUNT(*) FROM audit_log",
+        "SELECT * FROM audit_log WHERE user_name = 'alice'",
+        "SELECT * FROM audit_log WHERE created_at IS NOT NULL",
+        "SELECT created_at FROM audit_log WHERE id = 7",
+    ] {
+        assert_eq!(validate_ai_sql(sql), Err(AUDIT_TIME_RANGE_MESSAGE), "{sql}");
+    }
+
+    for sql in [
+        "SELECT * FROM audit_log WHERE created_at >= NOW() - INTERVAL 7 DAY",
+        "SELECT * FROM audit_log WHERE created_at BETWEEN '2026-11-01' AND '2026-11-04'",
+        "SELECT * FROM audit_log WHERE '2026-11-01' < created_at",
+    ] {
+        assert_eq!(validate_ai_sql(sql), Ok(()), "{sql}");
     }
 }
 

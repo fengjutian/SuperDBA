@@ -21,6 +21,8 @@ const SQL_TOO_LARGE_MESSAGE: &str =
     "AI query blocked: the SQL text exceeds the 256 KiB automated-query limit. Review and run it explicitly in the SQL editor.";
 const RESOURCE_ABUSE_MESSAGE: &str =
     "AI query blocked: delay and benchmark operations are not allowed through automated channels because they occupy database workers without useful progress.";
+const AUDIT_TIME_RANGE_MESSAGE: &str =
+    "AI query blocked: audit_log queries require a created_at range condition in WHERE. Start with a narrow time window and expand it explicitly if needed.";
 const MAX_AI_SQL_BYTES: usize = 256 * 1024;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -29,6 +31,7 @@ enum Token {
     OpenParen,
     CloseParen,
     Semicolon,
+    RangeComparator,
 }
 
 /// Reject SQL patterns that are too risky for an automated execution channel.
@@ -50,6 +53,9 @@ pub fn validate_ai_sql(sql: &str) -> Result<(), &'static str> {
     }
     if contains_resource_abuse(&tokens) {
         return Err(RESOURCE_ABUSE_MESSAGE);
+    }
+    if audit_log_without_time_range(&tokens) {
+        return Err(AUDIT_TIME_RANGE_MESSAGE);
     }
     if contains_unbounded_write(&tokens) {
         return Err(UNBOUNDED_WRITE_MESSAGE);
@@ -80,6 +86,7 @@ fn tokens(sql: &str) -> Vec<Token> {
             '(' => result.push(Token::OpenParen),
             ')' => result.push(Token::CloseParen),
             ';' => result.push(Token::Semicolon),
+            '<' | '>' => result.push(Token::RangeComparator),
             _ => {}
         }
     }
@@ -166,6 +173,41 @@ fn contains_resource_abuse(tokens: &[Token]) -> bool {
         _ => false,
     }) || top_level_statement_prefixes(tokens)
         .any(|words| matches!(words.as_slice(), ["WAITFOR", "DELAY" | "TIME", ..]))
+}
+
+fn audit_log_without_time_range(tokens: &[Token]) -> bool {
+    let references_audit_log = tokens
+        .iter()
+        .any(|token| matches!(token, Token::Word(word) if word == "AUDIT_LOG"));
+    if !references_audit_log {
+        return false;
+    }
+
+    tokens.iter().enumerate().all(|(index, token)| {
+        if !matches!(token, Token::Word(word) if word == "WHERE") {
+            return true;
+        }
+
+        !has_created_at_range(&tokens[index + 1..])
+    })
+}
+
+fn has_created_at_range(tokens: &[Token]) -> bool {
+    tokens.windows(2).any(|pair| {
+        matches!(
+            pair,
+            [Token::Word(column), Token::RangeComparator]
+                if column == "CREATED_AT"
+        ) || matches!(
+            pair,
+            [Token::RangeComparator, Token::Word(column)]
+                if column == "CREATED_AT"
+        ) || matches!(
+            pair,
+            [Token::Word(column), Token::Word(operator)]
+                if column == "CREATED_AT" && operator == "BETWEEN"
+        )
+    })
 }
 
 fn top_level_statement_prefixes(tokens: &[Token]) -> impl Iterator<Item = Vec<&str>> {
