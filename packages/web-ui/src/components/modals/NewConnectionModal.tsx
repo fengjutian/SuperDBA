@@ -67,7 +67,11 @@ import {
     isSchemaBasedMultiDbCapable,
     hasOptedIntoDatabaseSelection,
 } from '@/utils/database';
-import {updateExtraField, withoutBlankSslMode} from '@/utils/connections';
+import {
+    automaticConnectionName,
+    updateExtraField,
+    withoutBlankSslMode,
+} from '@/utils/connections';
 import {normalizeLocalDatabasePath, sanitizeLocalFilePath} from '@/utils/fsPath';
 import {
     IN_MEMORY_DATABASE,
@@ -553,6 +557,11 @@ export const NewConnectionModal = ({
     const [nameError, setNameError] = useState(false);
     const nameInputRef = useRef<HTMLInputElement>(null);
     const [databasesTabError, setDatabasesTabError] = useState(false);
+
+    const generatedConnectionName = automaticConnectionName(
+        activeDriver?.name ?? driver,
+        formData.host,
+    );
 
     // ── appearance ──
     const [appearance, setAppearance] = useState<ConnectionAppearance>(
@@ -2309,14 +2318,7 @@ export const NewConnectionModal = ({
             setTestLog([]);
             setIsDiagnosticsOpen(false);
 
-            if (!name.trim()) {
-                setStatus('error');
-                setMessage(t('newConnection.nameRequired'));
-                setTestResult('error');
-                setNameError(true);
-                nameInputRef.current?.focus();
-                return;
-            }
+            const connectionName = name.trim() || generatedConnectionName;
             // The URI embeds credentials, so it may only leave this modal if it can
             // go to the OS keychain. Fail loudly instead of persisting it in plaintext.
             if (hasConnectionUri && !formData.save_in_keychain) {
@@ -2425,7 +2427,7 @@ export const NewConnectionModal = ({
                     if (!params.ssh_password?.trim()) delete params.ssh_password;
                     const updated = await client.call('update_connection', {
                         id: initialConnection.id,
-                        name,
+                        name: connectionName,
                         params,
                         pluginSecretChanges,
                         detectJsonInTextColumns: detectJsonInTextColumns ? true : null,
@@ -2439,7 +2441,7 @@ export const NewConnectionModal = ({
                     });
                 } else {
                     const saved = await client.call('save_connection', {
-                        name,
+                        name: connectionName,
                         params,
                         pluginSecretChanges,
                         detectJsonInTextColumns: detectJsonInTextColumns ? true : null,

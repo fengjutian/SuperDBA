@@ -5,6 +5,7 @@ import {
     validateConnectionParams,
     getDriverLabel,
     generateConnectionName,
+    automaticConnectionName,
     connectionSubtitle,
     getCardClass,
     updateExtraField,
@@ -448,6 +449,18 @@ describe('connections', () => {
             };
 
             expect(generateConnectionName(params)).toBe('main.sqlite');
+        });
+    });
+
+    describe('automaticConnectionName', () => {
+        it('combines the driver label and host', () => {
+            expect(automaticConnectionName('MySQL', '172.16.200.5')).toBe(
+                'MySQL 172.16.200.5',
+            );
+        });
+
+        it('falls back to the driver label when the host is blank', () => {
+            expect(automaticConnectionName('SQLite', '   ')).toBe('SQLite');
         });
     });
 

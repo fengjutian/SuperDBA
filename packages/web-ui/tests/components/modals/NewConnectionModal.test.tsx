@@ -1301,22 +1301,29 @@ describe('NewConnectionModal advanced inline K8s paths', () => {
         });
     });
 
-    it('does not clear an unrelated name validation error after a valid path blur', async () => {
-        await openInlineK8s();
+    it('automatically names a new connection when the name is blank', async () => {
+        vi.mocked(invoke).mockImplementation((command) =>
+            command === 'save_connection'
+                ? Promise.resolve({id: 'saved-connection'})
+                : Promise.resolve('ok'),
+        );
+        renderModal();
+        pickEngineFromCatalogue();
+        fireEvent.change(screen.getByPlaceholderText('localhost'), {
+            target: {value: '172.16.200.5'},
+        });
+        fireEvent.change(screen.getByPlaceholderText('newConnection.dbNamePlaceholder'), {
+            target: {value: 'database'},
+        });
 
         fireEvent.click(screen.getByText('newConnection.save'));
-        await waitFor(() => {
-            expect(screen.getByText('newConnection.nameRequired')).toBeInTheDocument();
-        });
-
-        const kubectlInput = openAdvancedSettings();
-        fireEvent.change(kubectlInput, {target: {value: '/opt/kubectl'}});
-        fireEvent.blur(kubectlInput);
 
         await waitFor(() => {
-            expect(k8sMocks.validateK8sPath).toHaveBeenCalledWith('/opt/kubectl', 'kubectl');
+            expect(invoke).toHaveBeenCalledWith(
+                'save_connection',
+                expect.objectContaining({name: 'MySQL 172.16.200.5'}),
+            );
         });
-        expect(screen.getByText('newConnection.nameRequired')).toBeInTheDocument();
     });
 
     it('restores and updates persisted inline path overrides', async () => {

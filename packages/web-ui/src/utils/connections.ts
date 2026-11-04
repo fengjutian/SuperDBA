@@ -383,6 +383,13 @@ export function generateConnectionName(
     return `${params.database}@${host}`;
 }
 
+/** Build the fallback display name used when a new connection is saved unnamed. */
+export function automaticConnectionName(driverLabel: string, host?: string): string {
+    const trimmedDriver = driverLabel.trim() || 'Database';
+    const trimmedHost = host?.trim();
+    return trimmedHost ? `${trimmedDriver} ${trimmedHost}` : trimmedDriver;
+}
+
 export type ConnectionDropPosition = 'before' | 'after';
 
 export function connectionOrderAfterMove(
