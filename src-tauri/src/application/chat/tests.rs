@@ -1,6 +1,6 @@
 use super::agent::{
     batch_limits, bound_result, build_audit_event, is_batch_boundary, messages_for_model,
-    system_prompt, tool_cache_key,
+    reserve_run_query_budget, system_prompt, tool_cache_key,
 };
 use super::provider::{self, ProviderToolCall};
 use super::store;
@@ -9,6 +9,44 @@ use super::{
     cancellation_key, ChatContext, ChatMessage, ChatRole, ChatSession, ChatToolCall, ChatToolStatus,
 };
 use serde_json::json;
+
+#[tokio::test]
+async fn chat_queries_are_serialized_per_connection() {
+    let connection_id = format!("chat-serialization-{}", uuid::Uuid::new_v4());
+    let first = tools::query_semaphore(&connection_id)
+        .acquire_owned()
+        .await
+        .expect("first permit");
+    let second = tools::query_semaphore(&connection_id);
+
+    assert!(second.clone().try_acquire_owned().is_err());
+    drop(first);
+    assert!(second.try_acquire_owned().is_ok());
+}
+
+#[tokio::test]
+async fn chat_queries_on_different_connections_do_not_block_each_other() {
+    let suffix = uuid::Uuid::new_v4();
+    let first = tools::query_semaphore(&format!("chat-a-{suffix}"))
+        .acquire_owned()
+        .await
+        .expect("first connection permit");
+    let second = tools::query_semaphore(&format!("chat-b-{suffix}"));
+
+    assert!(second.try_acquire_owned().is_ok());
+    drop(first);
+}
+
+#[test]
+fn chat_turn_query_budget_stops_repeated_database_scans() {
+    let mut used = 0;
+    for _ in 0..12 {
+        assert!(reserve_run_query_budget("run_query", &mut used));
+    }
+    assert!(!reserve_run_query_budget("run_query", &mut used));
+    assert!(reserve_run_query_budget("describe_table", &mut used));
+    assert_eq!(used, 12);
+}
 
 fn message(role: ChatRole, content: &str) -> ChatMessage {
     ChatMessage {

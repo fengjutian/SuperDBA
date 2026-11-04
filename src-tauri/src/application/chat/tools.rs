@@ -13,16 +13,25 @@ use crate::application::queries::{self, QueryRequestScope, QueryResponsePolicy};
 use crate::runtime::{state::ApplicationState, RuntimeContext};
 use serde::Deserialize;
 use serde_json::{json, Value};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex, Weak};
 use std::time::{Duration, Instant};
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use uuid::Uuid;
 
 pub const MAX_TABLES_PER_PAGE: usize = 50;
 pub const MAX_TABLES_PER_BATCH: usize = 5;
 pub const MAX_ROWS: u32 = 50;
 pub const DEFAULT_ROWS: u32 = 20;
+/// Keep automated diagnostics bounded even when the database has no statement timeout.
+pub const QUERY_TIMEOUT: Duration = Duration::from_secs(30);
 /// How long a chat tool waits for the user to approve a write.
 const APPROVAL_TIMEOUT: Duration = Duration::from_secs(180);
 const APPROVAL_POLL_INTERVAL: Duration = Duration::from_millis(200);
+const CANCELLATION_POLL_INTERVAL: Duration = Duration::from_millis(100);
+
+static QUERY_SEMAPHORES: once_cell::sync::Lazy<Mutex<HashMap<String, Weak<Semaphore>>>> =
+    once_cell::sync::Lazy::new(Default::default);
 
 /// Everything a tool needs: the runtime, the live turn identity, and the
 /// connection context the user is looking at.
@@ -483,12 +492,16 @@ async fn execute_statement(
     limit: u32,
     approved: bool,
 ) -> ToolOutcome {
+    let _permit = match acquire_query_permit(tool, connection_id).await {
+        Ok(permit) => permit,
+        Err(outcome) => return outcome,
+    };
     let scope = QueryRequestScope {
         session_id: tool.web_session_id,
-        request_id: Some("ai-chat"),
+        request_id: Some(tool.request_id),
     };
     let started = Instant::now();
-    let result = queries::execute_query(
+    let query = queries::execute_query(
         tool.runtime,
         &tool.state.query_cancellation,
         scope,
@@ -500,8 +513,22 @@ async fn execute_statement(
         tool.chat.schema.clone(),
         None,
         tool.chat.database.clone(),
-    )
-    .await;
+    );
+    tokio::pin!(query);
+    let result = tokio::select! {
+        result = &mut query => result,
+        _ = tokio::time::sleep(QUERY_TIMEOUT) => {
+            return ToolOutcome::error(format!(
+                "Query timed out after {} seconds and was cancelled to protect database stability.",
+                QUERY_TIMEOUT.as_secs()
+            ));
+        }
+        _ = wait_for_cancellation(tool) => {
+            return ToolOutcome::denied(
+                "The user stopped the turn. The running query was cancelled."
+            );
+        }
+    };
     match result {
         Ok(result) => {
             let row_count = result.rows.len();
@@ -533,6 +560,39 @@ async fn execute_statement(
             )
         }
         Err(error) => ToolOutcome::error(format!("Query failed: {error}")),
+    }
+}
+
+pub(super) fn query_semaphore(connection_id: &str) -> Arc<Semaphore> {
+    let mut semaphores = QUERY_SEMAPHORES
+        .lock()
+        .unwrap_or_else(|error| error.into_inner());
+    semaphores.retain(|_, semaphore| semaphore.strong_count() > 0);
+    if let Some(semaphore) = semaphores.get(connection_id).and_then(Weak::upgrade) {
+        return semaphore;
+    }
+    let semaphore = Arc::new(Semaphore::new(1));
+    semaphores.insert(connection_id.to_string(), Arc::downgrade(&semaphore));
+    semaphore
+}
+
+async fn acquire_query_permit(
+    tool: &ToolCallContext<'_>,
+    connection_id: &str,
+) -> Result<OwnedSemaphorePermit, ToolOutcome> {
+    tokio::select! {
+        permit = query_semaphore(connection_id).acquire_owned() => permit.map_err(|_| {
+            ToolOutcome::error("The query scheduler is unavailable.")
+        }),
+        _ = wait_for_cancellation(tool) => Err(ToolOutcome::denied(
+            "The user stopped the turn before the query started."
+        )),
+    }
+}
+
+async fn wait_for_cancellation(tool: &ToolCallContext<'_>) {
+    while !tool.cancelled() {
+        tokio::time::sleep(CANCELLATION_POLL_INTERVAL).await;
     }
 }
 
