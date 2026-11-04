@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {parseChangelog} from '@/utils/changelog';
+import {parseChangelog, selectReleaseEntries} from '@/utils/changelog';
 
 describe('parseChangelog', () => {
     it('parses minor releases written as level-one headings', () => {
@@ -45,6 +45,25 @@ describe('parseChangelog', () => {
 
         expect(entries[0].features).toEqual([
             'Support `EXPLAIN` and link to [the docs](https://example.com/docs)',
+        ]);
+    });
+});
+
+describe('selectReleaseEntries', () => {
+    it('keeps only the installed release instead of an upgrade range', () => {
+        const entries = [{version: '0.30.0'}, {version: '0.1.0'}, {version: '0.29.0'}].map(
+            (entry) => ({
+                ...entry,
+                date: '2026-11-04',
+                url: null,
+                features: [],
+                bugFixes: [],
+                breakingChanges: [],
+            }),
+        );
+
+        expect(selectReleaseEntries(entries, '0.1.0').map((entry) => entry.version)).toEqual([
+            '0.1.0',
         ]);
     });
 });

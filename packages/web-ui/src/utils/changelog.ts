@@ -7,6 +7,14 @@ export interface ChangelogEntry {
     breakingChanges: string[];
 }
 
+/** Startup release notes show exactly the installed version, never historical ranges. */
+export function selectReleaseEntries(
+    entries: readonly ChangelogEntry[],
+    version: string,
+): ChangelogEntry[] {
+    return entries.filter((entry) => entry.version === version);
+}
+
 /**
  * Trim conventional-changelog noise from a bullet line while keeping any
  * inline markdown (links, `code`, **bold**) intact so it can be rendered

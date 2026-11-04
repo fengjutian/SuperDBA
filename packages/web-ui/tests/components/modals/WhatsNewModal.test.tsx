@@ -52,7 +52,9 @@ describe('WhatsNewModal', () => {
         expect(screen.getByRole('region', {name: 'settings.support'})).toBeInTheDocument();
         expect(screen.getByText('settings.supportDesc')).toBeInTheDocument();
         expect(screen.queryByText(/Andrea|debba/)).not.toBeInTheDocument();
-        expect(screen.queryByRole('link', {name: 'whatsNew.supportAction'})).not.toBeInTheDocument();
+        expect(
+            screen.queryByRole('link', {name: 'whatsNew.supportAction'}),
+        ).not.toBeInTheDocument();
         expect(screen.getByText('SQL files').tagName).toBe('STRONG');
         expect(screen.getByText('Keep typed characters')).toBeInTheDocument();
         expect(screen.getByText('Review connection settings')).toBeInTheDocument();
@@ -63,9 +65,7 @@ describe('WhatsNewModal', () => {
         const link = screen.getByRole('link', {name: 'whatsNew.supportStarAction'});
         expect(link).toHaveAttribute('href', 'https://github.com/fengjutian/SuperDBA');
         fireEvent.click(link);
-        expect(openUrl).toHaveBeenCalledExactlyOnceWith(
-            'https://github.com/fengjutian/SuperDBA',
-        );
+        expect(openUrl).toHaveBeenCalledExactlyOnceWith('https://github.com/fengjutian/SuperDBA');
         expect(onClose).not.toHaveBeenCalled();
     });
 
@@ -136,7 +136,13 @@ describe('WhatsNewModal', () => {
     it('does not render when closed', () => {
         renderModal({isOpen: false});
         expect(
-                screen.queryByRole('link', {name: 'whatsNew.supportStarAction'}),
+            screen.queryByRole('link', {name: 'whatsNew.supportStarAction'}),
         ).not.toBeInTheDocument();
+    });
+
+    it('can show release notes without the project support prompt', () => {
+        renderModal({showSupportPrompt: false});
+        expect(screen.queryByRole('region')).not.toBeInTheDocument();
+        expect(screen.getByText('SQL files')).toBeInTheDocument();
     });
 });

@@ -1,3 +1,22 @@
+import type {ChangelogEntry} from '@/utils/changelog';
+
+/** Release notes bundled with the app when the upstream changelog has no matching release. */
+export const bundledReleaseNotes: ChangelogEntry[] = [
+    {
+        version: '0.1.0',
+        date: '2026-11-04',
+        url: null,
+        features: [
+            'Add a dedicated DBA chat settings page',
+            'Add quick, standard, deep, and custom analysis modes with visible call budgets',
+            'Control whether current SQL and a bounded query-result preview are shared with DBA chat',
+            'Add custom starter questions, schema-aware suggestions, and configurable send shortcuts',
+        ],
+        bugFixes: [],
+        breakingChanges: [],
+    },
+];
+
 /**
  * Manual mapping of version → web page URL.
  * The app appends ?utm_src=superdba-app when opening the link.
@@ -38,8 +57,7 @@ export const versionLinks: Record<string, string> = {
     '0.13.1': 'https://superdba.dev/blog/v0131-signed-macos-postgres-explain-offset-pagination',
     '0.13.2': 'https://superdba.dev/blog/v0132-managed-notebooks-live-query-progress-faster-grid',
     '0.13.3': 'https://superdba.dev/blog/v0133-result-colors-gruvbox-themed-tabs-session-restore',
-    '0.13.4':
-        'https://superdba.dev/blog/v0134-ssh-security-keys-detachable-results-smarter-editor',
+    '0.13.4': 'https://superdba.dev/blog/v0134-ssh-security-keys-detachable-results-smarter-editor',
     '0.14.0':
         'https://superdba.dev/blog/v0140-stored-routines-connection-windows-destructive-query-guard',
     '0.15.0': 'https://superdba.dev/blog/v0150-import-connections-nested-groups-encrypted-exports',
@@ -62,7 +80,6 @@ export const versionLinks: Record<string, string> = {
         'https://superdba.dev/blog/v0260-postgres-tab-transactions-command-palette-accessible-themes',
     '0.27.0': 'https://superdba.dev/blog/v0270-cell-value-filter-stable-columns-tsql-batches',
     '0.28.0': 'https://superdba.dev/blog/v0280-structured-filters-auto-refresh-read-only-mcp',
-    '0.29.0':
-        'https://superdba.dev/blog/v0290-chatgpt-sign-in-postgres-multi-database-file-import',
+    '0.29.0': 'https://superdba.dev/blog/v0290-chatgpt-sign-in-postgres-multi-database-file-import',
     '0.30.0': 'https://superdba.dev/blog/v0300-superdba-web-result-charts-scheduled-backups',
 };

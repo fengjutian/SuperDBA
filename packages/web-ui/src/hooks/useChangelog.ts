@@ -1,6 +1,6 @@
 import {useEffect, useState} from 'react';
 import {type ChangelogEntry, parseChangelog} from '@/utils/changelog';
-import {versionLinks} from '@/data/changelog';
+import {bundledReleaseNotes, versionLinks} from '@/data/changelog';
 import {GITHUB_URL} from '@/config/links';
 
 const CHANGELOG_RAW_URL = `${GITHUB_URL.replace('github.com', 'raw.githubusercontent.com')}/main/CHANGELOG.md`;
@@ -12,8 +12,8 @@ interface UseChangelogResult {
 }
 
 export function useChangelog(enabled = true): UseChangelogResult {
-    const [entries, setEntries] = useState<ChangelogEntry[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const [entries, setEntries] = useState<ChangelogEntry[]>(bundledReleaseNotes);
+    const [isLoading, setIsLoading] = useState(bundledReleaseNotes.length === 0);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
@@ -28,7 +28,14 @@ export function useChangelog(enabled = true): UseChangelogResult {
             })
             .then((md) => {
                 if (!cancelled) {
-                    setEntries(parseChangelog(md, versionLinks));
+                    const remoteEntries = parseChangelog(md, versionLinks);
+                    const bundledVersions = new Set(
+                        bundledReleaseNotes.map((entry) => entry.version),
+                    );
+                    setEntries([
+                        ...bundledReleaseNotes,
+                        ...remoteEntries.filter((entry) => !bundledVersions.has(entry.version)),
+                    ]);
                     setIsLoading(false);
                 }
             })

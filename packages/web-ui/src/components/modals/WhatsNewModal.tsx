@@ -1,16 +1,7 @@
 import {useState, useSyncExternalStore} from 'react';
 import {useTranslation} from 'react-i18next';
 import {usePlatformCapabilities} from '@/hooks/usePlatformCapabilities';
-import {
-    X,
-    Sparkles,
-    Bug,
-    AlertTriangle,
-    Rocket,
-    ExternalLink,
-    Loader2,
-    Star,
-} from 'lucide-react';
+import {X, Sparkles, Bug, AlertTriangle, Rocket, ExternalLink, Loader2, Star} from 'lucide-react';
 import {Modal} from '@/components/ui/Modal';
 import {SocialLinks} from '@/components/SocialLinks';
 import {GITHUB_URL} from '@/config/links';
@@ -27,11 +18,18 @@ interface WhatsNewModalProps {
     onClose: () => void;
     entries: ChangelogEntry[];
     isLoading: boolean;
+    showSupportPrompt?: boolean;
 }
 
 const UTM_SUFFIX = '?utm_src=superdba-app';
 
-export const WhatsNewModal = ({isOpen, onClose, entries, isLoading}: WhatsNewModalProps) => {
+export const WhatsNewModal = ({
+    isOpen,
+    onClose,
+    entries,
+    isLoading,
+    showSupportPrompt = true,
+}: WhatsNewModalProps) => {
     const {t} = useTranslation();
     const platform = usePlatformCapabilities();
     const supportDismissed = useSyncExternalStore(
@@ -73,7 +71,7 @@ export const WhatsNewModal = ({isOpen, onClose, entries, isLoading}: WhatsNewMod
 
                 {/* Content */}
                 <div className="p-6 space-y-6 overflow-y-auto min-h-0">
-                    {!supportDismissed && (
+                    {showSupportPrompt && !supportDismissed && (
                         <section
                             aria-labelledby="whats-new-support-title"
                             className="rounded-xl border border-accent-secondary/20 bg-linear-to-br from-accent-secondary/10 via-accent-secondary/5 to-transparent p-4"

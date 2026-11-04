@@ -26,7 +26,8 @@ import {useUiState, useUiStateReady} from './hooks/useUiState';
 import {UI_STATE_KEYS} from './utils/uiStateStore';
 import {useResultTypeColors} from './hooks/useResultTypeColors';
 import {APP_VERSION} from './version';
-import {isVersionAtMost, isVersionNewer} from './utils/versionCompare';
+import {isVersionNewer} from './utils/versionCompare';
+import {selectReleaseEntries} from './utils/changelog';
 import {useSuperDBAClient} from './hooks/useSuperDBAClient';
 import {BROWSER_ROUTES, WEB_UI_BASE_PATH} from './routing';
 
@@ -90,11 +91,7 @@ export function App() {
 
     const whatsNewEntries = useMemo(() => {
         if (!lastSeenVersion) return [];
-        return allEntries.filter(
-            (entry) =>
-                isVersionNewer(entry.version, lastSeenVersion) &&
-                isVersionAtMost(entry.version, APP_VERSION),
-        );
+        return selectReleaseEntries(allEntries, APP_VERSION);
     }, [lastSeenVersion, allEntries]);
 
     const dismissCommunityModal = useCallback(() => {
@@ -258,6 +255,7 @@ export function App() {
                 onClose={dismissWhatsNew}
                 entries={whatsNewEntries}
                 isLoading={isChangelogLoading}
+                showSupportPrompt={false}
             />
 
             <AiApprovalGate />
