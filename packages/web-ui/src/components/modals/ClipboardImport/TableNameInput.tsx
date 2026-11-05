@@ -37,7 +37,7 @@ export function TableNameInput({
                         placeholder={t('clipboardImport.tableNamePlaceholder')}
                         className={`w-full bg-base border rounded-lg px-3 py-2 text-primary focus:outline-none transition-all font-mono text-sm ${
                             tableExists
-                                ? 'border-accent-warning/60 focus:border-accent-warning'
+                                ? 'border-accent-warning/60 focus:border-focus'
                                 : 'border-strong focus:border-focus'
                         }`}
                         autoFocus

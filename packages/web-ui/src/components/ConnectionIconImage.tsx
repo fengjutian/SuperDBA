@@ -52,6 +52,7 @@ function ConnectionIconImageInner({path, size, fallback}: Props) {
             width={size}
             height={size}
             alt=""
+            className="rounded-sm"
             onError={() => {
                 if (import.meta.env.DEV) {
                     console.error(
@@ -63,7 +64,7 @@ function ConnectionIconImageInner({path, size, fallback}: Props) {
                 }
                 if (mountedRef.current) setFailed(true);
             }}
-            style={{objectFit: 'contain', borderRadius: 4}}
+            style={{objectFit: 'contain'}}
         />
     );
 }

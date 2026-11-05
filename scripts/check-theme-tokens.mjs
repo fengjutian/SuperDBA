@@ -14,8 +14,9 @@
  *      and `hover:text-white` (use `hover:text-primary`)
  *   5. `text-accent-primary`: accent.primary is a fill; text and icons in the
  *      accent hue use `text-accent` (the theme's text.accent token)
- *   6. focus states colored with `accent-primary` instead of the `focus` token
+ *   6. focus states colored with an accent instead of the `focus` token
  *   7. `text-inverse` over a non-primary accent fill (use `text-on-accent-*`)
+ *   8. hardcoded positive border radii in TypeScript/TSX (use theme radius utilities)
  *
  * Files whose colors are an identity rather than a theme choice (brand icons,
  * driver colors, user-picked swatches) are listed in ALLOWLIST with the rules
@@ -149,7 +150,9 @@ const HOVER_WHITE =
 const COMMENT_LINE = /^\s*(?:\/\/|\/?\*)/;
 const ACCENT_AS_TEXT = /(?<![a-zA-Z0-9-])(?:[a-z-]+:)*text-accent-primary(?![a-zA-Z0-9-])/g;
 const ACCENT_FOCUS =
-    /(?<![a-zA-Z0-9-])(?:[a-z-]+:)*(?:focus|focus-within|focus-visible|peer-focus-visible):(?:border|ring|outline)-accent-primary(?![a-zA-Z0-9-])/g;
+    /(?<![a-zA-Z0-9-])(?:[a-z-]+:)*(?:focus|focus-within|focus-visible|peer-focus-visible):(?:border|ring|outline)-accent-(?:primary|secondary|success|warning|error|info)(?:\/[0-9]{1,3})?(?![a-zA-Z0-9-])/g;
+const HARDCODED_RADIUS =
+    /\bborderRadius\s*:\s*(?:[1-9]\d*|['"](?:0*[1-9]\d*(?:\.\d+)?)px['"])/;
 const NON_PRIMARY_FILL =
     /(?<![a-zA-Z0-9-])(?:hover:)?bg-accent-(secondary|success|warning|error|info)(?![a-zA-Z0-9-])/;
 const INVERSE = /(?<![a-zA-Z0-9-])text-inverse(?![a-zA-Z0-9-/])/;
@@ -226,6 +229,11 @@ function checkFile(full, rel, ext) {
                     `"text-inverse" is only guaranteed on accent.primary; over bg-accent-${fill[1]} use "text-on-accent-${fill[1]}"`,
                 );
             }
+        }
+        if ((ext === '.ts' || ext === '.tsx') && HARDCODED_RADIUS.test(line)) {
+            report(
+                `hardcoded border radius bypasses the theme (use a rounded-* utility or theme.layout.borderRadius)`,
+            );
         }
     });
 }

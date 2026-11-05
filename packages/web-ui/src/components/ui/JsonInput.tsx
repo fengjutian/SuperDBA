@@ -264,7 +264,7 @@ export const JsonInput: React.FC<JsonInputProps> = ({
                             fillHeight ? 'flex-1 min-h-[120px]' : 'min-h-[120px]'
                         } ${
                             error
-                                ? 'border-accent-error focus:border-accent-error'
+                                ? 'border-accent-error focus:border-focus'
                                 : 'border-strong focus:border-focus'
                         }`}
                     />

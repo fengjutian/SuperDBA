@@ -114,7 +114,7 @@ export const GroupHeader = ({
                 }}
                 onClick={(e) => e.stopPropagation()}
                 autoFocus
-                className="px-2 py-0.5 bg-elevated border border-strong rounded text-sm text-primary focus:border-accent-warning/70 focus:outline-none"
+                className="px-2 py-0.5 bg-elevated border border-strong rounded text-sm text-primary focus:border-focus focus:outline-none"
             />
         ) : (
             <span className="text-sm font-semibold text-primary">{group.name}</span>

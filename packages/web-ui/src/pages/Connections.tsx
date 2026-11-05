@@ -1097,7 +1097,7 @@ export const Connections = () => {
                                 }}
                                 placeholder="Subfolder name (use / for nested)"
                                 autoFocus
-                                className="flex-1 px-2 py-1 bg-elevated border border-strong rounded text-sm text-primary placeholder:text-muted focus:border-accent-warning/70 focus:outline-none"
+                                className="flex-1 px-2 py-1 bg-elevated border border-strong rounded text-sm text-primary placeholder:text-muted focus:border-focus focus:outline-none"
                             />
                             <button
                                 onMouseDown={(e) => e.preventDefault()}
@@ -1454,7 +1454,7 @@ export const Connections = () => {
                                             defaultValue: 'Group name (use / for nested)',
                                         })}
                                         autoFocus
-                                        className="w-40 px-3 py-2 bg-elevated border border-strong rounded-xl text-sm text-primary placeholder:text-muted focus:border-accent-warning/70 focus:outline-none transition-colors"
+                                        className="w-40 px-3 py-2 bg-elevated border border-strong rounded-xl text-sm text-primary placeholder:text-muted focus:border-focus focus:outline-none transition-colors"
                                     />
                                     <button
                                         onClick={() => void handleCreateGroup()}

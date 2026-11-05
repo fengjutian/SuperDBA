@@ -108,7 +108,7 @@ export const WhatsNewModal = ({
                                         event.preventDefault();
                                         void platform.openExternalUrl(GITHUB_URL);
                                     }}
-                                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-strong bg-base/50 px-3 py-2 text-xs font-medium text-primary transition-colors hover:bg-surface-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-secondary"
+                                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-strong bg-base/50 px-3 py-2 text-xs font-medium text-primary transition-colors hover:bg-surface-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
                                 >
                                     <Star
                                         size={14}
@@ -129,7 +129,7 @@ export const WhatsNewModal = ({
                                             setSupportHideError(true);
                                         });
                                     }}
-                                    className="rounded text-xs text-secondary underline underline-offset-4 transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-secondary"
+                                    className="rounded text-xs text-secondary underline underline-offset-4 transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
                                 >
                                     {t('whatsNew.supportNeverShow')}
                                 </button>
