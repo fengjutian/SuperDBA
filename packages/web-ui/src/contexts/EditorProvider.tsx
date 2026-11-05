@@ -36,6 +36,14 @@ import {
 } from '@/utils/closedTabs';
 import {createNotebookFromState, evictFromCache, flushAllPendingSaves} from '@/utils/notebookStore';
 
+/** Delay before a burst of tab edits is written to the backend, in ms. */
+const TAB_SAVE_DEBOUNCE_MS = 500;
+
+interface PendingTabSave {
+    tabs: Tab[];
+    activeTabId: string | null;
+}
+
 export const EditorProvider = ({children}: {children: ReactNode}) => {
     const client = useSuperDBAClient();
     const {activeConnectionId} = useDatabase();
@@ -249,24 +257,73 @@ export const EditorProvider = ({children}: {children: ReactNode}) => {
         [activeConnectionId],
     );
 
-    // Flush all pending notebook saves on app close
+    // Tabs are persisted to the backend whenever they change, but the SQL editor
+    // flushes typing every 300 ms: writing on every change serialized all tabs
+    // and sent an IPC call several times a second. Coalesce bursts and write the
+    // newest snapshot once the user pauses; hiding or closing still flushes now.
+    const pendingTabSavesRef = useRef(new Map<string, PendingTabSave>());
+    const tabSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    // Chained so an older snapshot can never land after a newer one.
+    const tabSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
+
+    const persistTabs = useCallback(
+        (connectionId: string, payload: PendingTabSave) => {
+            tabSaveQueueRef.current = tabSaveQueueRef.current.then(() =>
+                saveTabsToStorage(client, connectionId, payload.tabs, payload.activeTabId),
+            );
+        },
+        [client],
+    );
+
+    const flushPendingTabSaves = useCallback(() => {
+        if (tabSaveTimerRef.current !== null) {
+            clearTimeout(tabSaveTimerRef.current);
+            tabSaveTimerRef.current = null;
+        }
+        const pending = [...pendingTabSavesRef.current];
+        pendingTabSavesRef.current.clear();
+        for (const [connectionId, payload] of pending) persistTabs(connectionId, payload);
+    }, [persistTabs]);
+
+    // Closing the window or unmounting must not drop the coalesced write.
+    const flushPendingTabSavesRef = useRef(flushPendingTabSaves);
+    flushPendingTabSavesRef.current = flushPendingTabSaves;
+
+    // Flush all pending saves on app close
     useEffect(() => {
-        const handleBeforeUnload = () => {
+        const flush = () => {
             flushAllPendingSaves();
+            flushPendingTabSavesRef.current();
         };
-        window.addEventListener('beforeunload', handleBeforeUnload);
-        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'hidden') flush();
+        };
+        window.addEventListener('beforeunload', flush);
+        window.addEventListener('pagehide', flush);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => {
+            window.removeEventListener('beforeunload', flush);
+            window.removeEventListener('pagehide', flush);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            flushPendingTabSavesRef.current();
+        };
     }, []);
 
-    // Save tabs to file storage when they change
+    // Queue the newest snapshot for the active connection. The map keeps one
+    // entry per connection, so switching connections does not drop the write.
     useEffect(() => {
         if (!activeConnectionId || isLoading) return;
 
-        const connectionTabs = tabs.filter((t) => t.connectionId === activeConnectionId);
-        const activeTabId = activeTabIds[activeConnectionId] || null;
-
-        saveTabsToStorage(client, activeConnectionId, connectionTabs, activeTabId);
-    }, [client, tabs, activeTabIds, activeConnectionId, isLoading]);
+        pendingTabSavesRef.current.set(activeConnectionId, {
+            tabs: tabs.filter((t) => t.connectionId === activeConnectionId),
+            activeTabId: activeTabIds[activeConnectionId] || null,
+        });
+        if (tabSaveTimerRef.current !== null) clearTimeout(tabSaveTimerRef.current);
+        tabSaveTimerRef.current = setTimeout(() => {
+            tabSaveTimerRef.current = null;
+            flushPendingTabSaves();
+        }, TAB_SAVE_DEBOUNCE_MS);
+    }, [tabs, activeTabIds, activeConnectionId, isLoading, flushPendingTabSaves]);
 
     const activeTabId = activeConnectionId ? activeTabIds[activeConnectionId] || null : null;
 
