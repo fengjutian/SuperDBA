@@ -742,6 +742,50 @@ describe('EditorProvider', () => {
         vi.useRealTimers();
     });
 
+    it('coalesces a burst of tab edits into one persisted snapshot', async () => {
+        vi.mocked(invoke).mockImplementation((cmd: string) => {
+            if (cmd === 'save_editor_preferences') return Promise.resolve(undefined);
+            if (cmd === 'load_editor_preferences') return Promise.resolve(null);
+            return Promise.resolve(null);
+        });
+        vi.useFakeTimers();
+        try {
+            const wrapper = createWrapper('conn-1');
+            const {result} = renderHook(() => useEditor(), {wrapper});
+            // Let the stored preferences load and the initial snapshot settle.
+            await act(async () => {
+                await vi.advanceTimersByTimeAsync(0);
+            });
+
+            const saves = () =>
+                vi
+                    .mocked(invoke)
+                    .mock.calls.filter((call) => call[0] === 'save_editor_preferences');
+            const tabId = result.current.tabs[0]?.id;
+            expect(tabId).toBeTruthy();
+
+            act(() => {
+                result.current.updateTab(tabId!, {query: 'select 1'});
+                result.current.updateTab(tabId!, {query: 'select 2'});
+                result.current.updateTab(tabId!, {query: 'select 3'});
+            });
+            expect(saves()).toHaveLength(0);
+
+            await act(async () => {
+                await vi.advanceTimersByTimeAsync(500);
+            });
+
+            const calls = saves();
+            expect(calls).toHaveLength(1);
+            const payload = calls[0][1] as {
+                preferences: {tabs: Array<{query: string}>};
+            };
+            expect(payload.preferences.tabs[0].query).toBe('select 3');
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('should not add tabs when not connected', () => {
         const wrapper = createWrapper(null);
         const {result} = renderHook(() => useEditor(), {wrapper});

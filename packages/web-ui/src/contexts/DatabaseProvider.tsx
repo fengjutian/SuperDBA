@@ -112,6 +112,11 @@ const createEmptyConnectionData = (
     isConnected: false,
 });
 
+// Stable empty fallbacks. `?? []` / `?? {}` allocated a fresh value on every
+// render, which changed the memoized context value even when nothing loaded.
+const EMPTY_ARRAY: never[] = [];
+const EMPTY_RECORD: Record<string, never> = {};
+
 export const DatabaseProvider = ({children}: {children: ReactNode}) => {
     const client = useSuperDBAClient();
     const {settings} = useSettings();
@@ -151,32 +156,32 @@ export const DatabaseProvider = ({children}: {children: ReactNode}) => {
     const activeCapabilities = activeData?.capabilities ?? null;
     const activeConnectionName = activeData?.connectionName ?? null;
     const activeDatabaseName = activeData?.databaseName ?? null;
-    const tables = activeData?.tables ?? [];
-    const views = activeData?.views ?? [];
-    const routines = activeData?.routines ?? [];
-    const triggers = activeData?.triggers ?? [];
+    const tables = activeData?.tables ?? EMPTY_ARRAY;
+    const views = activeData?.views ?? EMPTY_ARRAY;
+    const routines = activeData?.routines ?? EMPTY_ARRAY;
+    const triggers = activeData?.triggers ?? EMPTY_ARRAY;
     const isLoadingTables = activeData?.isLoadingTables ?? false;
     const isLoadingViews = activeData?.isLoadingViews ?? false;
     const isLoadingRoutines = activeData?.isLoadingRoutines ?? false;
     const isLoadingTriggers = activeData?.isLoadingTriggers ?? false;
     const routineError = activeData?.routineError ?? null;
-    const schemas = activeData?.schemas ?? [];
+    const schemas = activeData?.schemas ?? EMPTY_ARRAY;
     const isLoadingSchemas = activeData?.isLoadingSchemas ?? false;
-    const schemaDataMap = activeData?.schemaDataMap ?? {};
+    const schemaDataMap = activeData?.schemaDataMap ?? EMPTY_RECORD;
     const activeSchema = activeData?.activeSchema ?? null;
     // Materialized views are schema-scoped (Postgres only), so resolve them from
     // the active schema rather than the connection level (where they never load).
     const materializedViews = activeSchema
-        ? (schemaDataMap[activeSchema]?.materializedViews ?? [])
-        : [];
+        ? (schemaDataMap[activeSchema]?.materializedViews ?? EMPTY_ARRAY)
+        : EMPTY_ARRAY;
     const selectedSchemas = activeData?.selectedSchemas ?? [];
     const needsSchemaSelection = activeData?.needsSchemaSelection ?? false;
     const selectedDatabases = useMemo(
         () => activeData?.selectedDatabases ?? [],
         [activeData?.selectedDatabases],
     );
-    const databaseDataMap = activeData?.databaseDataMap ?? {};
-    const nestedDatabaseDataMap = activeData?.nestedDatabaseDataMap ?? {};
+    const databaseDataMap = activeData?.databaseDataMap ?? EMPTY_RECORD;
+    const nestedDatabaseDataMap = activeData?.nestedDatabaseDataMap ?? EMPTY_RECORD;
 
     useEffect(() => {
         const updateTitle = async () => {
@@ -2004,6 +2009,44 @@ export const DatabaseProvider = ({children}: {children: ReactNode}) => {
             }
         }
     };
+
+    // The six functions above are plain so they always read fresh state. That
+    // gives them a new identity every render, which is enough to invalidate the
+    // memoized context value (and with it every consumer). Calls are routed
+    // through a ref: the exposed actions stay stable, the closure stays current.
+    const latestActionsRef = useRef({
+        refreshTables,
+        refreshViews,
+        refreshRoutines,
+        refreshTriggers,
+        connect,
+        disconnect,
+    });
+    latestActionsRef.current = {
+        refreshTables,
+        refreshViews,
+        refreshRoutines,
+        refreshTriggers,
+        connect,
+        disconnect,
+    };
+
+    const stableActions = useMemo(
+        () => ({
+            refreshTables: (targetConnectionId?: string) =>
+                latestActionsRef.current.refreshTables(targetConnectionId),
+            refreshViews: (targetConnectionId?: string) =>
+                latestActionsRef.current.refreshViews(targetConnectionId),
+            refreshRoutines: (targetConnectionId?: string) =>
+                latestActionsRef.current.refreshRoutines(targetConnectionId),
+            refreshTriggers: (targetConnectionId?: string) =>
+                latestActionsRef.current.refreshTriggers(targetConnectionId),
+            connect: (connectionId: string, options?: {activate?: boolean}) =>
+                latestActionsRef.current.connect(connectionId, options),
+            disconnect: (connectionId?: string) => latestActionsRef.current.disconnect(connectionId),
+        }),
+        [],
+    );
 
     const detachConnection = useCallback(
         (connectionId: string) => {
