@@ -5,6 +5,26 @@ use crate::application::{
 use crate::models::ConnectionParams;
 use serde_json::Value;
 
+/// The only parts of an RPC body the saved-access gate reads. Unknown fields are
+/// skipped instead of being materialized into a `Value` tree.
+#[derive(Default, serde::Deserialize)]
+struct AccessReference {
+    #[serde(default)]
+    id: Value,
+    #[serde(default, rename = "connectionId")]
+    connection_id: Value,
+    #[serde(default)]
+    request: NestedReference,
+    #[serde(default)]
+    req: NestedReference,
+}
+
+#[derive(Default, serde::Deserialize)]
+struct NestedReference {
+    #[serde(default)]
+    connection_id: Value,
+}
+
 /// Saved tunnel IDs resolve to administrator-controlled settings. Inline settings
 /// can select host executables, credentials and files, even on Database RPCs.
 pub(super) fn authorize(
@@ -83,7 +103,20 @@ pub(super) async fn authorize_saved_access(
     if granted.permits(AuthorizationLevel::LocalAdmin) || body.is_empty() {
         return Ok(());
     }
-    let payload: Value = super::decode_payload(body).map_err(InvocationError::InvalidPayload)?;
+    // Only the saved-connection reference is needed here. Decoding the whole body
+    // into a `Value` allocated the entire request tree — large for clipboard
+    // imports and batch transfers — just to read one id. Parameterless commands
+    // send `null` (or another non-object body), which carries no reference; those
+    // keep the previous behaviour of validating the JSON and skipping the lookup.
+    let payload: AccessReference = match body.iter().find(|byte| !byte.is_ascii_whitespace()) {
+        Some(b'{') => {
+            super::decode_payload(body).map_err(InvocationError::InvalidPayload)?
+        }
+        _ => {
+            super::decode_payload::<Value>(body).map_err(InvocationError::InvalidPayload)?;
+            AccessReference::default()
+        }
+    };
     let reference = match command {
         RpcCommand::Connection(
             ConnectionRpcCommand::GetConnectionById
@@ -91,14 +124,14 @@ pub(super) async fn authorize_saved_access(
             | ConnectionRpcCommand::DeleteConnection
             | ConnectionRpcCommand::DuplicateConnection
             | ConnectionRpcCommand::SetConnectionAppearance,
-        ) => &payload["id"],
+        ) => payload.id,
         RpcCommand::Connection(
             ConnectionRpcCommand::TestConnection | ConnectionRpcCommand::ListDatabases,
-        ) => &payload["request"]["connection_id"],
+        ) => payload.request.connection_id,
         RpcCommand::DatabaseObject(DatabaseObjectRpcCommand::ExecuteClipboardImport) => {
-            &payload["req"]["connection_id"]
+            payload.req.connection_id
         }
-        _ => &payload["connectionId"],
+        _ => payload.connection_id,
     };
     if let Some(id) = reference.as_str() {
         if let Some(params) = application
