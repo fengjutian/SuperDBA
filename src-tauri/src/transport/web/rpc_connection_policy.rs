@@ -109,9 +109,7 @@ pub(super) async fn authorize_saved_access(
     // send `null` (or another non-object body), which carries no reference; those
     // keep the previous behaviour of validating the JSON and skipping the lookup.
     let payload: AccessReference = match body.iter().find(|byte| !byte.is_ascii_whitespace()) {
-        Some(b'{') => {
-            super::decode_payload(body).map_err(InvocationError::InvalidPayload)?
-        }
+        Some(b'{') => super::decode_payload(body).map_err(InvocationError::InvalidPayload)?,
         _ => {
             super::decode_payload::<Value>(body).map_err(InvocationError::InvalidPayload)?;
             AccessReference::default()
