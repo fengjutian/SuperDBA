@@ -51,8 +51,10 @@ async fn execute_connection_command<R: Runtime>(
 
 #[tauri::command]
 pub async fn get_connections<R: Runtime>(app: AppHandle<R>) -> Result<serde_json::Value, String> {
+    // Startup already rewrote stale `ssl_mode` spellings (see
+    // `runtime::bootstrap`), so this hot read path only needs the embedded-SSH
+    // migration, which is gated to run once per process.
     migrate_ssh_connections(&app).await.ok();
-    migrate_postgres_ssl_mode_spelling(&app).await.ok();
     execute_connection_command(
         &app,
         crate::application::connections::ConnectionCommand::GetConnections,
@@ -65,7 +67,6 @@ pub async fn get_connections_with_groups<R: Runtime>(
     app: AppHandle<R>,
 ) -> Result<serde_json::Value, String> {
     migrate_ssh_connections(&app).await.ok();
-    migrate_postgres_ssl_mode_spelling(&app).await.ok();
     execute_connection_command(
         &app,
         crate::application::connections::ConnectionCommand::GetConnectionsWithGroups,
@@ -766,8 +767,30 @@ pub async fn get_schema_snapshot<R: Runtime>(
     .await
 }
 
-/// Migrates old embedded SSH connections to separate SSH connection entries
+/// Whether the embedded-SSH rewrite has already run in this process. It is
+/// idempotent but reads and rewrites the connections file, so running it on
+/// every `get_connections` (a startup hot path) was pure overhead.
+static SSH_CONNECTION_MIGRATION_DONE: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+/// Migrates old embedded SSH connections to separate SSH connection entries.
+/// No-ops once it has completed in this process.
 async fn migrate_ssh_connections<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
+    use std::sync::atomic::Ordering;
+
+    if SSH_CONNECTION_MIGRATION_DONE.swap(true, Ordering::Relaxed) {
+        return Ok(());
+    }
+
+    let result = migrate_ssh_connections_once(app).await;
+    if result.is_err() {
+        // The failure may be transient (a locked file); let a later call retry.
+        SSH_CONNECTION_MIGRATION_DONE.store(false, Ordering::Relaxed);
+    }
+    result
+}
+
+async fn migrate_ssh_connections_once<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
     let conn_path = get_config_path(app)?;
     if !conn_path.exists() {
         return Ok(()); // Nothing to migrate
@@ -888,26 +911,6 @@ async fn migrate_ssh_connections<R: Runtime>(app: &AppHandle<R>) -> Result<(), S
         "[Migration] Successfully migrated {} SSH connections",
         ssh_connections.len()
     );
-    Ok(())
-}
-
-/// Migrates already-persisted `ssl_mode` values on postgres-dialect
-/// connections (driver id other than the builtin `"postgres"`) from the
-/// stale MySQL-style spelling to the Postgres-style spelling the plugin
-/// actually understands. Idempotent — a no-op once every affected
-/// connection has been rewritten. See
-/// `connection_migrations::migrate_postgres_ssl_mode_spelling_at_path` for
-/// the full rationale, including the concurrency guard against a race with
-/// the `--mcp` process's own call to the same function.
-async fn migrate_postgres_ssl_mode_spelling<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
-    let conn_path = get_config_path(app)?;
-    let migrated =
-        crate::connection_migrations::migrate_postgres_ssl_mode_spelling_at_path(&conn_path)
-            .await?;
-    if migrated {
-        app.state::<std::sync::Arc<crate::connection_cache::ConnectionCache>>()
-            .invalidate();
-    }
     Ok(())
 }
 

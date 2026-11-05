@@ -1,5 +1,5 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest';
-import {renderHook, waitFor, act} from '@testing-library/react';
+import {render, renderHook, waitFor, act} from '@testing-library/react';
 import {DatabaseProvider} from '@/contexts/DatabaseProvider';
 import {ToastContext} from '@/contexts/ToastContext';
 import {useDatabase} from '@/hooks/useDatabase';
@@ -144,6 +144,44 @@ describe('DatabaseProvider', () => {
                 .mocked(invoke)
                 .mock.calls.filter(([command]) => command === 'get_connections_with_groups'),
         ).toHaveLength(2);
+    });
+
+    it('keeps the context value referentially stable across a parent re-render', async () => {
+        vi.mocked(invoke).mockImplementation(async (command) =>
+            command === 'get_connections_with_groups' ? {connections: [], groups: []} : [],
+        );
+
+        const values: ReturnType<typeof useDatabase>[] = [];
+        const Consumer = () => {
+            values.push(useDatabase());
+            return null;
+        };
+        // The element must be created once: like the real app, where the provider
+        // receives a stable `children` element, so only a context change can
+        // re-render the consumer.
+        const consumer = <Consumer />;
+        const Harness = ({tick}: {tick: number}) => (
+            <div data-tick={tick}>
+                <DatabaseProvider>{consumer}</DatabaseProvider>
+            </div>
+        );
+
+        const {rerender} = render(<Harness tick={1} />);
+        // Let the provider's bootstrap effects settle before measuring.
+        await waitFor(() => expect(values.length).toBeGreaterThan(0));
+        await act(async () => {
+            await new Promise((resolve) => setTimeout(resolve, 0));
+        });
+        const before = values[values.length - 1];
+        const renderCount = values.length;
+
+        // A provider render that changes none of the state it publishes must not
+        // hand consumers a new object: that is what re-rendered the whole tree
+        // on every toast or settings change.
+        rerender(<Harness tick={2} />);
+
+        expect(values).toHaveLength(renderCount);
+        expect(values[values.length - 1]).toBe(before);
     });
 
     it('does not reuse or publish a stale bootstrap read after an explicit refresh', async () => {

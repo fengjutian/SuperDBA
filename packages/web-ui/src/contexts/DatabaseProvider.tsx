@@ -20,6 +20,7 @@ import {clearAutocompleteCache} from '@/utils/autocomplete';
 import {loadOptionalMetadata} from '@/utils/connectionMetadata';
 import {toErrorMessage} from '@/utils/errors';
 import {useSettings} from '@/hooks/useSettings';
+import {useStableActions} from '@/hooks/useStableActions';
 import {useToast} from '@/hooks/useToast';
 import {findConnectionsForDrivers} from '@/utils/connectionManager';
 import {
@@ -174,7 +175,7 @@ export const DatabaseProvider = ({children}: {children: ReactNode}) => {
     const materializedViews = activeSchema
         ? (schemaDataMap[activeSchema]?.materializedViews ?? EMPTY_ARRAY)
         : EMPTY_ARRAY;
-    const selectedSchemas = activeData?.selectedSchemas ?? [];
+    const selectedSchemas = activeData?.selectedSchemas ?? EMPTY_ARRAY;
     const needsSchemaSelection = activeData?.needsSchemaSelection ?? false;
     const selectedDatabases = useMemo(
         () => activeData?.selectedDatabases ?? [],
@@ -2010,44 +2011,6 @@ export const DatabaseProvider = ({children}: {children: ReactNode}) => {
         }
     };
 
-    // The six functions above are plain so they always read fresh state. That
-    // gives them a new identity every render, which is enough to invalidate the
-    // memoized context value (and with it every consumer). Calls are routed
-    // through a ref: the exposed actions stay stable, the closure stays current.
-    const latestActionsRef = useRef({
-        refreshTables,
-        refreshViews,
-        refreshRoutines,
-        refreshTriggers,
-        connect,
-        disconnect,
-    });
-    latestActionsRef.current = {
-        refreshTables,
-        refreshViews,
-        refreshRoutines,
-        refreshTriggers,
-        connect,
-        disconnect,
-    };
-
-    const stableActions = useMemo(
-        () => ({
-            refreshTables: (targetConnectionId?: string) =>
-                latestActionsRef.current.refreshTables(targetConnectionId),
-            refreshViews: (targetConnectionId?: string) =>
-                latestActionsRef.current.refreshViews(targetConnectionId),
-            refreshRoutines: (targetConnectionId?: string) =>
-                latestActionsRef.current.refreshRoutines(targetConnectionId),
-            refreshTriggers: (targetConnectionId?: string) =>
-                latestActionsRef.current.refreshTriggers(targetConnectionId),
-            connect: (connectionId: string, options?: {activate?: boolean}) =>
-                latestActionsRef.current.connect(connectionId, options),
-            disconnect: (connectionId?: string) => latestActionsRef.current.disconnect(connectionId),
-        }),
-        [],
-    );
-
     const detachConnection = useCallback(
         (connectionId: string) => {
             connectionAttemptsRef.current.delete(connectionId);
@@ -2441,9 +2404,44 @@ export const DatabaseProvider = ({children}: {children: ReactNode}) => {
         [connectionGroups, updateGroup],
     );
 
-    // Memoized so a parent-driven render (a toast, a settings or theme change)
-    // no longer hands every consumer a new context object. The dependencies are
-    // the state slices the value actually carries; the actions are stable.
+    // Every action goes through useStableActions: several are plain functions
+    // (they must read fresh state) and the rest close over `t`/`showToast`, so
+    // their identities churn on renders that change no data. With them stable,
+    // the context value below only changes when the data it publishes changes —
+    // not when this provider re-renders for a toast or a theme switch.
+    const stableActions = useStableActions({
+        loadConnections,
+        connect,
+        disconnect,
+        detachConnection,
+        switchConnection,
+        setActiveTable: setActiveTableWithSchema,
+        refreshTables,
+        refreshViews,
+        refreshRoutines,
+        refreshTriggers,
+        loadSchemaData,
+        refreshSchemaData,
+        setSelectedSchemas,
+        loadDatabaseData,
+        refreshDatabaseData,
+        setSelectedDatabases,
+        loadNestedSchemas,
+        setSelectedSchemasForDatabase,
+        loadNestedSchemaData,
+        refreshNestedSchemaData,
+        refreshDatabaseSelection,
+        createGroup,
+        createGroupPath,
+        updateGroup,
+        moveGroupToParent,
+        deleteGroup,
+        moveConnectionToGroup,
+        reorderGroups,
+        reorderConnectionsInGroup,
+        toggleGroupCollapsed,
+    });
+
     const contextValue = useMemo(
         () => ({
             activeConnectionId,
@@ -2475,41 +2473,15 @@ export const DatabaseProvider = ({children}: {children: ReactNode}) => {
             nestedDatabaseDataMap,
             connections,
             connectionGroups,
-            loadConnections,
             isLoadingConnections,
-            connect: stableActions.connect,
-            disconnect: stableActions.disconnect,
-            detachConnection,
-            switchConnection,
-            setActiveTable: setActiveTableWithSchema,
-            refreshTables: stableActions.refreshTables,
-            refreshViews: stableActions.refreshViews,
-            refreshRoutines: stableActions.refreshRoutines,
-            refreshTriggers: stableActions.refreshTriggers,
-            loadSchemaData,
-            refreshSchemaData,
-            setSelectedSchemas,
-            loadDatabaseData,
-            refreshDatabaseData,
-            setSelectedDatabases,
-            loadNestedSchemas,
-            setSelectedSchemasForDatabase,
-            loadNestedSchemaData,
-            refreshNestedSchemaData,
-            refreshDatabaseSelection,
+            globallyOpenConnectionIds,
+            // Read during render (e.g. `isConnectionOpenAnywhere(card.id)`), so
+            // these must change with the data instead of being deferred to the
+            // next commit like the stable action wrappers.
             getConnectionData,
             isConnectionOpen,
             isConnectionOpenAnywhere,
-            globallyOpenConnectionIds,
-            createGroup,
-            createGroupPath,
-            updateGroup,
-            moveGroupToParent,
-            deleteGroup,
-            moveConnectionToGroup,
-            reorderGroups,
-            reorderConnectionsInGroup,
-            toggleGroupCollapsed,
+            ...stableActions,
         }),
         [
             activeConnectionId,
@@ -2541,36 +2513,12 @@ export const DatabaseProvider = ({children}: {children: ReactNode}) => {
             nestedDatabaseDataMap,
             connections,
             connectionGroups,
-            loadConnections,
             isLoadingConnections,
-            stableActions,
-            detachConnection,
-            switchConnection,
-            setActiveTableWithSchema,
-            loadSchemaData,
-            refreshSchemaData,
-            setSelectedSchemas,
-            loadDatabaseData,
-            refreshDatabaseData,
-            setSelectedDatabases,
-            loadNestedSchemas,
-            setSelectedSchemasForDatabase,
-            loadNestedSchemaData,
-            refreshNestedSchemaData,
-            refreshDatabaseSelection,
+            globallyOpenConnectionIds,
             getConnectionData,
             isConnectionOpen,
             isConnectionOpenAnywhere,
-            globallyOpenConnectionIds,
-            createGroup,
-            createGroupPath,
-            updateGroup,
-            moveGroupToParent,
-            deleteGroup,
-            moveConnectionToGroup,
-            reorderGroups,
-            reorderConnectionsInGroup,
-            toggleGroupCollapsed,
+            stableActions,
         ],
     );
 
