@@ -12,14 +12,18 @@
 //! timeout because the desktop app and a `superdba web` server may use it at
 //! the same time.
 
+use crate::sync_ext::lock;
 use once_cell::sync::Lazy;
 use serde_json::{Map, Value};
-use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePool, SqlitePoolOptions};
-use sqlx::Row;
+use sqlx::sqlite::{
+    SqliteConnectOptions, SqliteJournalMode, SqlitePool, SqlitePoolOptions, SqliteSynchronous,
+};
+use sqlx::{Row, Sqlite};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use tokio::sync::Mutex;
+use tokio::sync::OnceCell;
 
 /// File name of the shared database inside the config directory.
 pub const DATABASE_FILE: &str = "superdba.db";
@@ -34,7 +38,11 @@ pub const SCHEMA_VERSION: i64 = 1;
 
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 
-static POOLS: Lazy<Mutex<HashMap<PathBuf, SqlitePool>>> = Lazy::new(|| Mutex::new(HashMap::new()));
+/// One lazily opened pool per database file. The outer lock only guards the
+/// map lookup: opening the database and migrating it happen inside the cell,
+/// so the first caller does not park every other UI state request behind it.
+static POOLS: Lazy<Mutex<HashMap<PathBuf, Arc<OnceCell<SqlitePool>>>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
 
 /// Location of the shared database for a config directory.
 pub fn database_path(config_dir: &Path) -> PathBuf {
@@ -78,11 +86,21 @@ fn validate_keys(keys: &[String]) -> Result<(), String> {
     keys.iter().try_for_each(|key| validate_key(key))
 }
 
-async fn pool(database: &Path) -> Result<SqlitePool, String> {
-    let mut pools = POOLS.lock().await;
-    if let Some(pool) = pools.get(database) {
-        return Ok(pool.clone());
-    }
+pub(crate) async fn pool(database: &Path) -> Result<SqlitePool, String> {
+    let cell = {
+        let mut pools = lock(&POOLS);
+        pools
+            .entry(database.to_path_buf())
+            .or_insert_with(|| Arc::new(OnceCell::const_new()))
+            .clone()
+    };
+    // A failed open leaves the cell empty, so the next request retries instead
+    // of inheriting a permanently broken database handle.
+    let pool = cell.get_or_try_init(|| open_pool(database)).await?;
+    Ok(pool.clone())
+}
+
+async fn open_pool(database: &Path) -> Result<SqlitePool, String> {
     if let Some(parent) = database.parent() {
         std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
     }
@@ -90,14 +108,23 @@ async fn pool(database: &Path) -> Result<SqlitePool, String> {
         .filename(database)
         .create_if_missing(true)
         .journal_mode(SqliteJournalMode::Wal)
+        // WAL still fsyncs on every commit with the default `FULL`, and this
+        // store takes many small writes (a sidebar drag saves its width as the
+        // handle moves). `NORMAL` is the usual WAL pairing: after a crash the
+        // last transaction can be lost, the database cannot be corrupted.
+        .synchronous(SqliteSynchronous::Normal)
         .busy_timeout(BUSY_TIMEOUT);
     let pool = SqlitePoolOptions::new()
         .max_connections(2)
         .connect_with(options)
         .await
         .map_err(|error| format!("Failed to open the UI state database: {error}"))?;
-    migrate(&pool).await?;
-    pools.insert(database.to_path_buf(), pool.clone());
+    if let Err(error) = migrate(&pool).await {
+        // A pool that failed to migrate must not stay cached or leak
+        // connections, otherwise the retry above would reuse the broken schema.
+        pool.close().await;
+        return Err(error);
+    }
     Ok(pool)
 }
 
@@ -147,18 +174,34 @@ pub async fn get_entries(
 ) -> Result<Map<String, Value>, String> {
     if let Some(keys) = keys {
         validate_keys(keys)?;
+        if keys.is_empty() {
+            return Ok(Map::new());
+        }
     }
     let pool = pool(database).await?;
-    let rows = sqlx::query("SELECT key, value FROM ui_state ORDER BY key")
+    // Push the key filter into SQLite: the frontend asks for a handful of keys
+    // on every start, and filtering after the fact read the whole table and
+    // parsed every stored value just to throw most of them away.
+    let mut query = sqlx::QueryBuilder::<Sqlite>::new("SELECT key, value FROM ui_state");
+    if let Some(keys) = keys {
+        query.push(" WHERE key IN (");
+        {
+            let mut separated = query.separated(", ");
+            for key in keys {
+                separated.push_bind(key.as_str());
+            }
+        }
+        query.push(")");
+    }
+    query.push(" ORDER BY key");
+    let rows = query
+        .build()
         .fetch_all(&pool)
         .await
         .map_err(|error| error.to_string())?;
     let mut entries = Map::new();
     for row in rows {
         let key: String = row.try_get("key").map_err(|error| error.to_string())?;
-        if keys.is_some_and(|keys| !keys.contains(&key)) {
-            continue;
-        }
         let raw: String = row.try_get("value").map_err(|error| error.to_string())?;
         match serde_json::from_str(&raw) {
             Ok(value) => {
@@ -202,7 +245,11 @@ pub async fn delete_entry(database: &Path, key: &str) -> Result<bool, String> {
 
 /// Closes and forgets a cached pool, so tests can remove temporary folders.
 pub async fn close(database: &Path) {
-    if let Some(pool) = POOLS.lock().await.remove(database) {
+    let cell = lock(&POOLS).remove(database);
+    if let Some(pool) = cell
+        .and_then(Arc::into_inner)
+        .and_then(OnceCell::into_inner)
+    {
         pool.close().await;
     }
 }

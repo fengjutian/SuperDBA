@@ -1716,6 +1716,8 @@
       "total": "Total"
     },
     "queryExecuted": "Query executed successfully",
+    "noRowsReturned": "No rows returned",
+    "noRowsReturnedHint": "The statement ran successfully but produced an empty result set. Check your filters or WHERE clause.",
     "rowsAffected": "{{count}} rows affected",
     "autoPaginated": "Auto paginated",
     "pageOf": "Page {{current}} of {{total}}",

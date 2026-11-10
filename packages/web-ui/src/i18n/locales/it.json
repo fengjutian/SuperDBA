@@ -1628,6 +1628,8 @@
       "total": "Totale"
     },
     "queryExecuted": "Query eseguita con successo",
+    "noRowsReturned": "La query non ha restituito righe",
+    "noRowsReturnedHint": "L'istruzione è stata eseguita correttamente, ma il set di risultati è vuoto. Controlla i filtri o la clausola WHERE.",
     "rowsAffected": "{{count}} righe interessate",
     "autoPaginated": "Impaginazione automatica",
     "pageOf": "Pagina {{current}} di {{total}}",

@@ -12,7 +12,7 @@ import {
     reconstructTableQuery,
     resolveTabPageSize,
 } from '@/utils/editor';
-import {shouldShowStatementSuccess} from '@/utils/resultPresentation';
+import {classifyEmptyResult} from '@/utils/resultPresentation';
 import {formatRowsForCopy, copyTextToClipboard} from '@/utils/clipboard';
 import {isTypingTarget} from '@/utils/keyboardEvents';
 import {serializePkKey, buildPkMap} from '@/utils/dataGrid';
@@ -95,13 +95,13 @@ import {
     Maximize2,
     Minimize2,
     ExternalLink,
-    CheckCircle2,
     WrapText,
 } from 'lucide-react';
 import {invoke} from '@tauri-apps/api/core';
 import {TableToolbar} from '@/components/ui/TableToolbar';
 import {DataGrid, type DataGridCommandTarget} from '@/components/ui/DataGrid';
 import {MultiResultPanel} from '@/components/ui/MultiResultPanel';
+import {EmptyResultState} from '@/components/ui/EmptyResultState';
 import {ErrorDisplay} from '@/components/ui/ErrorDisplay';
 import {PageSizeSelector} from '@/components/ui/PageSizeSelector';
 import {ResultChart} from '@/components/ui/ResultChart';
@@ -654,6 +654,45 @@ export const Editor = ({commandScopeId}: EditorProps) => {
     const hasLoadedExportRows = (activeExportResult?.rows.length ?? 0) > 0;
     const canExportActiveResult =
         hasLoadedExportRows || (activeExportResult?.columns.length ?? 0) > 0;
+
+    // A single (non batch) result with nothing to put in a grid: a statement
+    // without a result set, or a query that matched no rows. The results panel
+    // then collapses to a compact strip instead of reserving the whole pane,
+    // and the empty state names which of the two happened.
+    const emptyResultKind = isTableTab
+        ? null
+        : classifyEmptyResult({
+              query: activeResultEntry?.query ?? activeTab?.query ?? '',
+              result: activeResultEntry?.result ?? activeTab?.result,
+              pendingInsertionCount: Object.keys(activeTab?.pendingInsertions ?? {}).length,
+          });
+    const compactResultsPanel =
+        emptyResultKind !== null &&
+        // Batch results own a tab bar and query preview, so they keep the full
+        // panel; a maximized results panel also fills the pane by design.
+        !(activeTab?.results && activeTab.results.length > 0) &&
+        isEditorOpen;
+    const emptyResultView = emptyResultKind ? (
+        <EmptyResultState
+            kind={emptyResultKind}
+            affectedRows={activeTab?.result?.affected_rows ?? 0}
+            columnCount={activeTab?.result?.columns.length ?? 0}
+            executionTime={activeTab?.executionTime ?? null}
+            timingTooltip={
+                activeTab?.result
+                    ? (formatTimingTooltip(
+                          {
+                              serverTimeMs: activeTab.result.server_time_ms,
+                              fetchTimeMs: activeTab.result.fetch_time_ms,
+                              totalTimeMs: activeTab.executionTime,
+                          },
+                          timingLabels,
+                      ) ?? undefined)
+                    : undefined
+            }
+            className="h-full"
+        />
+    ) : null;
 
     const activeTabFlatDatabase = isMultiDb
         ? resolveFlatMultiDbTabDatabase(activeTab, selectedDatabases)
@@ -5019,15 +5058,19 @@ export const Editor = ({commandScopeId}: EditorProps) => {
                         key={tab.id}
                         data-editor-panel
                         style={{
-                            // With collapsed results the editor takes the remaining pane
-                            // space (flex-1); a viewport-based height would overflow the
+                            // With collapsed results, or a compact empty-result
+                            // strip, the editor takes the remaining pane space
+                            // (flex-1); a viewport-based height would overflow the
                             // pane in split view
-                            height: isResultsCollapsed ? undefined : editorHeight,
+                            height:
+                                isResultsCollapsed || compactResultsPanel
+                                    ? undefined
+                                    : editorHeight,
                             display: isVisible ? 'block' : 'none',
                         }}
                         className={clsx(
                             'relative sql-editor-dot-grid',
-                            isResultsCollapsed && 'flex-1 min-h-0',
+                            (isResultsCollapsed || compactResultsPanel) && 'flex-1 min-h-0',
                         )}
                     >
                         {tab.type === 'query_builder' ? (
@@ -5136,10 +5179,10 @@ export const Editor = ({commandScopeId}: EditorProps) => {
                         <div
                             className={clsx(
                                 'h-6 bg-elevated border-y border-default flex items-center justify-end px-2 relative',
-                                isEditorOpen ? 'cursor-row-resize' : '',
+                                isEditorOpen && !compactResultsPanel ? 'cursor-row-resize' : '',
                             )}
                         >
-                            {isEditorOpen && (
+                            {isEditorOpen && !compactResultsPanel && (
                                 // Mouse-only drag surface behind the buttons (no keyboard resize), hidden from assistive tech.
                                 <div
                                     aria-hidden="true"
@@ -5206,7 +5249,13 @@ export const Editor = ({commandScopeId}: EditorProps) => {
                     )}
 
                     {/* Results Panel */}
-                    <div className="flex-1 overflow-hidden bg-elevated flex flex-col min-h-0">
+                    <div
+                        className={clsx(
+                            'overflow-hidden bg-elevated flex flex-col min-h-0',
+                            compactResultsPanel ? 'shrink-0' : 'flex-1',
+                        )}
+                        style={compactResultsPanel ? {height: 'min(140px, 45%)'} : undefined}
+                    >
                         {detachedTabIds.has(activeTab.id) ? (
                             <div className="flex flex-col items-center justify-center h-full text-muted gap-3">
                                 <ExternalLink size={28} className="opacity-60" />
@@ -5219,6 +5268,15 @@ export const Editor = ({commandScopeId}: EditorProps) => {
                                     {t('editor.results.reattach')}
                                 </button>
                             </div>
+                        ) : compactResultsPanel && emptyResultKind ? (
+                            activeTab.isLoading && !activeTab.isAutoRefreshing ? (
+                                <div className="flex items-center gap-2 px-3 h-full text-muted text-xs">
+                                    <div className="w-3 h-3 border-2 border-surface-secondary border-t-accent-primary rounded-full animate-spin" />
+                                    <span>{t('editor.executingQuery')}</span>
+                                </div>
+                            ) : (
+                                emptyResultView
+                            )
                         ) : activeTab.results && activeTab.results.length > 0 ? (
                             <MultiResultPanel
                                 commandTargetRef={dataGridCommandTargetRef}
@@ -5317,31 +5375,12 @@ export const Editor = ({commandScopeId}: EditorProps) => {
                             </div>
                         ) : activeTab.error ? (
                             <ErrorDisplay error={activeTab.error} t={t} />
-                        ) : shouldShowStatementSuccess(activeTab) ? (
-                            // Non-SELECT statement (INSERT/UPDATE/DELETE/DDL): no result set,
-                            // so surface an explicit success message instead of an empty grid.
-                            // Table tabs stay in data mode even when an empty result omits
-                            // columns, keeping the Add Row action available.
-                            <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-2 text-center px-4">
-                                <CheckCircle2 size={32} className="text-accent-success" />
-                                <p className="text-sm font-medium text-primary">
-                                    {t('editor.queryExecuted')}
-                                </p>
-                                <p className="text-xs text-secondary flex items-center gap-2">
-                                    {activeTab.result.affected_rows > 0 && (
-                                        <span>
-                                            {t('editor.rowsAffected', {
-                                                count: activeTab.result.affected_rows,
-                                            })}
-                                        </span>
-                                    )}
-                                    {activeTab.executionTime !== null && (
-                                        <span className="text-muted font-mono">
-                                            ({formatDuration(activeTab.executionTime)})
-                                        </span>
-                                    )}
-                                </p>
-                            </div>
+                        ) : emptyResultKind ? (
+                            // A statement without a result set, or a query that matched
+                            // no rows. The panel stays full height here (maximized
+                            // results, or batch results above), so the message is
+                            // centred instead of collapsing the panel.
+                            emptyResultView
                         ) : activeTab.result ||
                           (activeTab.pendingInsertions &&
                               Object.keys(activeTab.pendingInsertions).length > 0) ? (

@@ -1607,6 +1607,8 @@
       "total": "Total"
     },
     "queryExecuted": "Requête exécutée avec succès",
+    "noRowsReturned": "La requête n'a renvoyé aucune ligne",
+    "noRowsReturnedHint": "L'instruction a été exécutée avec succès, mais le jeu de résultats est vide. Vérifiez les filtres ou la clause WHERE.",
     "rowsAffected": "{{count}} lignes affectées",
     "autoPaginated": "Pagination automatique",
     "pageOf": "Page {{current}} sur {{total}}",

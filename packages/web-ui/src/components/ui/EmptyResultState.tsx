@@ -54,18 +54,12 @@ export function EmptyResultState({
         return (
             <div
                 role="status"
-                className={clsx(
-                    'flex items-center gap-2 px-3 py-2 text-xs min-w-0',
-                    className,
-                )}
+                className={clsx('flex items-center gap-2 px-3 py-2 text-xs min-w-0', className)}
             >
                 <Icon
                     size={14}
                     aria-hidden="true"
-                    className={clsx(
-                        'shrink-0',
-                        isStatement ? 'text-accent-success' : 'text-muted',
-                    )}
+                    className={clsx('shrink-0', isStatement ? 'text-accent-success' : 'text-muted')}
                 />
                 <span className="text-primary truncate">{title}</span>
                 {metaText && (

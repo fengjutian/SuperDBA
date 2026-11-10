@@ -1584,6 +1584,8 @@
       "total": "Total"
     },
     "queryExecuted": "Consulta executada com sucesso",
+    "noRowsReturned": "A consulta não retornou nenhuma linha",
+    "noRowsReturnedHint": "A instrução foi executada com sucesso, mas o conjunto de resultados está vazio. Verifique os filtros ou a cláusula WHERE.",
     "rowsAffected": "{{count}} linhas afetadas",
     "autoPaginated": "Paginado automaticamente",
     "pageOf": "Página {{current}} de {{total}}",

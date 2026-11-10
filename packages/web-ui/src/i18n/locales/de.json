@@ -1585,6 +1585,8 @@
       "total": "Gesamt"
     },
     "queryExecuted": "Abfrage erfolgreich ausgeführt",
+    "noRowsReturned": "Abfrage lieferte keine Zeilen",
+    "noRowsReturnedHint": "Die Anweisung wurde erfolgreich ausgeführt, lieferte aber ein leeres Ergebnis. Prüfen Sie die Filter oder die WHERE-Bedingung.",
     "rowsAffected": "{{count}} Zeilen betroffen",
     "autoPaginated": "Automatisch paginiert",
     "pageOf": "Seite {{current}} von {{total}}",

@@ -112,27 +112,6 @@ export function ResultEntryContent({
         }
         return (
             <div className="flex-1 min-h-0 flex flex-col">
-                {entry.result.columns.length > 0 && (
-                    <div className="p-2 bg-elevated text-xs text-secondary border-b border-default shrink-0">
-                        <span className="whitespace-nowrap">
-                            {t('editor.rowsRetrieved', {count: 0})}
-                            <span className="text-muted">
-                                {' · '}
-                                {t('editor.columnsCount', {
-                                    count: entry.result.columns.length,
-                                })}
-                            </span>
-                            {entry.executionTime !== null && (
-                                <span
-                                    className="text-muted ml-2 font-mono"
-                                    title={timingTooltip}
-                                >
-                                    ({formatDuration(entry.executionTime)})
-                                </span>
-                            )}
-                        </span>
-                    </div>
-                )}
                 <EmptyResultState
                     kind={emptyKind}
                     affectedRows={entry.result.affected_rows}

@@ -1598,6 +1598,8 @@
       "total": "Kabuuan"
     },
     "queryExecuted": "Matagumpay na naisakatuparan ang query",
+    "noRowsReturned": "Walang row na ibinalik ang query",
+    "noRowsReturnedHint": "Matagumpay na naisakatuparan ang statement, ngunit walang laman ang result set. Suriin ang mga filter o ang WHERE clause.",
     "rowsAffected": "{{count}} row ang naapektuhan",
     "autoPaginated": "Auto paginated",
     "pageOf": "Pahina {{current}} ng {{total}}",

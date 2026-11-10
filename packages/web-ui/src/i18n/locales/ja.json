@@ -1597,6 +1597,8 @@
       "total": "合計"
     },
     "queryExecuted": "クエリが正常に実行されました",
+    "noRowsReturned": "クエリは行を返しませんでした",
+    "noRowsReturnedHint": "ステートメントは正常に実行されましたが、結果セットは空です。フィルターまたは WHERE 句を確認してください。",
     "rowsAffected": "{{count}} 行に影響",
     "autoPaginated": "自動ページング",
     "pageOf": "{{current}} / {{total}} ページ",

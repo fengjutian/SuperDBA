@@ -1639,6 +1639,8 @@
       "total": "总计"
     },
     "queryExecuted": "查询执行成功",
+    "noRowsReturned": "查询没有返回任何行",
+    "noRowsReturnedHint": "语句已成功执行，但结果集为空。请检查筛选条件或 WHERE 条件。",
     "rowsAffected": "{{count}} 行受影响",
     "autoPaginated": "自动分页",
     "pageOf": "第 {{current}} 页，共 {{total}} 页",

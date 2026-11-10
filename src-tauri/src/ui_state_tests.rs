@@ -100,6 +100,90 @@ async fn persists_across_reopened_pools() {
 }
 
 #[tokio::test]
+async fn returns_only_the_requested_keys() {
+    let temp = tempfile::tempdir().unwrap();
+    let database = database_path(temp.path());
+    for (key, value) in [
+        ("superdba_sidebar_width", json!(320)),
+        ("superdba_support_prompt_dismissed", json!(true)),
+        ("superdba_last_seen_version", json!("0.25.0")),
+    ] {
+        set_entry(&database, key, &value).await.unwrap();
+    }
+
+    let selected = get_entries(
+        &database,
+        Some(&[
+            "superdba_sidebar_width".to_string(),
+            // Duplicates and unknown keys must not disturb the result.
+            "superdba_sidebar_width".to_string(),
+            "missing_key".to_string(),
+        ]),
+    )
+    .await
+    .unwrap();
+    assert_eq!(selected.len(), 1);
+    assert_eq!(selected.get("superdba_sidebar_width"), Some(&json!(320)));
+
+    close(&database).await;
+}
+
+#[tokio::test]
+async fn empty_key_list_short_circuits_without_opening_the_database() {
+    let temp = tempfile::tempdir().unwrap();
+    let database = database_path(temp.path());
+
+    let entries = get_entries(&database, Some(&[])).await.unwrap();
+    assert!(entries.is_empty());
+    assert!(!database.exists());
+
+    close(&database).await;
+}
+
+#[tokio::test]
+async fn concurrent_first_reads_share_one_pool() {
+    let temp = tempfile::tempdir().unwrap();
+    let database = database_path(temp.path());
+    set_entry(&database, "superdba_sidebar_width", &json!(300))
+        .await
+        .unwrap();
+    close(&database).await;
+
+    // Every task races to open the database after the pool was dropped; all of
+    // them must succeed and observe the same stored value.
+    let mut tasks = Vec::new();
+    for _ in 0..8 {
+        let database = database.clone();
+        tasks.push(tokio::spawn(async move {
+            get_entries(&database, Some(&["superdba_sidebar_width".to_string()])).await
+        }));
+    }
+    for task in tasks {
+        let entries = task.await.unwrap().unwrap();
+        assert_eq!(entries.get("superdba_sidebar_width"), Some(&json!(300)));
+    }
+
+    close(&database).await;
+}
+
+#[tokio::test]
+async fn opens_in_normal_synchronous_mode() {
+    let temp = tempfile::tempdir().unwrap();
+    let database = database_path(temp.path());
+
+    let pool = crate::ui_state::pool(&database).await.unwrap();
+    // 0 = OFF, 1 = NORMAL, 2 = FULL, 3 = EXTRA. WAL pairs with NORMAL so a
+    // commit does not fsync, which is what makes the frequent small writes cheap.
+    let synchronous: i64 = sqlx::query_scalar("PRAGMA synchronous")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(synchronous, 1);
+
+    close(&database).await;
+}
+
+#[tokio::test]
 async fn rejects_invalid_requests_before_touching_the_database() {
     let temp = tempfile::tempdir().unwrap();
     let database = database_path(temp.path());

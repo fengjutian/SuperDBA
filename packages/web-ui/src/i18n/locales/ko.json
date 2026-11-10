@@ -1542,6 +1542,8 @@
       "total": "전체"
     },
     "queryExecuted": "쿼리가 성공적으로 실행되었습니다",
+    "noRowsReturned": "쿼리가 행을 반환하지 않았습니다",
+    "noRowsReturnedHint": "문은 성공적으로 실행되었지만 결과 집합이 비어 있습니다. 필터나 WHERE 절을 확인하세요.",
     "rowsAffected": "{{count}}개 행 영향받음",
     "autoPaginated": "자동 페이지네이션됨",
     "pageOf": "{{total}}페이지 중 {{current}}",
