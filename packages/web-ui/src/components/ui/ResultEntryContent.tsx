@@ -1,7 +1,7 @@
 import {useTranslation} from 'react-i18next';
 import type {Ref} from 'react';
-import {CheckCircle2} from 'lucide-react';
 import {DataGrid, type DataGridCommandTarget} from './DataGrid';
+import {EmptyResultState} from './EmptyResultState';
 import {ErrorDisplay} from './ErrorDisplay';
 import {PaginationControls} from './PaginationControls';
 import {ResultChart} from './ResultChart';
@@ -10,6 +10,7 @@ import {useResultChartState} from '@/hooks/useResultChartState';
 import {formatDuration, formatTimingTooltip} from '@/utils/formatTime';
 import {useTimingLabels} from '@/hooks/useTimingLabels';
 import {getStackedGridHeight} from '@/utils/multiResult';
+import {classifyEmptyResult} from '@/utils/resultPresentation';
 import type {QueryResultEntry} from '@/types/editor';
 
 interface ResultEntryContentProps {
@@ -92,41 +93,53 @@ export function ResultEntryContent({
           ) ?? undefined)
         : undefined;
 
-    // A statement that returns no result set (INSERT/UPDATE/DELETE/DDL such as
-    // CREATE/ALTER/DROP VIEW) still succeeded — surface that explicitly instead
-    // of an empty grid with a misleading "0 rows retrieved" header.
-    if (entry.result.columns.length === 0) {
-        const affected = entry.result.affected_rows ?? 0;
-        const time =
-            entry.executionTime !== null ? (
-                <span className="text-muted font-mono" title={timingTooltip}>
-                    ({formatDuration(entry.executionTime)})
-                </span>
-            ) : null;
-
+    // Nothing to put in the grid: a statement that returns no result set
+    // (INSERT/UPDATE/DELETE/DDL) or a result-set query that matched no rows.
+    // Both are surfaced explicitly instead of as a blank grid.
+    const emptyKind = classifyEmptyResult({query: entry.query, result: entry.result});
+    if (emptyKind) {
         if (compact) {
             return (
-                <div className="flex items-center gap-2 px-3 py-3 text-xs">
-                    <CheckCircle2 size={14} className="text-accent-success shrink-0" />
-                    <span className="text-primary">{t('editor.queryExecuted')}</span>
-                    {affected > 0 && (
-                        <span className="text-secondary">
-                            {t('editor.rowsAffected', {count: affected})}
-                        </span>
-                    )}
-                    {time}
-                </div>
+                <EmptyResultState
+                    kind={emptyKind}
+                    affectedRows={entry.result.affected_rows}
+                    columnCount={entry.result.columns.length}
+                    executionTime={entry.executionTime}
+                    timingTooltip={timingTooltip}
+                    compact
+                />
             );
         }
-
         return (
-            <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-2 text-center px-4">
-                <CheckCircle2 size={32} className="text-accent-success" />
-                <p className="text-sm font-medium text-primary">{t('editor.queryExecuted')}</p>
-                <p className="text-xs text-secondary flex items-center gap-2">
-                    {affected > 0 && <span>{t('editor.rowsAffected', {count: affected})}</span>}
-                    {time}
-                </p>
+            <div className="flex-1 min-h-0 flex flex-col">
+                {entry.result.columns.length > 0 && (
+                    <div className="p-2 bg-elevated text-xs text-secondary border-b border-default shrink-0">
+                        <span className="whitespace-nowrap">
+                            {t('editor.rowsRetrieved', {count: 0})}
+                            <span className="text-muted">
+                                {' · '}
+                                {t('editor.columnsCount', {
+                                    count: entry.result.columns.length,
+                                })}
+                            </span>
+                            {entry.executionTime !== null && (
+                                <span
+                                    className="text-muted ml-2 font-mono"
+                                    title={timingTooltip}
+                                >
+                                    ({formatDuration(entry.executionTime)})
+                                </span>
+                            )}
+                        </span>
+                    </div>
+                )}
+                <EmptyResultState
+                    kind={emptyKind}
+                    affectedRows={entry.result.affected_rows}
+                    columnCount={entry.result.columns.length}
+                    executionTime={entry.executionTime}
+                    timingTooltip={timingTooltip}
+                />
             </div>
         );
     }
