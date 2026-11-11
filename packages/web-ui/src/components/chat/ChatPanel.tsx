@@ -50,7 +50,15 @@ import type {ChatMessage, ChatToolCall} from '@/types/chat';
 import {useCopyFeedback} from '@/hooks/useCopyFeedback';
 import {isDbaChatProviderSupported} from '@/utils/dbaChat';
 
-function ToolCallRow({call, evidenceId}: {call: ChatToolCall; evidenceId: string}) {
+function ToolCallRow({
+    call,
+    evidenceId,
+    highlighted,
+}: {
+    call: ChatToolCall;
+    evidenceId: string;
+    highlighted: boolean;
+}) {
     const {t} = useTranslation();
     const [open, setOpen] = useState(false);
     const result = useMemo(() => formatToolResult(call.result), [call.result]);
@@ -63,7 +71,12 @@ function ToolCallRow({call, evidenceId}: {call: ChatToolCall; evidenceId: string
     const statusLabel = t(`chat.toolStatus.${call.status}`, {defaultValue: call.status});
 
     return (
-        <div className="border border-default rounded-md bg-surface-secondary/60">
+        <div
+            id={`chat-evidence-${evidenceId}`}
+            className={`rounded-md border bg-surface-secondary/60 transition-colors ${
+                highlighted ? 'border-focus bg-accent-info/10' : 'border-default'
+            }`}
+        >
             <button
                 type="button"
                 onClick={() => setOpen((value) => !value)}
@@ -106,7 +119,15 @@ function ToolCallRow({call, evidenceId}: {call: ChatToolCall; evidenceId: string
     );
 }
 
-function ToolActivity({calls, evidenceStart}: {calls: ChatToolCall[]; evidenceStart: number}) {
+function ToolActivity({
+    calls,
+    evidenceStart,
+    highlightedEvidence,
+}: {
+    calls: ChatToolCall[];
+    evidenceStart: number;
+    highlightedEvidence: string | null;
+}) {
     const {t} = useTranslation();
     const summary = useMemo(() => summarizeChatTools(calls), [calls]);
     const [open, setOpen] = useState(() =>
@@ -116,16 +137,24 @@ function ToolActivity({calls, evidenceStart}: {calls: ChatToolCall[]; evidenceSt
                 (call.status !== 'ok' && call.status !== 'limitReached'),
         ),
     );
+    const highlightedNumber = highlightedEvidence
+        ? Number(highlightedEvidence.slice(1))
+        : null;
+    const containsHighlighted =
+        highlightedNumber !== null &&
+        highlightedNumber >= evidenceStart &&
+        highlightedNumber < evidenceStart + calls.length;
+    const expanded = open || containsHighlighted;
 
     return (
         <div className="rounded-md border border-default bg-surface-secondary/40">
             <button
                 type="button"
                 onClick={() => setOpen((value) => !value)}
-                aria-expanded={open}
+                aria-expanded={expanded}
                 className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
             >
-                {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                 <Wrench size={12} className="text-muted" aria-hidden="true" />
                 <span className="min-w-0 flex-1 truncate text-secondary">
                     {t('chat.toolActivity', {
@@ -147,13 +176,14 @@ function ToolActivity({calls, evidenceStart}: {calls: ChatToolCall[]; evidenceSt
                 )}
                 <span className="shrink-0 tabular-nums text-muted">{summary.durationMs} ms</span>
             </button>
-            {open && (
+            {expanded && (
                 <div className="space-y-1 border-t border-default p-1.5">
                     {calls.map((call, index) => (
                         <ToolCallRow
                             key={call.id}
                             call={call}
                             evidenceId={`E${evidenceStart + index}`}
+                            highlighted={highlightedEvidence === `E${evidenceStart + index}`}
                         />
                     ))}
                 </div>
@@ -242,10 +272,16 @@ function MessageBubble({
     message,
     onInsert,
     evidenceStart,
+    evidenceCount,
+    highlightedEvidence,
+    onEvidenceClick,
 }: {
     message: ChatMessage;
     onInsert: (sql: string) => void;
     evidenceStart: number;
+    evidenceCount: number;
+    highlightedEvidence: string | null;
+    onEvidenceClick: (evidenceId: string) => void;
 }) {
     const {t} = useTranslation();
     const sql = message.role === 'assistant' ? extractSqlBlock(message.content) : null;
@@ -268,9 +304,17 @@ function MessageBubble({
 
     return (
         <div className="max-w-full space-y-2">
-            <ChatMarkdown content={message.content} />
+            <ChatMarkdown
+                content={message.content}
+                evidenceCount={evidenceCount}
+                onEvidenceClick={onEvidenceClick}
+            />
             {message.toolCalls && message.toolCalls.length > 0 && (
-                <ToolActivity calls={message.toolCalls} evidenceStart={evidenceStart} />
+                <ToolActivity
+                    calls={message.toolCalls}
+                    evidenceStart={evidenceStart}
+                    highlightedEvidence={highlightedEvidence}
+                />
             )}
             <div className="flex items-center gap-3">
                 <button
@@ -347,6 +391,8 @@ export function ChatPanel() {
     const [input, setInput] = useState('');
     const [showSessions, setShowSessions] = useState(false);
     const [showJumpToLatest, setShowJumpToLatest] = useState(false);
+    const [highlightedEvidence, setHighlightedEvidence] = useState<string | null>(null);
+    const evidenceHighlightTimer = useRef<number | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
     const followsLatest = useRef(true);
 
@@ -378,6 +424,34 @@ export function ChatPanel() {
 
     const messages = useMemo(() => session?.messages ?? [], [session?.messages]);
     const evidenceIndex = useMemo(() => buildChatEvidenceIndex(messages), [messages]);
+    const evidenceCount = evidenceIndex.next - 1 + (stream?.tools.length ?? 0);
+
+    const focusEvidence = useCallback((evidenceId: string) => {
+        setHighlightedEvidence(evidenceId);
+        if (evidenceHighlightTimer.current !== null) {
+            window.clearTimeout(evidenceHighlightTimer.current);
+        }
+        window.requestAnimationFrame(() => {
+            window.requestAnimationFrame(() => {
+                const target = document.getElementById(`chat-evidence-${evidenceId}`);
+                target?.scrollIntoView({behavior: 'smooth', block: 'center'});
+                target?.querySelector<HTMLButtonElement>('button')?.focus({preventScroll: true});
+            });
+        });
+        evidenceHighlightTimer.current = window.setTimeout(
+            () => setHighlightedEvidence(null),
+            2500,
+        );
+    }, []);
+
+    useEffect(
+        () => () => {
+            if (evidenceHighlightTimer.current !== null) {
+                window.clearTimeout(evidenceHighlightTimer.current);
+            }
+        },
+        [],
+    );
 
     useEffect(() => {
         const node = scrollRef.current;
@@ -690,12 +764,19 @@ export function ChatPanel() {
                                         message={message}
                                         onInsert={insertSql}
                                         evidenceStart={evidenceIndex.starts[message.id] ?? 1}
+                                        evidenceCount={evidenceCount}
+                                        highlightedEvidence={highlightedEvidence}
+                                        onEvidenceClick={focusEvidence}
                                     />
                                 ))}
                             {stream && (
                                 <div className="max-w-full space-y-2">
                                     {stream.text ? (
-                                        <ChatMarkdown content={stream.text} />
+                                        <ChatMarkdown
+                                            content={stream.text}
+                                            evidenceCount={evidenceCount}
+                                            onEvidenceClick={focusEvidence}
+                                        />
                                     ) : stream.failed ? null : (
                                         <div className="flex items-center gap-2 text-xs text-muted">
                                             <Loader2 size={12} className="animate-spin" />
@@ -708,6 +789,7 @@ export function ChatPanel() {
                                         <ToolActivity
                                             calls={stream.tools}
                                             evidenceStart={evidenceIndex.next}
+                                            highlightedEvidence={highlightedEvidence}
                                         />
                                     )}
                                     {stream.batchProgress && (

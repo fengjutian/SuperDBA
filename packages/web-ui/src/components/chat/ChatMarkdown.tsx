@@ -1,5 +1,6 @@
 import Markdown, {type Components} from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import {linkChatEvidenceReferences} from '@/utils/chat';
 
 /**
  * GitHub-flavoured Markdown (tables, strikethrough, task lists, autolinks) is
@@ -39,30 +40,61 @@ const STYLES = [
     '[&_input]:mr-1 [&_input]:align-middle',
 ].join(' ');
 
-const COMPONENTS: Components = {
+const BASE_COMPONENTS: Components = {
     // A wide table must scroll inside the panel instead of widening the transcript.
     table: ({children}) => (
         <div className="my-2 overflow-x-auto rounded-md border border-default">
             <table>{children}</table>
         </div>
     ),
-    a: ({href, children}) => (
-        <a
-            href={href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-accent underline underline-offset-2 hover:text-primary"
-        >
-            {children}
-        </a>
-    ),
 };
 
-export function ChatMarkdown({content}: {content: string}) {
+export function ChatMarkdown({
+    content,
+    evidenceCount = 0,
+    onEvidenceClick,
+}: {
+    content: string;
+    evidenceCount?: number;
+    onEvidenceClick?: (evidenceId: string) => void;
+}) {
+    const linkedContent = linkChatEvidenceReferences(content, evidenceCount);
+    const components: Components = {
+        ...BASE_COMPONENTS,
+        a: ({href, children}) => {
+            const match = href?.match(/^#chat-evidence-(E\d+)$/);
+            if (match) {
+                const evidenceId = match[1];
+                return (
+                    <a
+                        href={href}
+                        onClick={(event) => {
+                            event.preventDefault();
+                            onEvidenceClick?.(evidenceId);
+                        }}
+                        className="rounded bg-accent-info/10 px-1 font-mono text-xs font-medium text-accent-info no-underline hover:bg-accent-info/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                    >
+                        {children}
+                    </a>
+                );
+            }
+            return (
+                <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-accent underline underline-offset-2 hover:text-primary"
+                >
+                    {children}
+                </a>
+            );
+        },
+    };
+
     return (
         <div className={STYLES}>
-            <Markdown remarkPlugins={[remarkGfm]} components={COMPONENTS}>
-                {content}
+            <Markdown remarkPlugins={[remarkGfm]} components={components}>
+                {linkedContent}
             </Markdown>
         </div>
     );

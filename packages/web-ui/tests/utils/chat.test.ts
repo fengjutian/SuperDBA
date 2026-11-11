@@ -8,6 +8,7 @@ import {
     summarizeChatTools,
     isDuplicateLiveChatFailure,
     buildChatEvidenceIndex,
+    linkChatEvidenceReferences,
     shouldSubmitChat,
 } from '@/utils/chat';
 
@@ -415,6 +416,23 @@ describe('chat utils', () => {
                 starts: {m1: 1, m2: 3},
                 next: 4,
             });
+        });
+
+        it('links only available evidence references outside code', () => {
+            expect(
+                linkChatEvidenceReferences(
+                    'Use [E1], not [E3]. `literal [E2]`\n```sql\nSELECT \'[E2]\'\n```',
+                    2,
+                ),
+            ).toBe(
+                'Use [E1](#chat-evidence-E1), not [E3]. `literal [E2]`\n```sql\nSELECT \'[E2]\'\n```',
+            );
+        });
+
+        it('does not rewrite an existing evidence link', () => {
+            expect(linkChatEvidenceReferences('[E1](https://example.com)', 1)).toBe(
+                '[E1](https://example.com)',
+            );
         });
     });
 });

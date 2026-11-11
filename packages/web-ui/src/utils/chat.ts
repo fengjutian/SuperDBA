@@ -166,6 +166,26 @@ export function isDuplicateLiveChatFailure(message: ChatMessage, error: string |
     );
 }
 
+/**
+ * Turns valid model citations such as `[E3]` into local Markdown links while
+ * leaving code examples and references to evidence that does not exist alone.
+ */
+export function linkChatEvidenceReferences(content: string, evidenceCount: number): string {
+    const code = /(```[\s\S]*?```|~~~[\s\S]*?~~~|`[^`\n]*`)/g;
+    return content
+        .split(code)
+        .map((segment, index) => {
+            if (index % 2 === 1) return segment;
+            return segment.replace(/\[E(\d+)\](?!\()/g, (reference, value: string) => {
+                const evidenceNumber = Number(value);
+                return evidenceNumber >= 1 && evidenceNumber <= evidenceCount
+                    ? `[E${evidenceNumber}](#chat-evidence-E${evidenceNumber})`
+                    : reference;
+            });
+        })
+        .join('');
+}
+
 /** Draft of the assistant message currently streaming in. */
 export interface ChatStreamState {
     requestId: string;
