@@ -477,7 +477,9 @@ async fn build_and_connect_mysql_pool(
             })??;
     }
 
-    let max_connections = if connection_id
+    let max_connections = if params
+        .connection_id
+        .as_deref()
         .is_some_and(|id| id.ends_with(crate::drivers::common::AI_POOL_SUFFIX))
     {
         1
