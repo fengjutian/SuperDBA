@@ -23,6 +23,12 @@ interface ChatAttempt {
     message: string;
     context: ChatContext;
     sessionId?: string;
+    summarizeOnly: boolean;
+}
+
+interface ChatSendOptions {
+    sessionId?: string | null;
+    summarizeOnly?: boolean;
 }
 
 /**
@@ -165,16 +171,17 @@ export function useChatAgent() {
         async (
             message: string,
             context: ChatContext,
-            sessionIdOverride?: string | null,
+            options?: ChatSendOptions,
         ): Promise<boolean> => {
             const trimmed = message.trim();
             if (!trimmed || sending) return false;
             const sessionId =
-                sessionIdOverride === undefined ? session?.id : (sessionIdOverride ?? undefined);
+                options?.sessionId === undefined ? session?.id : (options.sessionId ?? undefined);
             const attempt: ChatAttempt = {
                 message: trimmed,
                 context: {...context},
                 ...(sessionId ? {sessionId} : {}),
+                summarizeOnly: options?.summarizeOnly === true,
             };
             lastAttempt.current = attempt;
             const provider = settings.dbaChatProvider ?? settings.aiProvider;
@@ -201,6 +208,7 @@ export function useChatAgent() {
                 message: trimmed,
                 context: attempt.context,
                 autoContinue: settings.dbaChatAutoContinue === true,
+                summarizeOnly: attempt.summarizeOnly,
                 temperature: settings.dbaChatTemperature ?? 0,
                 maxOutputTokens: settings.dbaChatMaxOutputTokens ?? 2048,
             };
@@ -243,7 +251,10 @@ export function useChatAgent() {
     const retryLast = useCallback(async (): Promise<boolean> => {
         const attempt = lastAttempt.current;
         if (!attempt) return false;
-        return send(attempt.message, attempt.context, attempt.sessionId ?? null);
+        return send(attempt.message, attempt.context, {
+            sessionId: attempt.sessionId ?? null,
+            summarizeOnly: attempt.summarizeOnly,
+        });
     }, [send]);
 
     /**

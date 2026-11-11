@@ -52,11 +52,20 @@ fn chat_turn_query_budget_stops_repeated_database_scans() {
 
 #[test]
 fn query_budget_requests_a_staged_summary_and_user_confirmation() {
-    let prompt = turn_request_prompt("system", false, true);
+    let prompt = turn_request_prompt("system", false, true, false);
 
     assert!(prompt.contains("Provide a staged summary"));
     assert!(prompt.contains("Do not call tools"));
     assert!(prompt.contains("continue analysis"));
+}
+
+#[test]
+fn evidence_only_summary_disables_tools_and_unsupported_claims() {
+    let prompt = turn_request_prompt("system", false, false, true);
+
+    assert!(prompt.contains("Evidence-only summary requested"));
+    assert!(prompt.contains("Do not call tools"));
+    assert!(prompt.contains("Do not claim that uninspected data was checked"));
 }
 
 fn message(role: ChatRole, content: &str) -> ChatMessage {

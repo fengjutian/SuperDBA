@@ -159,6 +159,9 @@ pub struct ChatSendRequest {
     pub context: ChatContext,
     #[serde(default)]
     pub auto_continue: bool,
+    /// Produces a conclusion from persisted evidence without exposing database tools.
+    #[serde(default)]
+    pub summarize_only: bool,
     #[serde(default)]
     pub temperature: Option<f32>,
     #[serde(default)]

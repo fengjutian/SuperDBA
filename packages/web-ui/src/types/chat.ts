@@ -81,6 +81,8 @@ export interface ChatSendRequest {
     message: string;
     context: ChatContext;
     autoContinue?: boolean;
+    /** Summarize persisted evidence without allowing additional database tools. */
+    summarizeOnly?: boolean;
     temperature?: number;
     maxOutputTokens?: number;
 }

@@ -3020,6 +3020,8 @@
     "productionStrict": "Production strict",
     "continueInvestigation": "Continue investigation",
     "continuePrompt": "Continue the investigation from the saved evidence. Cover the remaining scope and cite new evidence.",
+    "summarizeEvidence": "Summarize current evidence",
+    "summarizePrompt": "Summarize the evidence collected so far. Do not run more database tools. Separate verified findings from unfinished scope.",
     "contextPlan": "execution plan",
     "openSettings": "Open DBA chat settings",
     "attachedContext": "Context attached to the next question",

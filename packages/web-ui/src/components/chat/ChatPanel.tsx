@@ -731,15 +731,28 @@ export function ChatPanel() {
                                 </div>
                             )}
                             {continuationRequired && !sending && (
-                                <button
-                                    type="button"
-                                    onClick={() =>
-                                        void send(t('chat.continuePrompt'), buildContext())
-                                    }
-                                    className="self-start rounded-md bg-accent-primary px-3 py-1.5 text-xs font-medium text-inverse hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-                                >
-                                    {t('chat.continueInvestigation')}
-                                </button>
+                                <div className="flex flex-wrap gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            void send(t('chat.continuePrompt'), buildContext())
+                                        }
+                                        className="rounded-md bg-accent-primary px-3 py-1.5 text-xs font-medium text-inverse hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                                    >
+                                        {t('chat.continueInvestigation')}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            void send(t('chat.summarizePrompt'), buildContext(), {
+                                                summarizeOnly: true,
+                                            })
+                                        }
+                                        className="rounded-md border border-default bg-surface-secondary px-3 py-1.5 text-xs font-medium text-secondary hover:bg-surface-hover hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                                    >
+                                        {t('chat.summarizeEvidence')}
+                                    </button>
+                                </div>
                             )}
                         </div>
                     )}

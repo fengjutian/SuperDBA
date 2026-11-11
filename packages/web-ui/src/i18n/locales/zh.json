@@ -2851,6 +2851,8 @@
     "productionStrict": "生产严格模式",
     "continueInvestigation": "继续调查",
     "continuePrompt": "从已保存的证据继续调查，覆盖剩余范围并引用新增证据。",
+    "summarizeEvidence": "总结现有证据",
+    "summarizePrompt": "总结目前已收集的证据，不要继续运行数据库工具，并区分已验证结论和未完成范围。",
     "contextPlan": "执行计划",
     "openSettings": "打开 DBA 对话设置",
     "attachedContext": "下一次提问将附带的上下文",

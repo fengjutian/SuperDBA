@@ -115,9 +115,13 @@ pub async fn run_turn(
 
         let final_report = round + 1 == limits.total_calls;
         let query_budget_reached = database_query_count >= MAX_DATABASE_QUERIES_PER_TURN;
-        let must_summarize = final_report || query_budget_reached;
-        let request_prompt =
-            turn_request_prompt(&system_prompt, final_report, query_budget_reached);
+        let must_summarize = request.summarize_only || final_report || query_budget_reached;
+        let request_prompt = turn_request_prompt(
+            &system_prompt,
+            final_report,
+            query_budget_reached,
+            request.summarize_only,
+        );
         let model_messages = messages_for_model(&session.messages, limits.calls_per_batch);
         let request_tools = if must_summarize {
             &[]
@@ -327,7 +331,13 @@ pub(crate) fn turn_request_prompt(
     system_prompt: &str,
     final_report: bool,
     query_budget_reached: bool,
+    summarize_only: bool,
 ) -> String {
+    if summarize_only {
+        return format!(
+            "{system_prompt}\nEvidence-only summary requested:\n- Do not call tools.\n- Use only evidence already present in the conversation.\n- Summarize verified findings, completed coverage, important caveats, and unfinished scope.\n- Do not claim that uninspected data was checked."
+        );
+    }
     if query_budget_reached {
         return format!(
             "{system_prompt}\nQuery budget reached:\n- Do not call tools.\n- Provide a staged summary of completed coverage and evidence-backed findings.\n- Clearly identify unfinished scope and avoid unsupported conclusions.\n- Ask the user to confirm by replying \"continue analysis\" before running more database queries."
