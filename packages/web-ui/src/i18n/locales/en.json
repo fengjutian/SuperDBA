@@ -3016,7 +3016,7 @@
   "chat": {
     "statusMode": "Mode: {{mode}}",
     "statusModel": "Model: {{model}}",
-    "statusBudget": "Remaining: {{count}}",
+    "statusBudget": "Model calls remaining: {{count}}",
     "productionStrict": "Production strict",
     "continueInvestigation": "Continue investigation",
     "continuePrompt": "Continue the investigation from the saved evidence. Cover the remaining scope and cite new evidence.",
@@ -3077,6 +3077,7 @@
     },
     "toolActivity": "{{count}} tool calls · {{completed}} completed",
     "toolIssues": "{{count}} issues",
+    "jumpToLatest": "Latest message",
     "error": {
       "authentication": "The AI provider rejected the credentials. Check the API key and try again.",
       "rateLimit": "The AI provider is busy or the request limit was reached. Try again shortly.",

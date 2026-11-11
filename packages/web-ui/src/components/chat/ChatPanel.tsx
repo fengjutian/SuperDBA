@@ -19,6 +19,7 @@ import {
     Database,
     Code2,
     Table2,
+    ArrowDown,
 } from 'lucide-react';
 import {useNavigate} from 'react-router-dom';
 import {useChatAgent} from '@/hooks/useChat';
@@ -332,6 +333,7 @@ export function ChatPanel() {
 
     const [input, setInput] = useState('');
     const [showSessions, setShowSessions] = useState(false);
+    const [showJumpToLatest, setShowJumpToLatest] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
     const followsLatest = useRef(true);
 
@@ -625,105 +627,131 @@ export function ChatPanel() {
                 </div>
             )}
 
-            <div
-                ref={scrollRef}
-                onScroll={(event) => {
-                    const node = event.currentTarget;
-                    followsLatest.current =
-                        node.scrollHeight - node.scrollTop - node.clientHeight < 48;
-                }}
-                className="flex-1 min-h-0 overflow-y-auto px-3 py-3"
-            >
-                {messages.length === 0 && !stream ? (
-                    <div className="h-full flex flex-col items-center justify-center text-center gap-3 px-2">
-                        <Sparkles size={20} className="text-accent" />
-                        <p className="text-sm text-primary">
-                            {t('chat.emptyTitle', {defaultValue: 'Ask about this database'})}
-                        </p>
-                        <p className="text-xs text-muted max-w-[240px]">
-                            {t('chat.emptyHint', {
-                                defaultValue:
-                                    'The assistant inspects the schema with read-only tools and shows every query it runs.',
-                            })}
-                        </p>
-                        {starterPrompts.map((prompt) => (
-                            <button
-                                key={prompt}
-                                type="button"
-                                onClick={() => setInput(prompt)}
-                                className="text-xs text-left border border-default rounded px-2 py-1.5 hover:bg-surface-hover text-secondary w-full"
-                            >
-                                {prompt}
-                            </button>
-                        ))}
-                    </div>
-                ) : (
-                    <div className="flex flex-col gap-3">
-                        {messages
-                            .filter((message) => message.role !== 'system')
-                            .map((message) => (
-                                <MessageBubble
-                                    key={message.id}
-                                    message={message}
-                                    onInsert={insertSql}
-                                />
+            <div className="relative flex-1 min-h-0">
+                <div
+                    ref={scrollRef}
+                    onScroll={(event) => {
+                        const node = event.currentTarget;
+                        const nearBottom =
+                            node.scrollHeight - node.scrollTop - node.clientHeight < 48;
+                        followsLatest.current = nearBottom;
+                        setShowJumpToLatest(!nearBottom);
+                    }}
+                    className="h-full overflow-y-auto px-3 py-3"
+                >
+                    {messages.length === 0 && !stream ? (
+                        <div className="h-full flex flex-col items-center justify-center text-center gap-3 px-2">
+                            <Sparkles size={20} className="text-accent" />
+                            <p className="text-sm text-primary">
+                                {t('chat.emptyTitle', {defaultValue: 'Ask about this database'})}
+                            </p>
+                            <p className="text-xs text-muted max-w-[240px]">
+                                {t('chat.emptyHint', {
+                                    defaultValue:
+                                        'The assistant inspects the schema with read-only tools and shows every query it runs.',
+                                })}
+                            </p>
+                            {starterPrompts.map((prompt) => (
+                                <button
+                                    key={prompt}
+                                    type="button"
+                                    onClick={() => setInput(prompt)}
+                                    className="text-xs text-left border border-default rounded px-2 py-1.5 hover:bg-surface-hover text-secondary w-full"
+                                >
+                                    {prompt}
+                                </button>
                             ))}
-                        {stream && (
-                            <div className="max-w-full space-y-2">
-                                {stream.text ? (
-                                    <ChatMarkdown content={stream.text} />
-                                ) : stream.failed ? null : (
-                                    <div className="flex items-center gap-2 text-xs text-muted">
-                                        <Loader2 size={12} className="animate-spin" />
-                                        {t('chat.working', {defaultValue: 'Gathering evidence…'})}
-                                    </div>
-                                )}
-                                {stream.tools.length > 0 && <ToolActivity calls={stream.tools} />}
-                                {stream.batchProgress && (
-                                    <div className="rounded border border-accent-info/40 bg-accent-info/10 px-2 py-1 text-[11px] text-accent-info">
-                                        {t('chat.batchProgress', {
-                                            defaultValue:
-                                                'Batch {{completedBatch}}/{{totalBatches}} complete - {{completedCalls}}/{{totalCalls}} model calls',
-                                            ...stream.batchProgress,
-                                        })}
-                                    </div>
-                                )}
-                                {stream.awaitingApproval && (
-                                    <div className="border border-accent-warning/40 bg-accent-warning/10 rounded px-2 py-1.5 space-y-1">
-                                        <div className="text-[11px] text-accent-warning">
-                                            {t('chat.waitingApproval', {
-                                                defaultValue: 'Waiting for approval: {{kind}}',
-                                                kind: stream.awaitingApproval.queryKind,
+                        </div>
+                    ) : (
+                        <div className="flex flex-col gap-3">
+                            {messages
+                                .filter((message) => message.role !== 'system')
+                                .map((message) => (
+                                    <MessageBubble
+                                        key={message.id}
+                                        message={message}
+                                        onInsert={insertSql}
+                                    />
+                                ))}
+                            {stream && (
+                                <div className="max-w-full space-y-2">
+                                    {stream.text ? (
+                                        <ChatMarkdown content={stream.text} />
+                                    ) : stream.failed ? null : (
+                                        <div className="flex items-center gap-2 text-xs text-muted">
+                                            <Loader2 size={12} className="animate-spin" />
+                                            {t('chat.working', {
+                                                defaultValue: 'Gathering evidence…',
                                             })}
                                         </div>
-                                        <pre className="text-[11px] font-mono bg-base border border-default rounded p-1.5 overflow-x-auto max-h-24">
-                                            {stream.awaitingApproval.query}
-                                        </pre>
-                                        <div className="text-[10px] text-muted">
-                                            {t('chat.approvalHint', {
+                                    )}
+                                    {stream.tools.length > 0 && (
+                                        <ToolActivity calls={stream.tools} />
+                                    )}
+                                    {stream.batchProgress && (
+                                        <div className="rounded border border-accent-info/40 bg-accent-info/10 px-2 py-1 text-[11px] text-accent-info">
+                                            {t('chat.batchProgress', {
                                                 defaultValue:
-                                                    'Approve or deny it in the approval dialog. The statement runs only after you approve.',
+                                                    'Batch {{completedBatch}}/{{totalBatches}} complete - {{completedCalls}}/{{totalCalls}} model calls',
+                                                ...stream.batchProgress,
                                             })}
                                         </div>
-                                    </div>
-                                )}
-                                {stream.cancelled && (
-                                    <div className="text-[11px] text-accent-warning">
-                                        {t('chat.cancelled', {defaultValue: 'Stopped.'})}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                        {continuationRequired && !sending && (
-                            <button
-                                type="button"
-                                onClick={() => void send(t('chat.continuePrompt'), buildContext())}
-                                className="self-start rounded-md bg-accent-primary px-3 py-1.5 text-xs font-medium text-inverse hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-                            >
-                                {t('chat.continueInvestigation')}
-                            </button>
-                        )}
-                    </div>
+                                    )}
+                                    {stream.awaitingApproval && (
+                                        <div className="border border-accent-warning/40 bg-accent-warning/10 rounded px-2 py-1.5 space-y-1">
+                                            <div className="text-[11px] text-accent-warning">
+                                                {t('chat.waitingApproval', {
+                                                    defaultValue: 'Waiting for approval: {{kind}}',
+                                                    kind: stream.awaitingApproval.queryKind,
+                                                })}
+                                            </div>
+                                            <pre className="text-[11px] font-mono bg-base border border-default rounded p-1.5 overflow-x-auto max-h-24">
+                                                {stream.awaitingApproval.query}
+                                            </pre>
+                                            <div className="text-[10px] text-muted">
+                                                {t('chat.approvalHint', {
+                                                    defaultValue:
+                                                        'Approve or deny it in the approval dialog. The statement runs only after you approve.',
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {stream.cancelled && (
+                                        <div className="text-[11px] text-accent-warning">
+                                            {t('chat.cancelled', {defaultValue: 'Stopped.'})}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                            {continuationRequired && !sending && (
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        void send(t('chat.continuePrompt'), buildContext())
+                                    }
+                                    className="self-start rounded-md bg-accent-primary px-3 py-1.5 text-xs font-medium text-inverse hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                                >
+                                    {t('chat.continueInvestigation')}
+                                </button>
+                            )}
+                        </div>
+                    )}
+                </div>
+                {showJumpToLatest && (
+                    <button
+                        type="button"
+                        onClick={() => {
+                            const node = scrollRef.current;
+                            if (!node) return;
+                            followsLatest.current = true;
+                            setShowJumpToLatest(false);
+                            node.scrollTo({top: node.scrollHeight, behavior: 'smooth'});
+                        }}
+                        className="absolute bottom-2 left-1/2 inline-flex -translate-x-1/2 items-center gap-1 rounded-full border border-default bg-elevated px-2.5 py-1 text-[11px] text-secondary shadow-md hover:bg-surface-hover hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                    >
+                        <ArrowDown size={12} aria-hidden="true" />
+                        {t('chat.jumpToLatest')}
+                    </button>
                 )}
             </div>
 
