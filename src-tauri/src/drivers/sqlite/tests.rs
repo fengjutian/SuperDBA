@@ -611,9 +611,10 @@ async fn read_only_query_does_not_leak_into_the_pool() {
         .await
         .expect("writes still work after a read-only query");
     }
-    let timeout = super::execute_query(&params, "PRAGMA busy_timeout", None, 1)
+    let isolated = crate::drivers::common::isolated_ai_params(&params);
+    let timeout = super::execute_query(&isolated, "PRAGMA busy_timeout", None, 1)
         .await
-        .expect("read busy_timeout after an AI query");
+        .expect("read busy_timeout from the isolated AI pool");
     assert_eq!(timeout.rows[0][0], serde_json::json!(0));
 }
 
