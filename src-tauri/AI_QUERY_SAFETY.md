@@ -53,7 +53,9 @@ No AI tool or transport may bypass this application-layer path.
 | --- | ---: |
 | Chat rows per query | 50 |
 | Serialized chat result | 2 MiB |
-| Query execution | 30 seconds |
+| Chat query execution | 10 seconds |
+| PostgreSQL/MySQL/MariaDB statement timeout | 10 seconds |
+| PostgreSQL/SQLite lock wait | 1 second |
 | Scheduler wait | 5 seconds |
 | Concurrent AI queries globally | 4 |
 | Concurrent AI queries per connection | 1 |
@@ -75,8 +77,8 @@ labels when those limits change.
 
 ## Planned strengthening
 
-1. Set dialect-aware database-side statement and lock timeouts inside read-only driver
-   transactions, in addition to task cancellation.
+1. Add a SQLite progress handler so CPU-bound local queries have a database-engine
+   deadline in addition to task cancellation; `busy_timeout` already bounds lock waits.
 2. Add bounded `EXPLAIN` preflight and reject plans whose estimated scan, sort, or join
    cost exceeds configured thresholds.
 3. Add connection-health and latency-based circuit breaking.

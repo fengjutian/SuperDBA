@@ -788,13 +788,17 @@ pub async fn execute_read_only_query(
         crate::drivers::common::DetachOnDrop::new(pool.acquire().await.map_err(|e| e.to_string())?);
     guard
         .conn()
-        .execute(sqlx::raw_sql("PRAGMA query_only = ON; BEGIN"))
+        .execute(sqlx::raw_sql(
+            "PRAGMA busy_timeout = 1000; PRAGMA query_only = ON; BEGIN",
+        ))
         .await
         .map_err(|e| e.to_string())?;
     let outcome = exec_on_sqlite_conn(guard.conn(), query, limit, page).await;
     match guard
         .conn()
-        .execute(sqlx::raw_sql("ROLLBACK; PRAGMA query_only = OFF"))
+        .execute(sqlx::raw_sql(
+            "ROLLBACK; PRAGMA query_only = OFF; PRAGMA busy_timeout = 0",
+        ))
         .await
     {
         Ok(_) => guard.release(),

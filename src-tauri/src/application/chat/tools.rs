@@ -26,7 +26,7 @@ pub const MAX_TABLES_PER_BATCH: usize = 5;
 pub const MAX_ROWS: u32 = 50;
 pub const DEFAULT_ROWS: u32 = 20;
 /// Keep automated diagnostics bounded even when the database has no statement timeout.
-pub const QUERY_TIMEOUT: Duration = ai_query_guard::QUERY_TIMEOUT;
+pub const QUERY_TIMEOUT: Duration = Duration::from_secs(10);
 /// How long a chat tool waits for the user to approve a write.
 const APPROVAL_TIMEOUT: Duration = Duration::from_secs(180);
 const APPROVAL_POLL_INTERVAL: Duration = Duration::from_millis(200);

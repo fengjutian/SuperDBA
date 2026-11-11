@@ -1597,6 +1597,25 @@ pub async fn execute_read_only_query(
     use sqlx::Executor as _;
     let mut guard =
         crate::drivers::common::DetachOnDrop::new(acquire_mysql_conn(params, schema).await?);
+    let timeout_reset = match guard
+        .conn()
+        .execute(sqlx::raw_sql("SET SESSION MAX_EXECUTION_TIME = 10000"))
+        .await
+    {
+        Ok(_) => "SET SESSION MAX_EXECUTION_TIME = 0",
+        Err(mysql_error) => match guard
+            .conn()
+            .execute(sqlx::raw_sql("SET SESSION max_statement_time = 10"))
+            .await
+        {
+            Ok(_) => "SET SESSION max_statement_time = 0",
+            Err(mariadb_error) => {
+                return Err(format!(
+                    "AI query blocked because this server cannot enforce a statement timeout: MySQL setting failed ({mysql_error}); MariaDB setting failed ({mariadb_error})"
+                ));
+            }
+        },
+    };
     guard
         .conn()
         .execute(sqlx::raw_sql("START TRANSACTION READ ONLY"))
@@ -1604,9 +1623,16 @@ pub async fn execute_read_only_query(
         .map_err(|e| e.to_string())?;
     let text = TextProto::protocol_only(force_text_protocol(params));
     let outcome = exec_on_mysql_conn(guard.conn(), query, limit, page, text).await;
-    match guard.conn().execute(sqlx::raw_sql("ROLLBACK")).await {
-        Ok(_) => guard.release(),
-        Err(e) => log::warn!("MySQL: ROLLBACK after a read-only query failed: {e}"),
+    let rollback = guard.conn().execute(sqlx::raw_sql("ROLLBACK")).await;
+    let reset_timeout = guard.conn().execute(sqlx::raw_sql(timeout_reset)).await;
+    match (rollback, reset_timeout) {
+        (Ok(_), Ok(_)) => guard.release(),
+        (Err(error), _) => {
+            log::warn!("MySQL: ROLLBACK after a read-only query failed: {error}")
+        }
+        (_, Err(error)) => {
+            log::warn!("MySQL: resetting the AI statement timeout failed: {error}")
+        }
     }
     outcome
 }

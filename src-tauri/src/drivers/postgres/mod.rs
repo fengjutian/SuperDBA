@@ -1224,7 +1224,11 @@ pub async fn execute_read_only_query(
     let mut in_flight = InFlight(Some(acquire_pg_client(params, schema).await?));
     let client = in_flight.0.as_ref().expect("set above");
     client
-        .batch_execute("BEGIN READ ONLY")
+        .batch_execute(
+            "BEGIN READ ONLY; \
+             SET LOCAL statement_timeout = '10s'; \
+             SET LOCAL lock_timeout = '1s'",
+        )
         .await
         .map_err(|e| format_pg_error(&e))?;
     let outcome = exec_on_pg_client(client, query, limit, page).await;
