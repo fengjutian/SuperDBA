@@ -1,5 +1,5 @@
-import {describe, it, expect} from 'vitest';
-import {render, screen} from '@testing-library/react';
+import {describe, it, expect, vi} from 'vitest';
+import {fireEvent, render, screen} from '@testing-library/react';
 import {ChatMarkdown} from '@/components/chat/ChatMarkdown';
 
 describe('ChatMarkdown', () => {
@@ -59,6 +59,24 @@ describe('ChatMarkdown', () => {
         expect(link).toHaveAttribute('href', 'https://example.com/docs');
         expect(link).toHaveAttribute('target', '_blank');
         expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    });
+
+    it('routes available evidence links inside the transcript', () => {
+        const onEvidenceClick = vi.fn();
+        render(
+            <ChatMarkdown
+                content={'Supported by [E2], but not [E3].'}
+                evidenceCount={2}
+                onEvidenceClick={onEvidenceClick}
+            />,
+        );
+
+        const evidence = screen.getByRole('link', {name: 'E2'});
+        expect(evidence).toHaveAttribute('href', '#chat-evidence-E2');
+        expect(evidence).not.toHaveAttribute('target');
+        fireEvent.click(evidence);
+        expect(onEvidenceClick).toHaveBeenCalledWith('E2');
+        expect(screen.queryByRole('link', {name: 'E3'})).not.toBeInTheDocument();
     });
 
     it('renders strikethrough and task list items', () => {
