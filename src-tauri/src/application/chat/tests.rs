@@ -1,6 +1,7 @@
 use super::agent::{
     batch_limits, bound_result, build_audit_event, is_batch_boundary, is_production_environment,
     messages_for_model, reserve_database_query_budget, system_prompt, tool_cache_key,
+    turn_request_prompt,
 };
 use super::provider::{self, ProviderToolCall};
 use super::store;
@@ -47,6 +48,15 @@ fn chat_turn_query_budget_stops_repeated_database_scans() {
     assert!(!reserve_database_query_budget("explain_query", &mut used));
     assert!(reserve_database_query_budget("describe_table", &mut used));
     assert_eq!(used, 12);
+}
+
+#[test]
+fn query_budget_requests_a_staged_summary_and_user_confirmation() {
+    let prompt = turn_request_prompt("system", false, true);
+
+    assert!(prompt.contains("Provide a staged summary"));
+    assert!(prompt.contains("Do not call tools"));
+    assert!(prompt.contains("continue analysis"));
 }
 
 fn message(role: ChatRole, content: &str) -> ChatMessage {

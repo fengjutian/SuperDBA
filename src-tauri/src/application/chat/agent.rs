@@ -114,15 +114,12 @@ pub async fn run_turn(
         }
 
         let final_report = round + 1 == limits.total_calls;
-        let request_prompt = if final_report {
-            format!(
-                "{system_prompt}\nFinal batch instruction:\n- Do not call tools. Summarize completed coverage, evidence-backed findings, unfinished scope, and the exact next step for a follow-up."
-            )
-        } else {
-            system_prompt.clone()
-        };
+        let query_budget_reached = database_query_count >= MAX_DATABASE_QUERIES_PER_TURN;
+        let must_summarize = final_report || query_budget_reached;
+        let request_prompt =
+            turn_request_prompt(&system_prompt, final_report, query_budget_reached);
         let model_messages = messages_for_model(&session.messages, limits.calls_per_batch);
-        let request_tools = if final_report {
+        let request_tools = if must_summarize {
             &[]
         } else {
             tool_schemas.as_slice()
@@ -190,7 +187,7 @@ pub async fn run_turn(
         };
 
         let index = push_assistant(&mut session, reply.content, reply.reasoning);
-        if reply.tool_calls.is_empty() {
+        if reply.tool_calls.is_empty() || must_summarize {
             if final_report {
                 emit_batch_progress(
                     runtime,
@@ -200,6 +197,11 @@ pub async fn run_turn(
                     limits,
                     limits.total_calls,
                 );
+            }
+            if query_budget_reached {
+                session.messages[index].notice = Some(format!(
+                    "Paused after {MAX_DATABASE_QUERIES_PER_TURN} database queries. Reply \"continue analysis\" to confirm another query round."
+                ));
             }
             persist(runtime, &session).await?;
             emit_finished(runtime, web_session_id, &request_id, &session.id);
@@ -321,6 +323,24 @@ pub(crate) fn batch_limits(config: &crate::config::AppConfig) -> BatchLimits {
         max_batches,
         total_calls: calls_per_batch * max_batches,
     }
+}
+
+pub(crate) fn turn_request_prompt(
+    system_prompt: &str,
+    final_report: bool,
+    query_budget_reached: bool,
+) -> String {
+    if query_budget_reached {
+        return format!(
+            "{system_prompt}\nQuery budget reached:\n- Do not call tools.\n- Provide a staged summary of completed coverage and evidence-backed findings.\n- Clearly identify unfinished scope and avoid unsupported conclusions.\n- Ask the user to confirm by replying \"continue analysis\" before running more database queries."
+        );
+    }
+    if final_report {
+        return format!(
+            "{system_prompt}\nFinal batch instruction:\n- Do not call tools. Summarize completed coverage, evidence-backed findings, unfinished scope, and the exact next step for a follow-up."
+        );
+    }
+    system_prompt.to_string()
 }
 
 pub(crate) fn is_batch_boundary(completed_calls: usize, calls_per_batch: usize) -> bool {
@@ -469,13 +489,15 @@ async fn execute_calls(
             } else {
                 !crate::application::tool_registry::is_read_only(&call.name)
             };
+        let query_budget_exhausted =
+            !strict_mode_denied && !reserve_database_query_budget(&call.name, database_query_count);
         let outcome = if strict_mode_denied {
             tools::ToolOutcome {
                 status: ChatToolStatus::Denied,
                 summary: "Denied by production strict mode (read-only tools only).".to_string(),
                 result: json!({"error": "Production strict mode blocks write operations.", "denied": true}),
             }
-        } else if !reserve_database_query_budget(&call.name, database_query_count) {
+        } else if query_budget_exhausted {
             tools::ToolOutcome {
                 status: ChatToolStatus::Denied,
                 summary: format!(
@@ -542,6 +564,9 @@ async fn execute_calls(
             }
         }
         executed.push(executed_call);
+        if query_budget_exhausted {
+            break;
+        }
     }
     executed
 }
