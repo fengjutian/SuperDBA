@@ -3079,6 +3079,12 @@
     },
     "toolActivity": "{{count}} tool calls · {{completed}} completed",
     "toolIssues": "{{count}} issues",
+    "evidenceWarning": {
+      "title": "Check these evidence references",
+      "missing": "{{ids}} does not exist in this conversation.",
+      "pending": "{{ids}} is still running and is not final evidence yet.",
+      "unreliable": "{{ids}} did not complete successfully and may not support the claim."
+    },
     "jumpToLatest": "Latest message",
     "error": {
       "authentication": "The AI provider rejected the credentials. Check the API key and try again.",

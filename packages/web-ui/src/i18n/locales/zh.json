@@ -2910,6 +2910,12 @@
     },
     "toolActivity": "{{count}} 次工具调用 · {{completed}} 次完成",
     "toolIssues": "{{count}} 个问题",
+    "evidenceWarning": {
+      "title": "请检查这些证据引用",
+      "missing": "{{ids}} 在当前对话中不存在。",
+      "pending": "{{ids}} 仍在执行，暂不能作为最终证据。",
+      "unreliable": "{{ids}} 未成功完成，可能无法支持相关结论。"
+    },
     "jumpToLatest": "回到最新消息",
     "error": {
       "authentication": "AI 服务商拒绝了凭据，请检查 API Key 后重试。",

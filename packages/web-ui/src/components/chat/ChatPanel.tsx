@@ -37,6 +37,8 @@ import {
     summarizeChatTools,
     isDuplicateLiveChatFailure,
     buildChatEvidenceIndex,
+    buildChatEvidenceStatuses,
+    validateChatEvidenceReferences,
 } from '@/utils/chat';
 import {
     buildLocalStarters,
@@ -268,6 +270,47 @@ function ChatErrorBanner({
     );
 }
 
+function EvidenceWarnings({
+    content,
+    statuses,
+    evidenceCount,
+}: {
+    content: string;
+    statuses: Record<string, ChatToolCall['status']>;
+    evidenceCount: number;
+}) {
+    const {t} = useTranslation();
+    const issues = useMemo(
+        () => validateChatEvidenceReferences(content, statuses, evidenceCount),
+        [content, evidenceCount, statuses],
+    );
+    if (issues.length === 0) return null;
+
+    const grouped = issues.reduce<Record<string, string[]>>((result, issue) => {
+        (result[issue.kind] ??= []).push(issue.evidenceId);
+        return result;
+    }, {});
+
+    return (
+        <div
+            role="status"
+            className="space-y-0.5 rounded-md border border-accent-warning/30 bg-accent-warning/10 px-2 py-1.5 text-[11px] text-accent-warning"
+        >
+            <div className="flex items-center gap-1 font-medium">
+                <AlertCircle size={12} aria-hidden="true" />
+                {t('chat.evidenceWarning.title')}
+            </div>
+            {(['missing', 'pending', 'unreliable'] as const).map((kind) =>
+                grouped[kind] ? (
+                    <div key={kind}>
+                        {t(`chat.evidenceWarning.${kind}`, {ids: grouped[kind].join(', ')})}
+                    </div>
+                ) : null,
+            )}
+        </div>
+    );
+}
+
 function MessageBubble({
     message,
     onInsert,
@@ -275,6 +318,7 @@ function MessageBubble({
     evidenceCount,
     highlightedEvidence,
     onEvidenceClick,
+    evidenceStatuses,
 }: {
     message: ChatMessage;
     onInsert: (sql: string) => void;
@@ -282,6 +326,7 @@ function MessageBubble({
     evidenceCount: number;
     highlightedEvidence: string | null;
     onEvidenceClick: (evidenceId: string) => void;
+    evidenceStatuses: Record<string, ChatToolCall['status']>;
 }) {
     const {t} = useTranslation();
     const sql = message.role === 'assistant' ? extractSqlBlock(message.content) : null;
@@ -308,6 +353,11 @@ function MessageBubble({
                 content={message.content}
                 evidenceCount={evidenceCount}
                 onEvidenceClick={onEvidenceClick}
+            />
+            <EvidenceWarnings
+                content={message.content}
+                statuses={evidenceStatuses}
+                evidenceCount={evidenceCount}
             />
             {message.toolCalls && message.toolCalls.length > 0 && (
                 <ToolActivity
@@ -425,6 +475,10 @@ export function ChatPanel() {
     const messages = useMemo(() => session?.messages ?? [], [session?.messages]);
     const evidenceIndex = useMemo(() => buildChatEvidenceIndex(messages), [messages]);
     const evidenceCount = evidenceIndex.next - 1 + (stream?.tools.length ?? 0);
+    const evidenceStatuses = useMemo(
+        () => buildChatEvidenceStatuses(messages, stream?.tools ?? []),
+        [messages, stream?.tools],
+    );
 
     const focusEvidence = useCallback((evidenceId: string) => {
         setHighlightedEvidence(evidenceId);
@@ -764,19 +818,31 @@ export function ChatPanel() {
                                         message={message}
                                         onInsert={insertSql}
                                         evidenceStart={evidenceIndex.starts[message.id] ?? 1}
-                                        evidenceCount={evidenceCount}
+                                        evidenceCount={
+                                            (evidenceIndex.starts[message.id] ?? 1) -
+                                            1 +
+                                            (message.toolCalls?.length ?? 0)
+                                        }
                                         highlightedEvidence={highlightedEvidence}
                                         onEvidenceClick={focusEvidence}
+                                        evidenceStatuses={evidenceStatuses}
                                     />
                                 ))}
                             {stream && (
                                 <div className="max-w-full space-y-2">
                                     {stream.text ? (
-                                        <ChatMarkdown
-                                            content={stream.text}
-                                            evidenceCount={evidenceCount}
-                                            onEvidenceClick={focusEvidence}
-                                        />
+                                        <>
+                                            <ChatMarkdown
+                                                content={stream.text}
+                                                evidenceCount={evidenceCount}
+                                                onEvidenceClick={focusEvidence}
+                                            />
+                                            <EvidenceWarnings
+                                                content={stream.text}
+                                                statuses={evidenceStatuses}
+                                                evidenceCount={evidenceCount}
+                                            />
+                                        </>
                                     ) : stream.failed ? null : (
                                         <div className="flex items-center gap-2 text-xs text-muted">
                                             <Loader2 size={12} className="animate-spin" />

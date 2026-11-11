@@ -9,6 +9,8 @@ import {
     isDuplicateLiveChatFailure,
     buildChatEvidenceIndex,
     linkChatEvidenceReferences,
+    buildChatEvidenceStatuses,
+    validateChatEvidenceReferences,
     shouldSubmitChat,
 } from '@/utils/chat';
 
@@ -432,6 +434,58 @@ describe('chat utils', () => {
         it('does not rewrite an existing evidence link', () => {
             expect(linkChatEvidenceReferences('[E1](https://example.com)', 1)).toBe(
                 '[E1](https://example.com)',
+            );
+        });
+
+        it('indexes persisted and live evidence statuses in display order', () => {
+            const messages = [
+                {
+                    id: 'm1',
+                    role: 'assistant' as const,
+                    content: '',
+                    createdAt: '2026-11-11T00:00:00Z',
+                    toolCalls: [
+                        {
+                            id: 'c1',
+                            name: 'a',
+                            arguments: {},
+                            status: 'ok' as const,
+                            durationMs: 1,
+                            summary: '',
+                        },
+                    ],
+                },
+            ];
+            const live = [
+                {
+                    id: 'c2',
+                    name: 'b',
+                    arguments: {},
+                    status: 'pending' as const,
+                    durationMs: 0,
+                    summary: '',
+                },
+            ];
+
+            expect(buildChatEvidenceStatuses(messages, live)).toEqual({E1: 'ok', E2: 'pending'});
+        });
+
+        it('reports missing, pending, and unsuccessful citations but ignores code', () => {
+            expect(
+                validateChatEvidenceReferences(
+                    'Valid [E1], waiting [E2], failed [E3], missing [E9], `code [E8]`.',
+                    {E1: 'ok', E2: 'pending', E3: 'error'},
+                ),
+            ).toEqual([
+                {evidenceId: 'E2', kind: 'pending'},
+                {evidenceId: 'E3', kind: 'unreliable'},
+                {evidenceId: 'E9', kind: 'missing'},
+            ]);
+        });
+
+        it('does not let later evidence validate an earlier answer', () => {
+            expect(validateChatEvidenceReferences('Premature [E2].', {E1: 'ok', E2: 'ok'}, 1)).toEqual(
+                [{evidenceId: 'E2', kind: 'missing'}],
             );
         });
     });

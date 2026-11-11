@@ -140,6 +140,61 @@ export function buildChatEvidenceIndex(messages: ChatMessage[]): ChatEvidenceInd
     return {starts, next};
 }
 
+/** Evidence state keyed by the same E-number shown in the transcript. */
+export function buildChatEvidenceStatuses(
+    messages: ChatMessage[],
+    liveCalls: ChatToolCall[] = [],
+): Record<string, ChatToolCall['status']> {
+    const statuses: Record<string, ChatToolCall['status']> = {};
+    let next = 1;
+    for (const message of messages) {
+        for (const call of message.toolCalls ?? []) {
+            statuses[`E${next}`] = call.status;
+            next += 1;
+        }
+    }
+    for (const call of liveCalls) {
+        statuses[`E${next}`] = call.status;
+        next += 1;
+    }
+    return statuses;
+}
+
+export type ChatEvidenceIssueKind = 'missing' | 'pending' | 'unreliable';
+
+export interface ChatEvidenceIssue {
+    evidenceId: string;
+    kind: ChatEvidenceIssueKind;
+}
+
+function textOutsideMarkdownCode(content: string): string[] {
+    const code = /(```[\s\S]*?```|~~~[\s\S]*?~~~|`[^`\n]*`)/g;
+    return content.split(code).filter((_, index) => index % 2 === 0);
+}
+
+/** Checks model citations against the evidence currently visible in the conversation. */
+export function validateChatEvidenceReferences(
+    content: string,
+    statuses: Record<string, ChatToolCall['status']>,
+    evidenceCount = Number.POSITIVE_INFINITY,
+): ChatEvidenceIssue[] {
+    const references = new Set<string>();
+    for (const segment of textOutsideMarkdownCode(content)) {
+        for (const match of segment.matchAll(/\[E(\d+)\]/g)) references.add(`E${Number(match[1])}`);
+    }
+
+    return [...references].flatMap((evidenceId) => {
+        if (Number(evidenceId.slice(1)) > evidenceCount) {
+            return [{evidenceId, kind: 'missing' as const}];
+        }
+        const status = statuses[evidenceId];
+        if (!status) return [{evidenceId, kind: 'missing' as const}];
+        if (status === 'pending') return [{evidenceId, kind: 'pending' as const}];
+        if (status !== 'ok') return [{evidenceId, kind: 'unreliable' as const}];
+        return [];
+    });
+}
+
 /** Builds the compact audit summary shown above a group of tool calls. */
 export function summarizeChatTools(calls: ChatToolCall[]): ChatToolSummary {
     return calls.reduce<ChatToolSummary>(
@@ -171,9 +226,8 @@ export function isDuplicateLiveChatFailure(message: ChatMessage, error: string |
  * leaving code examples and references to evidence that does not exist alone.
  */
 export function linkChatEvidenceReferences(content: string, evidenceCount: number): string {
-    const code = /(```[\s\S]*?```|~~~[\s\S]*?~~~|`[^`\n]*`)/g;
     return content
-        .split(code)
+        .split(/(```[\s\S]*?```|~~~[\s\S]*?~~~|`[^`\n]*`)/g)
         .map((segment, index) => {
             if (index % 2 === 1) return segment;
             return segment.replace(/\[E(\d+)\](?!\()/g, (reference, value: string) => {
