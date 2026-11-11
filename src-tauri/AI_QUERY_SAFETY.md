@@ -52,6 +52,16 @@ No AI tool or transport may bypass this application-layer path.
 9. Before an unapproved read executes, ChatDBA runs plain `EXPLAIN` with its own timeout.
    Unrecognized plans, Cartesian joins, extreme cardinality estimates, large full scans,
    and large scan-plus-sort plans fail closed.
+10. Each turn also has cumulative ceilings: 30 seconds of database tool time, 8 MiB
+    of tool results, eight query preflights, and two consecutive queries taking at
+    least eight seconds.
+11. Automated reads use a separate one-connection pool identity. Editor, backup, and
+    other user-initiated workloads retain their normal pools.
+12. Drivers explicitly declare database read-only, statement timeout, lock timeout,
+    safe cancellation, streaming byte limit, EXPLAIN preflight, and isolated-pool
+    support. The default declares nothing and disables unattended reads.
+13. SQLite installs an engine progress handler that interrupts CPU-bound statements
+    after ten seconds, independently of the outer Rust task timeout.
 
 ## Current limits
 
@@ -64,7 +74,11 @@ No AI tool or transport may bypass this application-layer path.
 | PostgreSQL/SQLite lock wait | 1 second |
 | Scheduler wait | 5 seconds |
 | Concurrent AI queries globally | 4 |
-| Concurrent AI queries per connection | 1 |
+| AI pool connections per connection | 1 |
+| Cumulative database tool time per turn | 30 seconds |
+| Cumulative tool-result bytes per turn | 8 MiB |
+| EXPLAIN preflights per turn | 8 |
+| Consecutive queries at least 8 seconds | 2 |
 | Consecutive failures before circuit opens | 3 |
 | Circuit cooldown | 30 seconds |
 
@@ -83,9 +97,7 @@ labels when those limits change.
 
 ## Planned strengthening
 
-1. Add a SQLite progress handler so CPU-bound local queries have a database-engine
-   deadline in addition to task cancellation; `busy_timeout` already bounds lock waits.
-2. Add connection-health and latency-based circuit breaking.
+1. Add connection-health and latency-based circuit breaking.
 4. Display the effective timeout, row cap, byte cap, read-only guarantee, and rejection
    reason in the tool-call card and audit export.
 5. Add fault-injection tests proving that timeout and cancellation discard connections
