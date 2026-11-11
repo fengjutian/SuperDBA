@@ -28,6 +28,61 @@ const MAX_SELECTED_SQL_CHARS: usize = 2000;
 const MAX_RESULT_PREVIEW_CHARS: usize = 2000;
 const MAX_PLAN_CHARS: usize = 3000;
 const MAX_DATABASE_QUERIES_PER_TURN: usize = 12;
+const MAX_DATABASE_TIME_MS_PER_TURN: u64 = 30_000;
+const MAX_DATABASE_BYTES_PER_TURN: usize = 8 * 1024 * 1024;
+const MAX_PREFLIGHTS_PER_TURN: usize = 8;
+const SLOW_QUERY_MS: u64 = 8_000;
+const MAX_CONSECUTIVE_SLOW_QUERIES: usize = 2;
+
+#[derive(Default)]
+pub(crate) struct TurnResourceBudget {
+    database_time_ms: u64,
+    result_bytes: usize,
+    preflights: usize,
+    consecutive_slow_queries: usize,
+}
+
+impl TurnResourceBudget {
+    fn rejection(&self, tool_name: &str) -> Option<&'static str> {
+        if self.database_time_ms >= MAX_DATABASE_TIME_MS_PER_TURN {
+            return Some("cumulative database time");
+        }
+        if self.result_bytes >= MAX_DATABASE_BYTES_PER_TURN {
+            return Some("cumulative result bytes");
+        }
+        if self.consecutive_slow_queries >= MAX_CONSECUTIVE_SLOW_QUERIES {
+            return Some("consecutive slow queries");
+        }
+        if tool_name == "run_query" && self.preflights >= MAX_PREFLIGHTS_PER_TURN {
+            return Some("EXPLAIN preflight count");
+        }
+        None
+    }
+
+    pub(crate) fn reserve(&mut self, tool_name: &str) -> Result<(), &'static str> {
+        if let Some(reason) = self.rejection(tool_name) {
+            return Err(reason);
+        }
+        if tool_name == "run_query" {
+            self.preflights += 1;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn record(&mut self, tool_name: &str, duration_ms: u64, result: &Value) {
+        self.database_time_ms = self.database_time_ms.saturating_add(duration_ms);
+        self.result_bytes = self
+            .result_bytes
+            .saturating_add(serde_json::to_vec(result).map_or(0, |bytes| bytes.len()));
+        if matches!(tool_name, "run_query" | "explain_query") {
+            if duration_ms >= SLOW_QUERY_MS {
+                self.consecutive_slow_queries += 1;
+            } else {
+                self.consecutive_slow_queries = 0;
+            }
+        }
+    }
+}
 
 pub async fn run_turn(
     runtime: &RuntimeContext,
@@ -102,6 +157,7 @@ pub async fn run_turn(
     );
     let mut tool_cache = HashMap::new();
     let mut database_query_count = 0;
+    let mut resource_budget = TurnResourceBudget::default();
 
     for round in 0..limits.total_calls {
         if is_cancelled(web_session_id, &request_id) {
@@ -221,6 +277,7 @@ pub async fn run_turn(
             &reply.tool_calls,
             &mut tool_cache,
             &mut database_query_count,
+            &mut resource_budget,
         )
         .await;
         session.messages[index].tool_calls = calls;
@@ -443,6 +500,7 @@ async fn execute_calls(
     calls: &[ProviderToolCall],
     cache: &mut HashMap<String, ChatToolCall>,
     database_query_count: &mut usize,
+    resource_budget: &mut TurnResourceBudget,
 ) -> Vec<ChatToolCall> {
     let mut executed = Vec::with_capacity(calls.len());
     let config = crate::application::persistence::load_config(runtime);
@@ -512,27 +570,35 @@ async fn execute_calls(
             };
         let query_budget_exhausted =
             !strict_mode_denied && !reserve_database_query_budget(&call.name, database_query_count);
+        let resource_limit = if strict_mode_denied || query_budget_exhausted {
+            None
+        } else {
+            resource_budget.reserve(&call.name).err()
+        };
         let outcome = if strict_mode_denied {
             tools::ToolOutcome {
                 status: ChatToolStatus::Denied,
                 summary: "Denied by production strict mode (read-only tools only).".to_string(),
                 result: json!({"error": "Production strict mode blocks write operations.", "denied": true}),
             }
-        } else if query_budget_exhausted {
+        } else if query_budget_exhausted || resource_limit.is_some() {
             tools::ToolOutcome {
                 status: ChatToolStatus::LimitReached,
-                summary: format!(
-                    "Stopped after {MAX_DATABASE_QUERIES_PER_TURN} queries in one turn to protect database stability. Ask a follow-up to continue."
+                summary: resource_limit.map_or_else(
+                    || format!("Stopped after {MAX_DATABASE_QUERIES_PER_TURN} queries in one turn to protect database stability. Ask a follow-up to continue."),
+                    |reason| format!("Stopped because the per-turn {reason} budget was reached. Ask a follow-up to continue."),
                 ),
                 result: json!({
                     "limitReached": true,
                     "queryLimit": MAX_DATABASE_QUERIES_PER_TURN,
+                    "resourceLimit": resource_limit,
                 }),
             }
         } else {
             tools::execute(&tool, &call.name, &call.arguments).await
         };
         let duration_ms = started.elapsed().as_millis() as u64;
+        resource_budget.record(&call.name, duration_ms, &outcome.result);
         if audit_enabled {
             let event = build_audit_event(chat_session_id, context, call, &outcome, duration_ms);
             if let Err(error) = crate::ai_activity::append_and_rotate_in(
@@ -583,7 +649,7 @@ async fn execute_calls(
             }
         }
         executed.push(executed_call);
-        if query_budget_exhausted {
+        if query_budget_exhausted || resource_limit.is_some() {
             break;
         }
     }

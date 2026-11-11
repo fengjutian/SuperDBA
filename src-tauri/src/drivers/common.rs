@@ -22,7 +22,9 @@ pub use query::{
     returns_result_set, returns_result_set_for, strip_leading_sql_comments,
     strip_leading_sql_comments_for, strip_limit_offset, transaction_effect, TransactionEffect,
 };
-pub use query_budget::{ResultByteBudget, AUTOMATED_MAX_RESULT_BYTES};
+pub use query_budget::{
+    isolated_ai_params, ResultByteBudget, AI_POOL_SUFFIX, AUTOMATED_MAX_RESULT_BYTES,
+};
 pub use routines::{
     generic_drop_routine_sql, generic_routine_call_sql, quote_qualified, render_sql_literal,
 };

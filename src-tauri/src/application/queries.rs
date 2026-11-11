@@ -275,6 +275,12 @@ pub async fn execute_query(
     let dropped = crate::sql_database_statements::dropped_database(&sanitized_query);
     let (driver, params) =
         driver_and_params(runtime, scope.session_id, &connection_id, database).await?;
+    if !driver.ai_query_safety().fully_bounded() {
+        return Err(format!(
+            "AI query execution is disabled because driver `{}` does not declare every required safety capability.",
+            driver.manifest().id
+        ));
+    }
     let _workload_permit = super::ai_query_guard::acquire_workload(&connection_id).await?;
 
     let effective_limit = response_limit(policy, limit);

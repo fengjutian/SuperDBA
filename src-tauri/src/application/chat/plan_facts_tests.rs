@@ -42,5 +42,7 @@ fn recognizes_sqlite_text_nested_inside_a_json_payload() {
 #[test]
 fn rejects_unrecognized_plans() {
     let facts = extract(&json!({"kind": "raw", "raw": {"payload": ""}}));
-    assert!(rejection_reason(&facts).unwrap().contains("could not be evaluated"));
+    assert!(rejection_reason(&facts)
+        .unwrap()
+        .contains("could not be evaluated"));
 }

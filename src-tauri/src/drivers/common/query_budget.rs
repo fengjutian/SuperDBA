@@ -1,8 +1,17 @@
+use crate::models::ConnectionParams;
 use serde::Serialize;
 
 /// Maximum serialized result materialized by an automated read. The
 /// application layer enforces the same ceiling again on the final envelope.
 pub const AUTOMATED_MAX_RESULT_BYTES: usize = 2 * 1024 * 1024;
+pub const AI_POOL_SUFFIX: &str = ":ai-query";
+
+pub fn isolated_ai_params(params: &ConnectionParams) -> ConnectionParams {
+    let mut isolated = params.clone();
+    let base = params.connection_id.as_deref().unwrap_or("anonymous");
+    isolated.connection_id = Some(format!("{base}{AI_POOL_SUFFIX}"));
+    isolated
+}
 
 /// Counts JSON bytes before rows are retained in memory.
 pub struct ResultByteBudget {

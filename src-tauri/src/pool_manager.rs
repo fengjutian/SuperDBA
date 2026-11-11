@@ -477,7 +477,15 @@ async fn build_and_connect_mysql_pool(
             })??;
     }
 
-    let mut pool_options = sqlx::mysql::MySqlPoolOptions::new().max_connections(10);
+    let max_connections = if connection_id
+        .is_some_and(|id| id.ends_with(crate::drivers::common::AI_POOL_SUFFIX))
+    {
+        1
+    } else {
+        10
+    };
+    let mut pool_options =
+        sqlx::mysql::MySqlPoolOptions::new().max_connections(max_connections);
     if let Some(script) = script {
         let script = script.to_owned();
         pool_options = pool_options.after_connect(move |conn, _meta| {
@@ -1090,8 +1098,14 @@ pub async fn get_postgres_pool_with_id(
         })??;
     }
 
-    let mut builder =
-        PgPool::builder(PgPoolManager::new(cfg, tls_connector)).max_size(postgres_pool_max_size());
+    let max_size = if connection_id
+        .is_some_and(|id| id.ends_with(crate::drivers::common::AI_POOL_SUFFIX))
+    {
+        1
+    } else {
+        postgres_pool_max_size()
+    };
+    let mut builder = PgPool::builder(PgPoolManager::new(cfg, tls_connector)).max_size(max_size);
     if let Some(script) = startup_script(params) {
         builder = builder.post_create(PgHook::async_fn(move |client, _metrics| {
             let script = script.clone();
@@ -1156,7 +1170,15 @@ pub async fn get_sqlite_pool_with_id(
         key
     );
     let options = build_sqlite_connectoptions(params);
-    let mut pool_options = sqlx::sqlite::SqlitePoolOptions::new().max_connections(5); // SQLite has lower concurrency needs
+    let max_connections = if connection_id
+        .is_some_and(|id| id.ends_with(crate::drivers::common::AI_POOL_SUFFIX))
+    {
+        1
+    } else {
+        5
+    };
+    let mut pool_options =
+        sqlx::sqlite::SqlitePoolOptions::new().max_connections(max_connections);
     if let Some(script) = startup_script(params) {
         let timeout = Duration::from_millis(SQLITE_STARTUP_SCRIPT_TIMEOUT_MS);
         tokio::time::timeout(timeout, run_sqlite_startup_script(&options, &script))

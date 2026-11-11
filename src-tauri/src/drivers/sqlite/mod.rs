@@ -797,9 +797,17 @@ pub async fn execute_read_only_query(
     page: u32,
 ) -> Result<QueryResult, String> {
     use sqlx::Executor as _;
-    let pool = get_sqlite_pool(params).await?;
+    let isolated = crate::drivers::common::isolated_ai_params(params);
+    let pool = get_sqlite_pool(&isolated).await?;
     let mut guard =
         crate::drivers::common::DetachOnDrop::new(pool.acquire().await.map_err(|e| e.to_string())?);
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    guard
+        .conn()
+        .lock_handle()
+        .await
+        .map_err(|error| error.to_string())?
+        .set_progress_handler(1_000, move || std::time::Instant::now() < deadline);
     guard
         .conn()
         .execute(sqlx::raw_sql(
@@ -815,15 +823,23 @@ pub async fn execute_read_only_query(
         Some(crate::drivers::common::AUTOMATED_MAX_RESULT_BYTES),
     )
     .await;
-    match guard
+    let reset = guard
         .conn()
         .execute(sqlx::raw_sql(
             "ROLLBACK; PRAGMA query_only = OFF; PRAGMA busy_timeout = 0",
         ))
+        .await;
+    let progress_reset = guard
+        .conn()
+        .lock_handle()
         .await
-    {
-        Ok(_) => guard.release(),
-        Err(e) => log::warn!("SQLite: resetting after a read-only query failed: {e}"),
+        .map(|mut handle| handle.set_progress_handler(0, || true));
+    match (reset, progress_reset) {
+        (Ok(_), Ok(_)) => guard.release(),
+        (Err(error), _) => {
+            log::warn!("SQLite: resetting after a read-only query failed: {error}")
+        }
+        (_, Err(error)) => log::warn!("SQLite: clearing the AI progress handler failed: {error}"),
     }
     outcome
 }
@@ -1124,6 +1140,17 @@ impl SqliteDriver {
 
 #[async_trait]
 impl DatabaseDriver for SqliteDriver {
+    fn ai_query_safety(&self) -> crate::drivers::driver_trait::AiQuerySafetyCapabilities {
+        crate::drivers::driver_trait::AiQuerySafetyCapabilities {
+            database_read_only: true,
+            statement_timeout: true,
+            lock_timeout: true,
+            safe_cancellation: true,
+            streaming_byte_limit: true,
+            explain_preflight: true,
+            isolated_pool: true,
+        }
+    }
     fn manifest(&self) -> &PluginManifest {
         &self.manifest
     }

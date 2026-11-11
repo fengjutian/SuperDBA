@@ -1614,8 +1614,10 @@ pub async fn execute_read_only_query(
     schema: Option<&str>,
 ) -> Result<QueryResult, String> {
     use sqlx::Executor as _;
-    let mut guard =
-        crate::drivers::common::DetachOnDrop::new(acquire_mysql_conn(params, schema).await?);
+    let isolated = crate::drivers::common::isolated_ai_params(params);
+    let mut guard = crate::drivers::common::DetachOnDrop::new(
+        acquire_mysql_conn(&isolated, schema).await?,
+    );
     let timeout_reset = match guard
         .conn()
         .execute(sqlx::raw_sql("SET SESSION MAX_EXECUTION_TIME = 10000"))
@@ -2073,6 +2075,17 @@ impl MysqlDriver {
 
 #[async_trait]
 impl DatabaseDriver for MysqlDriver {
+    fn ai_query_safety(&self) -> crate::drivers::driver_trait::AiQuerySafetyCapabilities {
+        crate::drivers::driver_trait::AiQuerySafetyCapabilities {
+            database_read_only: true,
+            statement_timeout: true,
+            lock_timeout: true,
+            safe_cancellation: true,
+            streaming_byte_limit: true,
+            explain_preflight: true,
+            isolated_pool: true,
+        }
+    }
     fn manifest(&self) -> &PluginManifest {
         &self.manifest
     }

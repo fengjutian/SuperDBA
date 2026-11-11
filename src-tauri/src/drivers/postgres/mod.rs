@@ -1235,7 +1235,8 @@ pub async fn execute_read_only_query(
     page: u32,
     schema: Option<&str>,
 ) -> Result<QueryResult, String> {
-    let mut in_flight = InFlight(Some(acquire_pg_client(params, schema).await?));
+    let isolated = crate::drivers::common::isolated_ai_params(params);
+    let mut in_flight = InFlight(Some(acquire_pg_client(&isolated, schema).await?));
     let client = in_flight.0.as_ref().expect("set above");
     client
         .batch_execute(
@@ -2246,6 +2247,17 @@ impl PostgresDriver {
 
 #[async_trait]
 impl DatabaseDriver for PostgresDriver {
+    fn ai_query_safety(&self) -> crate::drivers::driver_trait::AiQuerySafetyCapabilities {
+        crate::drivers::driver_trait::AiQuerySafetyCapabilities {
+            database_read_only: true,
+            statement_timeout: true,
+            lock_timeout: true,
+            safe_cancellation: true,
+            streaming_byte_limit: true,
+            explain_preflight: true,
+            isolated_pool: true,
+        }
+    }
     fn manifest(&self) -> &PluginManifest {
         &self.manifest
     }

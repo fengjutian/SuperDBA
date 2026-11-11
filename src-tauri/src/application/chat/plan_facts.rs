@@ -135,8 +135,8 @@ fn walk(
                     );
                 }
             }
-            facts.has_explicit_sort |= bool_at(map, "using_filesort")
-                || bool_at(map, "using_temporary_table");
+            facts.has_explicit_sort |=
+                bool_at(map, "using_filesort") || bool_at(map, "using_temporary_table");
             facts.has_cartesian_join |= string_at(map, "join_type")
                 .is_some_and(|kind| kind.eq_ignore_ascii_case("cartesian"));
             if string_at(map, "Index Name").is_some() || map.contains_key("key") {
@@ -155,7 +155,12 @@ fn u64_at(map: &serde_json::Map<String, Value>, key: &str) -> Option<u64> {
     map.get(key).and_then(|value| {
         value
             .as_u64()
-            .or_else(|| value.as_f64().filter(|value| *value >= 0.0).map(|value| value as u64))
+            .or_else(|| {
+                value
+                    .as_f64()
+                    .filter(|value| *value >= 0.0)
+                    .map(|value| value as u64)
+            })
             .or_else(|| value.as_str()?.parse().ok())
     })
 }
@@ -179,7 +184,10 @@ const SORT_SCAN_ROWS: u64 = 100_000;
 pub fn rejection_reason(facts: &PlanFacts) -> Option<String> {
     let rows = facts.max_estimated_rows.unwrap_or(0);
     if facts.node_count == 0 {
-        return Some("AI query blocked because the EXPLAIN output could not be evaluated safely.".to_string());
+        return Some(
+            "AI query blocked because the EXPLAIN output could not be evaluated safely."
+                .to_string(),
+        );
     }
     if facts.has_cartesian_join {
         return Some("AI query blocked because EXPLAIN detected a Cartesian join.".to_string());

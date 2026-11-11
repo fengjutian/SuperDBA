@@ -420,6 +420,13 @@ pub trait DatabaseDriver: Send + Sync {
 
     fn manifest(&self) -> &PluginManifest;
 
+    /// Safety guarantees available to unattended AI reads. The default is
+    /// deliberately fail-closed for plugin drivers until they implement and
+    /// test every required guarantee.
+    fn ai_query_safety(&self) -> AiQuerySafetyCapabilities {
+        AiQuerySafetyCapabilities::default()
+    }
+
     fn has_connection_metadata(&self) -> bool {
         false
     }
@@ -1229,4 +1236,27 @@ pub trait DatabaseDriver: Send + Sync {
         params: &ConnectionParams,
         schema: Option<&str>,
     ) -> Result<HashMap<String, Vec<ForeignKey>>, String>;
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct AiQuerySafetyCapabilities {
+    pub database_read_only: bool,
+    pub statement_timeout: bool,
+    pub lock_timeout: bool,
+    pub safe_cancellation: bool,
+    pub streaming_byte_limit: bool,
+    pub explain_preflight: bool,
+    pub isolated_pool: bool,
+}
+
+impl AiQuerySafetyCapabilities {
+    pub fn fully_bounded(self) -> bool {
+        self.database_read_only
+            && self.statement_timeout
+            && self.lock_timeout
+            && self.safe_cancellation
+            && self.streaming_byte_limit
+            && self.explain_preflight
+            && self.isolated_pool
+    }
 }
