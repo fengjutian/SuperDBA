@@ -157,12 +157,14 @@ function ToolActivity({calls}: {calls: ChatToolCall[]}) {
 function ChatErrorBanner({
     message,
     sending,
+    canRetry,
     onRetry,
     onSettings,
     onDismiss,
 }: {
     message: string;
     sending: boolean;
+    canRetry: boolean;
     onRetry: () => void;
     onSettings: () => void;
     onDismiss: () => void;
@@ -184,15 +186,17 @@ function ChatErrorBanner({
                 <div className="min-w-0 flex-1">
                     <div className="font-medium">{summary}</div>
                     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
-                        <button
-                            type="button"
-                            onClick={onRetry}
-                            disabled={sending}
-                            className="inline-flex items-center gap-1 hover:underline disabled:opacity-50"
-                        >
-                            <RotateCcw size={11} aria-hidden="true" />
-                            {t('common.retry')}
-                        </button>
+                        {canRetry && (
+                            <button
+                                type="button"
+                                onClick={onRetry}
+                                disabled={sending}
+                                className="inline-flex items-center gap-1 hover:underline disabled:opacity-50"
+                            >
+                                <RotateCcw size={11} aria-hidden="true" />
+                                {t('common.retry')}
+                            </button>
+                        )}
                         {kind === 'authentication' && (
                             <button type="button" onClick={onSettings} className="hover:underline">
                                 {t('chat.error.openSettings')}
@@ -320,6 +324,8 @@ export function ChatPanel() {
         error,
         continuationRequired,
         send,
+        retryLast,
+        canRetry,
         suggestStarters,
         cancel,
         openSession,
@@ -760,7 +766,12 @@ export function ChatPanel() {
                 <ChatErrorBanner
                     message={error}
                     sending={sending}
-                    onRetry={() => void submit()}
+                    canRetry={canRetry}
+                    onRetry={() => {
+                        void retryLast().then((succeeded) => {
+                            if (succeeded) setInput('');
+                        });
+                    }}
                     onSettings={() => navigate('/settings?tab=dba-chat')}
                     onDismiss={() => setError(null)}
                 />

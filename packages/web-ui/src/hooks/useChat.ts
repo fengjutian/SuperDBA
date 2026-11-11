@@ -19,6 +19,12 @@ function newRequestId(): string {
     return `chat-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+interface ChatAttempt {
+    message: string;
+    context: ChatContext;
+    sessionId?: string;
+}
+
 /**
  * Conversation state for the chat panel.
  *
@@ -41,6 +47,7 @@ export function useChatAgent() {
     const mounted = useRef(true);
     const activeRequest = useRef<string | null>(null);
     const failedRequest = useRef<string | null>(null);
+    const lastAttempt = useRef<ChatAttempt | null>(null);
 
     useEffect(() => {
         mounted.current = true;
@@ -89,6 +96,7 @@ export function useChatAgent() {
 
     const openSession = useCallback(
         async (sessionId: string) => {
+            lastAttempt.current = null;
             setError(null);
             setContinuationRequired(null);
             try {
@@ -119,6 +127,7 @@ export function useChatAgent() {
     }, [refreshSessions, openSession]);
 
     const startNewSession = useCallback(() => {
+        lastAttempt.current = null;
         setSession(null);
         setStream(null);
         setError(null);
@@ -153,9 +162,21 @@ export function useChatAgent() {
     }, [client]);
 
     const send = useCallback(
-        async (message: string, context: ChatContext): Promise<boolean> => {
+        async (
+            message: string,
+            context: ChatContext,
+            sessionIdOverride?: string | null,
+        ): Promise<boolean> => {
             const trimmed = message.trim();
             if (!trimmed || sending) return false;
+            const sessionId =
+                sessionIdOverride === undefined ? session?.id : (sessionIdOverride ?? undefined);
+            const attempt: ChatAttempt = {
+                message: trimmed,
+                context: {...context},
+                ...(sessionId ? {sessionId} : {}),
+            };
+            lastAttempt.current = attempt;
             const provider = settings.dbaChatProvider ?? settings.aiProvider;
             if (!isDbaChatProviderSupported(provider)) {
                 setError(
@@ -175,10 +196,10 @@ export function useChatAgent() {
             const request: ChatSendRequest = {
                 provider,
                 model: settings.dbaChatModel?.trim() || settings.aiModel || '',
-                ...(session?.id ? {sessionId: session.id} : {}),
+                ...(attempt.sessionId ? {sessionId: attempt.sessionId} : {}),
                 requestId,
                 message: trimmed,
-                context,
+                context: attempt.context,
                 autoContinue: settings.dbaChatAutoContinue === true,
                 temperature: settings.dbaChatTemperature ?? 0,
                 maxOutputTokens: settings.dbaChatMaxOutputTokens ?? 2048,
@@ -189,7 +210,9 @@ export function useChatAgent() {
                 setSession(updated);
                 setContinuationRequired(updated.continuation ?? null);
                 await refreshSessions();
-                return failedRequest.current !== requestId;
+                const succeeded = failedRequest.current !== requestId;
+                if (succeeded) lastAttempt.current = null;
+                return succeeded;
             } catch (err) {
                 if (mounted.current) setError(String(err));
                 return false;
@@ -216,6 +239,12 @@ export function useChatAgent() {
             settings.dbaChatMaxOutputTokens,
         ],
     );
+
+    const retryLast = useCallback(async (): Promise<boolean> => {
+        const attempt = lastAttempt.current;
+        if (!attempt) return false;
+        return send(attempt.message, attempt.context, attempt.sessionId ?? null);
+    }, [send]);
 
     /**
      * Model-written opening questions for an empty conversation.
@@ -260,6 +289,8 @@ export function useChatAgent() {
         error,
         continuationRequired,
         send,
+        retryLast,
+        canRetry: lastAttempt.current !== null,
         suggestStarters,
         cancel,
         openSession,
