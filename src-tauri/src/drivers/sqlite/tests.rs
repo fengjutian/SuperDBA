@@ -616,3 +616,16 @@ async fn read_only_query_does_not_leak_into_the_pool() {
         .expect("read busy_timeout after an AI query");
     assert_eq!(timeout.rows[0][0], serde_json::json!(0));
 }
+
+#[tokio::test]
+async fn read_only_query_interrupts_cpu_bound_sql() {
+    let (params, _file) = setup_test_db().await;
+    let query = "WITH RECURSIVE counter(value) AS (VALUES(0) UNION ALL SELECT value + 1 FROM counter) SELECT max(value) FROM counter";
+    let outcome = tokio::time::timeout(
+        std::time::Duration::from_secs(12),
+        super::execute_read_only_query(&params, query, None, 1),
+    )
+    .await
+    .expect("the SQLite progress handler must stop CPU-bound SQL");
+    assert!(outcome.is_err());
+}

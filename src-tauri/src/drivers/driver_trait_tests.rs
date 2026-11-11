@@ -1,4 +1,21 @@
-use crate::drivers::driver_trait::{deprecation_for_builtin, DriverCapabilities, PluginManifest};
+use crate::drivers::driver_trait::{
+    deprecation_for_builtin, AiQuerySafetyCapabilities, DriverCapabilities, PluginManifest,
+};
+
+#[test]
+fn ai_query_safety_defaults_to_fail_closed() {
+    assert!(!AiQuerySafetyCapabilities::default().fully_bounded());
+    assert!(AiQuerySafetyCapabilities {
+        database_read_only: true,
+        statement_timeout: true,
+        lock_timeout: true,
+        safe_cancellation: true,
+        streaming_byte_limit: true,
+        explain_preflight: true,
+        isolated_pool: true,
+    }
+    .fully_bounded());
+}
 
 #[test]
 fn manifest_accepts_both_connection_string_example_spellings() {

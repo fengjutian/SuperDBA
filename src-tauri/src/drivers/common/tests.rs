@@ -5,7 +5,7 @@ use super::{
     parse_unsafe_bigint_string, returns_result_set, returns_result_set_for,
     strip_leading_sql_comments, strip_leading_sql_comments_for, strip_limit_offset,
     transaction_effect, u64_to_json, TransactionEffect, DEFAULT_MAX_BLOB_SIZE, JS_MAX_SAFE_INTEGER,
-    JS_MAX_SAFE_UINT, MAX_BLOB_PREVIEW_SIZE, ResultByteBudget,
+    isolated_ai_params, JS_MAX_SAFE_UINT, MAX_BLOB_PREVIEW_SIZE, ResultByteBudget,
 };
 
 #[test]
@@ -14,6 +14,19 @@ fn result_byte_budget_rejects_the_value_that_crosses_the_limit() {
     assert!(budget.try_record(&vec!["abc"]).unwrap());
     assert!(!budget.try_record(&vec!["defgh"]).unwrap());
     assert!(budget.try_record(&1).unwrap());
+}
+
+#[test]
+fn ai_params_use_a_separate_pool_identity() {
+    let params = crate::models::ConnectionParams {
+        connection_id: Some("primary".to_string()),
+        ..Default::default()
+    };
+    assert_eq!(
+        isolated_ai_params(&params).connection_id.as_deref(),
+        Some("primary:ai-query")
+    );
+    assert_eq!(params.connection_id.as_deref(), Some("primary"));
 }
 
 #[test]
