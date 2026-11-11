@@ -653,6 +653,7 @@ async fn exec_on_sqlite_conn(
     query: &str,
     limit: Option<u32>,
     page: u32,
+    max_output_bytes: Option<usize>,
 ) -> Result<QueryResult, String> {
     // INSERT/UPDATE/DELETE/DDL go through `execute()` so we report the
     // real `rows_affected`.
@@ -704,6 +705,7 @@ async fn exec_on_sqlite_conn(
     let mut columns: Vec<String> = Vec::new();
     let mut json_rows = Vec::new();
     let mut truncated = false;
+    let mut byte_budget = max_output_bytes.map(crate::drivers::common::ResultByteBudget::new);
 
     use futures::stream::StreamExt;
 
@@ -715,6 +717,12 @@ async fn exec_on_sqlite_conn(
             Ok(row) => {
                 if columns.is_empty() {
                     columns = row.columns().iter().map(|c| c.name().to_string()).collect();
+                    if let Some(budget) = &mut byte_budget {
+                        if !budget.try_record(&columns)? {
+                            truncated = true;
+                            break;
+                        }
+                    }
                 }
 
                 if let Some(l) = manual_limit {
@@ -728,6 +736,12 @@ async fn exec_on_sqlite_conn(
                 for (i, _) in row.columns().iter().enumerate() {
                     let val = extract_value(&row, i, None);
                     json_row.push(val);
+                }
+                if let Some(budget) = &mut byte_budget {
+                    if !budget.try_record(&json_row)? {
+                        truncated = true;
+                        break;
+                    }
                 }
                 json_rows.push(json_row);
             }
@@ -745,7 +759,7 @@ async fn exec_on_sqlite_conn(
             json_rows.truncate(p.page_size as usize);
         }
         p.has_more = has_more;
-        truncated = has_more;
+        truncated |= has_more;
     }
 
     Ok(QueryResult {
@@ -768,7 +782,7 @@ pub async fn execute_query(
 ) -> Result<QueryResult, String> {
     let pool = get_sqlite_pool(params).await?;
     let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
-    exec_on_sqlite_conn(&mut *conn, query, limit, page).await
+    exec_on_sqlite_conn(&mut *conn, query, limit, page, None).await
 }
 
 /// Runs one statement with `PRAGMA query_only` on, inside a transaction that
@@ -793,7 +807,14 @@ pub async fn execute_read_only_query(
         ))
         .await
         .map_err(|e| e.to_string())?;
-    let outcome = exec_on_sqlite_conn(guard.conn(), query, limit, page).await;
+    let outcome = exec_on_sqlite_conn(
+        guard.conn(),
+        query,
+        limit,
+        page,
+        Some(crate::drivers::common::AUTOMATED_MAX_RESULT_BYTES),
+    )
+    .await;
     match guard
         .conn()
         .execute(sqlx::raw_sql(
@@ -823,7 +844,7 @@ pub async fn execute_batch(
     let mut results = Vec::with_capacity(queries.len());
     for (idx, q) in queries.iter().enumerate() {
         let start = std::time::Instant::now();
-        let outcome = exec_on_sqlite_conn(&mut *conn, q, limit, page).await;
+        let outcome = exec_on_sqlite_conn(&mut *conn, q, limit, page, None).await;
         let res = crate::models::BatchStatementResult::from_outcome(start, outcome);
         if let Some(cb) = on_progress {
             cb(idx, &res);

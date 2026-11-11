@@ -5,8 +5,16 @@ use super::{
     parse_unsafe_bigint_string, returns_result_set, returns_result_set_for,
     strip_leading_sql_comments, strip_leading_sql_comments_for, strip_limit_offset,
     transaction_effect, u64_to_json, TransactionEffect, DEFAULT_MAX_BLOB_SIZE, JS_MAX_SAFE_INTEGER,
-    JS_MAX_SAFE_UINT, MAX_BLOB_PREVIEW_SIZE,
+    JS_MAX_SAFE_UINT, MAX_BLOB_PREVIEW_SIZE, ResultByteBudget,
 };
+
+#[test]
+fn result_byte_budget_rejects_the_value_that_crosses_the_limit() {
+    let mut budget = ResultByteBudget::new(12);
+    assert!(budget.try_record(&vec!["abc"]).unwrap());
+    assert!(!budget.try_record(&vec!["defgh"]).unwrap());
+    assert!(budget.try_record(&1).unwrap());
+}
 
 #[test]
 fn test_decode_blob_wire_format_valid() {

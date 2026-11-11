@@ -1389,6 +1389,7 @@ async fn exec_on_mysql_conn(
     limit: Option<u32>,
     page: u32,
     text: TextProto,
+    max_output_bytes: Option<usize>,
 ) -> Result<QueryResult, String> {
     // Transaction-control statements have to bypass the prepared-statement
     // protocol — see `is_text_protocol_stmt`. They never return a result
@@ -1462,6 +1463,8 @@ async fn exec_on_mysql_conn(
     // instead of `fetch`: it interleaves rows with one `Either::Left`
     // terminator per result set, which the collector folds into discrete sets.
     let mut collector = multi_result::ResultSetCollector::new(manual_limit);
+    let mut byte_budget = max_output_bytes.map(crate::drivers::common::ResultByteBudget::new);
+    let mut byte_truncated = false;
 
     let start_instant = std::time::Instant::now();
     let mut server_time_ms: Option<f64> = None;
@@ -1485,9 +1488,15 @@ async fn exec_on_mysql_conn(
                 Ok(sqlx::Either::Right(row)) => {
                     // Initialize columns from the first row of each result set
                     if collector.needs_columns() {
-                        collector.set_columns(
-                            row.columns().iter().map(|c| c.name().to_string()).collect(),
-                        );
+                        let columns: Vec<String> =
+                            row.columns().iter().map(|c| c.name().to_string()).collect();
+                        if let Some(budget) = &mut byte_budget {
+                            if !budget.try_record(&columns)? {
+                                byte_truncated = true;
+                                break;
+                            }
+                        }
+                        collector.set_columns(columns);
                     }
 
                     // Past the row cap the row is still consumed (the stream
@@ -1502,6 +1511,13 @@ async fn exec_on_mysql_conn(
                     for (i, _) in row.columns().iter().enumerate() {
                         let val = extract_value(&row, i, None);
                         json_row.push(val);
+                    }
+                    if let Some(budget) = &mut byte_budget {
+                        if !budget.try_record(&json_row)? {
+                            collector.note_overflow_row();
+                            byte_truncated = true;
+                            break;
+                        }
                     }
                     collector.push_row(json_row);
                 }
@@ -1522,6 +1538,9 @@ async fn exec_on_mysql_conn(
     let columns = primary.columns;
     let mut json_rows = primary.rows;
     if primary.truncated {
+        truncated = true;
+    }
+    if byte_truncated {
         truncated = true;
     }
     let additional_results = if result_sets.is_empty() {
@@ -1551,7 +1570,7 @@ async fn exec_on_mysql_conn(
             json_rows.truncate(p.page_size as usize);
         }
         p.has_more = has_more;
-        truncated = has_more;
+        truncated |= has_more;
     }
 
     Ok(QueryResult {
@@ -1577,7 +1596,7 @@ pub async fn execute_query(
     // `exec_on_mysql_conn` runs the user's SQL verbatim (no literal inlining),
     // so it only needs to know whether to use the text protocol.
     let text = TextProto::protocol_only(force_text_protocol(params));
-    exec_on_mysql_conn(&mut *conn, query, limit, page, text).await
+    exec_on_mysql_conn(&mut *conn, query, limit, page, text, None).await
 }
 
 /// Runs one statement inside `START TRANSACTION READ ONLY` and always rolls
@@ -1622,7 +1641,15 @@ pub async fn execute_read_only_query(
         .await
         .map_err(|e| e.to_string())?;
     let text = TextProto::protocol_only(force_text_protocol(params));
-    let outcome = exec_on_mysql_conn(guard.conn(), query, limit, page, text).await;
+    let outcome = exec_on_mysql_conn(
+        guard.conn(),
+        query,
+        limit,
+        page,
+        text,
+        Some(crate::drivers::common::AUTOMATED_MAX_RESULT_BYTES),
+    )
+    .await;
     let rollback = guard.conn().execute(sqlx::raw_sql("ROLLBACK")).await;
     let reset_timeout = guard.conn().execute(sqlx::raw_sql(timeout_reset)).await;
     match (rollback, reset_timeout) {
@@ -1661,7 +1688,7 @@ pub async fn execute_batch(
     let mut results = Vec::with_capacity(queries.len());
     for (idx, q) in queries.iter().enumerate() {
         let start = std::time::Instant::now();
-        let outcome = exec_on_mysql_conn(&mut *conn, q, limit, page, text).await;
+        let outcome = exec_on_mysql_conn(&mut *conn, q, limit, page, text, None).await;
         let res = crate::models::BatchStatementResult::from_outcome(start, outcome);
         if let Some(cb) = on_progress {
             cb(idx, &res);

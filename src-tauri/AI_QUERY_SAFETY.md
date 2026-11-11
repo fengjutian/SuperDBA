@@ -38,7 +38,9 @@ No AI tool or transport may bypass this application-layer path.
 3. Every AI database workload holds global and per-connection scheduler permits.
    Waiting for capacity is bounded.
 4. A ChatDBA query returns at most 50 rows and at most 2 MiB of serialized result data.
-   A model-provided limit may lower these ceilings but cannot raise them.
+   Built-in drivers stop retaining rows as soon as the byte budget is exhausted; the
+   application checks the completed envelope again. A model-provided limit may lower
+   these ceilings but cannot raise them.
 5. Query execution is time-bounded. Timeout or user stop aborts the registered database
    task; a read-only driver must not return an in-flight connection to its pool.
 6. Repeated failures open a per-connection AI circuit breaker. Normal editor traffic

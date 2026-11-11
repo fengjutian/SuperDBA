@@ -1088,6 +1088,7 @@ async fn exec_on_pg_client(
     query: &str,
     limit: Option<u32>,
     page: u32,
+    max_output_bytes: Option<usize>,
 ) -> Result<QueryResult, String> {
     // Non-result-set statements (INSERT/UPDATE/DELETE/DDL) go through
     // `client.execute()` so we can return the real affected-row count.
@@ -1133,6 +1134,7 @@ async fn exec_on_pg_client(
 
     let mut columns: Vec<String> = Vec::new();
     let mut json_rows = Vec::new();
+    let mut byte_budget = max_output_bytes.map(crate::drivers::common::ResultByteBudget::new);
 
     use futures::stream::StreamExt;
 
@@ -1144,6 +1146,12 @@ async fn exec_on_pg_client(
             Ok(row) => {
                 if columns.is_empty() {
                     columns = row.columns().iter().map(|c| c.name().to_string()).collect();
+                    if let Some(budget) = &mut byte_budget {
+                        if !budget.try_record(&columns)? {
+                            truncated = true;
+                            break;
+                        }
+                    }
                 }
 
                 if let Some(l) = manual_limit {
@@ -1157,6 +1165,12 @@ async fn exec_on_pg_client(
                 for (i, _) in row.columns().iter().enumerate() {
                     let val = extract_value(&row, i, None);
                     json_row.push(val);
+                }
+                if let Some(budget) = &mut byte_budget {
+                    if !budget.try_record(&json_row)? {
+                        truncated = true;
+                        break;
+                    }
                 }
                 json_rows.push(json_row);
             }
@@ -1172,7 +1186,7 @@ async fn exec_on_pg_client(
         if has_more {
             json_rows.truncate(page_size as usize);
         }
-        truncated = has_more;
+        truncated |= has_more;
         Some(Pagination {
             page: p,
             page_size,
@@ -1231,7 +1245,14 @@ pub async fn execute_read_only_query(
         )
         .await
         .map_err(|e| format_pg_error(&e))?;
-    let outcome = exec_on_pg_client(client, query, limit, page).await;
+    let outcome = exec_on_pg_client(
+        client,
+        query,
+        limit,
+        page,
+        Some(crate::drivers::common::AUTOMATED_MAX_RESULT_BYTES),
+    )
+    .await;
     match client.batch_execute("ROLLBACK").await {
         // Back to the pool only once the transaction is closed.
         Ok(()) => drop(in_flight.0.take()),
@@ -1337,7 +1358,7 @@ pub async fn execute_batch_in_session(
     let mut results = Vec::with_capacity(queries.len());
     for (idx, q) in queries.iter().enumerate() {
         let start = std::time::Instant::now();
-        let outcome = exec_on_pg_client(client, q, limit, page).await;
+        let outcome = exec_on_pg_client(client, q, limit, page, None).await;
         in_transaction = crate::drivers::common::transaction_effect(q)
             .in_transaction_after(outcome.is_ok(), in_transaction);
         let res = crate::models::BatchStatementResult::from_outcome(start, outcome);
