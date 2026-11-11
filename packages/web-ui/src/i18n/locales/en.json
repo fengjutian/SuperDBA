@@ -3073,7 +3073,7 @@
       "ok": "completed",
       "error": "failed",
       "denied": "denied",
-      "paused": "paused"
+      "limitReached": "paused"
     },
     "toolActivity": "{{count}} tool calls · {{completed}} completed",
     "toolIssues": "{{count}} issues",

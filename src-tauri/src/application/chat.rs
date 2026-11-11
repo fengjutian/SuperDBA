@@ -42,6 +42,7 @@ pub enum ChatToolStatus {
     Ok,
     Error,
     Denied,
+    LimitReached,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

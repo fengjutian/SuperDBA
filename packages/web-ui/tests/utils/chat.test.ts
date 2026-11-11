@@ -5,8 +5,8 @@ import {
     formatToolResult,
     reduceChatStream,
     classifyChatError,
-    isQueryBudgetPause,
     summarizeChatTools,
+    isDuplicateLiveChatFailure,
     shouldSubmitChat,
 } from '@/utils/chat';
 
@@ -301,14 +301,13 @@ describe('chat utils', () => {
         it('treats a resumable query budget checkpoint as completed work', () => {
             const summary =
                 'Stopped after 12 queries in one turn to protect database stability. Ask a follow-up to continue.';
-            expect(isQueryBudgetPause(summary)).toBe(true);
             expect(
                 summarizeChatTools([
                     {
                         id: '1',
                         name: 'run_query',
                         arguments: {},
-                        status: 'denied',
+                        status: 'limitReached',
                         durationMs: 0,
                         summary,
                     },
@@ -338,6 +337,31 @@ describe('chat utils', () => {
                     },
                 ]),
             ).toEqual({total: 3, completed: 1, pending: 1, issues: 1, durationMs: 15});
+        });
+    });
+
+    describe('live failure deduplication', () => {
+        const failedMessage = {
+            id: 'message-1',
+            role: 'assistant' as const,
+            content: '',
+            createdAt: '2026-11-11T00:00:00Z',
+            toolCalls: [],
+            notice: '401 Unauthorized',
+        };
+
+        it('hides an empty persisted failure while the matching error card is visible', () => {
+            expect(isDuplicateLiveChatFailure(failedMessage, '401 Unauthorized')).toBe(true);
+        });
+
+        it('keeps historical notices and assistant content visible', () => {
+            expect(isDuplicateLiveChatFailure(failedMessage, null)).toBe(false);
+            expect(
+                isDuplicateLiveChatFailure(
+                    {...failedMessage, content: 'Partial answer'},
+                    '401 Unauthorized',
+                ),
+            ).toBe(false);
         });
     });
 });

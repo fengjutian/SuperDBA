@@ -7,7 +7,7 @@
 
 export type ChatRole = 'system' | 'user' | 'assistant' | 'tool';
 
-export type ChatToolStatus = 'pending' | 'ok' | 'error' | 'denied';
+export type ChatToolStatus = 'pending' | 'ok' | 'error' | 'denied' | 'limitReached';
 
 export interface ChatToolCall {
     id: string;

@@ -40,6 +40,7 @@ export function useChatAgent() {
     } | null>(null);
     const mounted = useRef(true);
     const activeRequest = useRef<string | null>(null);
+    const failedRequest = useRef<string | null>(null);
 
     useEffect(() => {
         mounted.current = true;
@@ -52,6 +53,7 @@ export function useChatAgent() {
         const active = activeRequest.current;
         if (!active || event.requestId !== active) return;
         if (event.type === 'failed') {
+            failedRequest.current = event.requestId;
             setError(event.message);
             setStream((current) => reduceChatStream(current, event));
             return;
@@ -165,6 +167,7 @@ export function useChatAgent() {
             }
             const requestId = newRequestId();
             activeRequest.current = requestId;
+            failedRequest.current = null;
             setSending(true);
             setError(null);
             setContinuationRequired(null);
@@ -186,7 +189,7 @@ export function useChatAgent() {
                 setSession(updated);
                 setContinuationRequired(updated.continuation ?? null);
                 await refreshSessions();
-                return true;
+                return failedRequest.current !== requestId;
             } catch (err) {
                 if (mounted.current) setError(String(err));
                 return false;
@@ -196,6 +199,7 @@ export function useChatAgent() {
                     setStream(null);
                 }
                 activeRequest.current = null;
+                if (failedRequest.current === requestId) failedRequest.current = null;
             }
         },
         [

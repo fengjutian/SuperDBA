@@ -168,8 +168,6 @@ pub async fn run_turn(
             Err(error) => {
                 let index = push_assistant(&mut session, String::new(), None);
                 session.messages[index].notice = Some(error.clone());
-                session.messages[index].content =
-                    format!("The assistant could not answer: {error}");
                 persist(runtime, &session).await?;
                 emit_chat_event(
                     runtime,
@@ -499,15 +497,13 @@ async fn execute_calls(
             }
         } else if query_budget_exhausted {
             tools::ToolOutcome {
-                status: ChatToolStatus::Denied,
+                status: ChatToolStatus::LimitReached,
                 summary: format!(
                     "Stopped after {MAX_DATABASE_QUERIES_PER_TURN} queries in one turn to protect database stability. Ask a follow-up to continue."
                 ),
                 result: json!({
-                    "error": format!(
-                        "The per-turn query budget of {MAX_DATABASE_QUERIES_PER_TURN} was reached."
-                    ),
-                    "denied": true,
+                    "limitReached": true,
+                    "queryLimit": MAX_DATABASE_QUERIES_PER_TURN,
                 }),
             }
         } else {
@@ -632,6 +628,7 @@ pub(super) fn build_audit_event(
         ChatToolStatus::Ok => "success",
         ChatToolStatus::Error => "error",
         ChatToolStatus::Denied => "denied",
+        ChatToolStatus::LimitReached => "success",
         ChatToolStatus::Pending => "pending",
     };
 
@@ -648,7 +645,11 @@ pub(super) fn build_audit_event(
         duration_ms,
         status: status.to_string(),
         rows,
-        error: (outcome.status != ChatToolStatus::Ok).then(|| outcome.summary.clone()),
+        error: (!matches!(
+            outcome.status,
+            ChatToolStatus::Ok | ChatToolStatus::LimitReached
+        ))
+        .then(|| outcome.summary.clone()),
         client_hint: Some("SuperDBA chat".to_string()),
         approval_id: None,
     }

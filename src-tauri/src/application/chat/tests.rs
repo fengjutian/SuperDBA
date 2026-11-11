@@ -259,6 +259,31 @@ fn chat_tool_audit_event_records_denials_as_errors() {
 }
 
 #[test]
+fn chat_tool_audit_event_treats_query_limits_as_checkpoints() {
+    let call = ProviderToolCall {
+        id: "call-limit".to_string(),
+        name: "run_query".to_string(),
+        arguments: json!({"sql": "SELECT 1"}),
+    };
+    let outcome = tools::ToolOutcome {
+        status: ChatToolStatus::LimitReached,
+        summary: "The per-turn query budget was reached.".to_string(),
+        result: json!({"limitReached": true, "queryLimit": 12}),
+    };
+    let event = build_audit_event("chat-session", &ChatContext::default(), &call, &outcome, 0);
+    assert_eq!(event.status, "success");
+    assert_eq!(event.error, None);
+}
+
+#[test]
+fn chat_tool_limit_status_serializes_for_frontend_contract() {
+    assert_eq!(
+        serde_json::to_value(ChatToolStatus::LimitReached).unwrap(),
+        json!("limitReached")
+    );
+}
+
+#[test]
 fn bounded_results_drop_rows_before_previews() {
     let rows = (0..10)
         .map(|_| json!(["aaaaaaaaaaaaaaaaaaaaaaaaaaaa"]))

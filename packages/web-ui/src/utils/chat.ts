@@ -1,6 +1,6 @@
 /** Pure helpers for the DBA chat panel. */
 
-import type {ChatEvent, ChatToolCall} from '@/types/chat';
+import type {ChatEvent, ChatMessage, ChatToolCall} from '@/types/chat';
 import type {QueryResult} from '@/types/editor';
 import {
     DEFAULT_MASKING_PATTERNS,
@@ -116,16 +116,6 @@ export function classifyChatError(message: string): ChatErrorKind {
     return 'unknown';
 }
 
-/** Identifies the safety-budget checkpoint that can be resumed by the user. */
-export function isQueryBudgetPause(summary: string): boolean {
-    const normalized = summary.toLowerCase();
-    return (
-        normalized.includes('stopped after') &&
-        normalized.includes('queries') &&
-        normalized.includes('continue')
-    );
-}
-
 export interface ChatToolSummary {
     total: number;
     completed: number;
@@ -141,12 +131,22 @@ export function summarizeChatTools(calls: ChatToolCall[]): ChatToolSummary {
             summary.total += 1;
             summary.durationMs += call.durationMs;
             if (call.status === 'pending') summary.pending += 1;
-            else if (call.status === 'ok' || isQueryBudgetPause(call.summary))
-                summary.completed += 1;
+            else if (call.status === 'ok' || call.status === 'limitReached') summary.completed += 1;
             else summary.issues += 1;
             return summary;
         },
         {total: 0, completed: 0, pending: 0, issues: 0, durationMs: 0},
+    );
+}
+
+/** Hides the persisted failure notice while the live error card shows the same failure. */
+export function isDuplicateLiveChatFailure(message: ChatMessage, error: string | null): boolean {
+    return (
+        error !== null &&
+        message.role === 'assistant' &&
+        message.content.length === 0 &&
+        (message.toolCalls?.length ?? 0) === 0 &&
+        message.notice === error
     );
 }
 

@@ -34,8 +34,8 @@ import {
     formatToolResult,
     shouldSubmitChat,
     classifyChatError,
-    isQueryBudgetPause,
     summarizeChatTools,
+    isDuplicateLiveChatFailure,
 } from '@/utils/chat';
 import {
     buildLocalStarters,
@@ -53,16 +53,13 @@ function ToolCallRow({call}: {call: ChatToolCall}) {
     const {t} = useTranslation();
     const [open, setOpen] = useState(false);
     const result = useMemo(() => formatToolResult(call.result), [call.result]);
-    const budgetPaused = call.status === 'denied' && isQueryBudgetPause(call.summary);
     const statusClass =
         call.status === 'ok'
             ? 'text-accent-success'
-            : call.status === 'denied' || budgetPaused
+            : call.status === 'denied' || call.status === 'limitReached'
               ? 'text-accent-warning'
               : 'text-accent-error';
-    const statusLabel = budgetPaused
-        ? t('chat.toolStatus.paused')
-        : t(`chat.toolStatus.${call.status}`, {defaultValue: call.status});
+    const statusLabel = t(`chat.toolStatus.${call.status}`, {defaultValue: call.status});
 
     return (
         <div className="border border-default rounded-md bg-surface-secondary/60">
@@ -112,7 +109,7 @@ function ToolActivity({calls}: {calls: ChatToolCall[]}) {
         calls.some(
             (call) =>
                 call.status === 'pending' ||
-                (call.status !== 'ok' && !isQueryBudgetPause(call.summary)),
+                (call.status !== 'ok' && call.status !== 'limitReached'),
         ),
     );
 
@@ -665,7 +662,11 @@ export function ChatPanel() {
                     ) : (
                         <div className="flex flex-col gap-3">
                             {messages
-                                .filter((message) => message.role !== 'system')
+                                .filter(
+                                    (message) =>
+                                        message.role !== 'system' &&
+                                        !isDuplicateLiveChatFailure(message, error),
+                                )
                                 .map((message) => (
                                     <MessageBubble
                                         key={message.id}
