@@ -611,4 +611,8 @@ async fn read_only_query_does_not_leak_into_the_pool() {
         .await
         .expect("writes still work after a read-only query");
     }
+    let timeout = super::execute_query(&params, "PRAGMA busy_timeout", None, 1)
+        .await
+        .expect("read busy_timeout after an AI query");
+    assert_eq!(timeout.rows[0][0], serde_json::json!(0));
 }
