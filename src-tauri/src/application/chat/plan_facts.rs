@@ -18,6 +18,9 @@ pub struct PlanFacts {
     pub full_scans: Vec<String>,
     pub uses_index: bool,
     pub has_row_estimates: bool,
+    pub max_estimated_rows: Option<u64>,
+    pub has_explicit_sort: bool,
+    pub has_cartesian_join: bool,
     pub hints: Vec<String>,
 }
 
@@ -88,6 +91,9 @@ fn walk(
                 if node_type.to_ascii_lowercase().contains("index") {
                     facts.uses_index = true;
                 }
+                let lower = node_type.to_ascii_lowercase();
+                facts.has_explicit_sort |= lower.contains("sort");
+                facts.has_cartesian_join |= lower.contains("cartesian");
             }
             if let Some(access_type) = access_type.as_deref() {
                 facts.node_count = facts.node_count.max(1);
@@ -115,6 +121,24 @@ fn walk(
             {
                 facts.has_row_estimates = true;
             }
+            for key in [
+                "Plan Rows",
+                "rows",
+                "rows_examined_per_scan",
+                "rows_produced_per_join",
+            ] {
+                if let Some(rows) = u64_at(map, key) {
+                    facts.max_estimated_rows = Some(
+                        facts
+                            .max_estimated_rows
+                            .map_or(rows, |current| current.max(rows)),
+                    );
+                }
+            }
+            facts.has_explicit_sort |= bool_at(map, "using_filesort")
+                || bool_at(map, "using_temporary_table");
+            facts.has_cartesian_join |= string_at(map, "join_type")
+                .is_some_and(|kind| kind.eq_ignore_ascii_case("cartesian"));
             if string_at(map, "Index Name").is_some() || map.contains_key("key") {
                 facts.uses_index = true;
             }
@@ -122,8 +146,61 @@ fn walk(
                 walk(child, facts, relations, full_scans, depth + 1);
             }
         }
+        Value::String(text) => scan_text(text, facts, relations, full_scans),
         _ => {}
     }
+}
+
+fn u64_at(map: &serde_json::Map<String, Value>, key: &str) -> Option<u64> {
+    map.get(key).and_then(|value| {
+        value
+            .as_u64()
+            .or_else(|| value.as_f64().filter(|value| *value >= 0.0).map(|value| value as u64))
+            .or_else(|| value.as_str()?.parse().ok())
+    })
+}
+
+fn bool_at(map: &serde_json::Map<String, Value>, key: &str) -> bool {
+    map.get(key).is_some_and(|value| {
+        value.as_bool().unwrap_or(false)
+            || value
+                .as_str()
+                .is_some_and(|value| value.eq_ignore_ascii_case("true"))
+    })
+}
+
+const LARGE_SCAN_ROWS: u64 = 1_000_000;
+const EXTREME_ROWS: u64 = 5_000_000;
+const SORT_SCAN_ROWS: u64 = 100_000;
+
+/// Returns a fail-closed rejection reason for plans likely to create an
+/// unbounded database workload. A scan without estimates is recorded for the
+/// model but is not rejected because SQLite plans do not expose cardinality.
+pub fn rejection_reason(facts: &PlanFacts) -> Option<String> {
+    let rows = facts.max_estimated_rows.unwrap_or(0);
+    if facts.node_count == 0 {
+        return Some("AI query blocked because the EXPLAIN output could not be evaluated safely.".to_string());
+    }
+    if facts.has_cartesian_join {
+        return Some("AI query blocked because EXPLAIN detected a Cartesian join.".to_string());
+    }
+    if rows >= EXTREME_ROWS {
+        return Some(format!(
+            "AI query blocked because EXPLAIN estimates up to {rows} rows. Narrow the filters or inspect a smaller range."
+        ));
+    }
+    if !facts.full_scans.is_empty() && rows >= LARGE_SCAN_ROWS {
+        return Some(format!(
+            "AI query blocked because EXPLAIN estimates a full scan of up to {rows} rows ({}). Narrow the filters or add an appropriate index.",
+            facts.full_scans.join(", ")
+        ));
+    }
+    if facts.has_explicit_sort && !facts.full_scans.is_empty() && rows >= SORT_SCAN_ROWS {
+        return Some(format!(
+            "AI query blocked because EXPLAIN estimates a scan and sort of up to {rows} rows. Narrow the query or use an indexed order."
+        ));
+    }
+    None
 }
 
 fn string_at(map: &serde_json::Map<String, Value>, key: &str) -> Option<String> {

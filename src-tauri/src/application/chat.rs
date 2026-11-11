@@ -8,6 +8,9 @@
 
 mod agent;
 mod plan_facts;
+#[cfg(test)]
+#[path = "chat/plan_facts_tests.rs"]
+mod plan_facts_tests;
 mod provider;
 mod starters;
 mod store;

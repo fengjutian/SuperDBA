@@ -6,7 +6,7 @@
 //! DDL statement is held behind the same file-queue approval gate the MCP
 //! server uses, and only runs after the user approves it.
 
-use super::{emit_chat_event, is_cancelled, ChatContext, ChatToolStatus};
+use super::{emit_chat_event, is_cancelled, plan_facts, ChatContext, ChatToolStatus};
 use crate::ai_approval::{self, PendingApproval};
 use crate::application::ai_query_guard;
 use crate::application::ai_sql_safety;
@@ -512,7 +512,63 @@ async fn run_query(
             }
         },
     };
+    if !approved {
+        if let Err(outcome) = preflight_read_query(tool, connection_id, &sql).await {
+            return outcome;
+        }
+    }
     execute_statement(tool, connection_id, sql, limit, approved).await
+}
+
+async fn preflight_read_query(
+    tool: &ToolCallContext<'_>,
+    connection_id: &str,
+    sql: &str,
+) -> Result<(), ToolOutcome> {
+    let _permit = acquire_query_permit(tool, connection_id).await?;
+    let scope = QueryRequestScope {
+        session_id: tool.web_session_id,
+        request_id: Some(tool.request_id),
+    };
+    let explain = queries::explain_query_plan(
+        tool.runtime,
+        &tool.state.query_cancellation,
+        scope,
+        connection_id.to_string(),
+        sql.to_string(),
+        false,
+        tool.chat.schema.clone(),
+        tool.chat.database.clone(),
+    );
+    tokio::pin!(explain);
+    let plan = tokio::select! {
+        result = &mut explain => result.map_err(|error| {
+            ToolOutcome::denied(format!(
+                "AI query blocked because the safety EXPLAIN failed: {error}"
+            ))
+        })?,
+        _ = tokio::time::sleep(ai_query_guard::PREFLIGHT_EXPLAIN_TIMEOUT) => {
+            return Err(ToolOutcome::denied(format!(
+                "AI query blocked because the safety EXPLAIN exceeded {} seconds.",
+                ai_query_guard::PREFLIGHT_EXPLAIN_TIMEOUT.as_secs()
+            )));
+        }
+        _ = wait_for_cancellation(tool) => {
+            return Err(ToolOutcome::denied(
+                "The user stopped the turn during the safety EXPLAIN."
+            ));
+        }
+    };
+    let value = serde_json::to_value(plan).map_err(|error| {
+        ToolOutcome::denied(format!(
+            "AI query blocked because the safety EXPLAIN could not be inspected: {error}"
+        ))
+    })?;
+    let facts = plan_facts::extract(&value);
+    if let Some(reason) = plan_facts::rejection_reason(&facts) {
+        return Err(ToolOutcome::denied(reason));
+    }
+    Ok(())
 }
 
 async fn execute_statement(

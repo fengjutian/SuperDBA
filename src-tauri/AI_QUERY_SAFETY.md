@@ -17,6 +17,7 @@ model tool call
   -> SQL safety validation
   -> single-statement classification
   -> approval gate for writes
+  -> bounded EXPLAIN risk preflight for unapproved reads
   -> global and per-connection scheduler
   -> database-enforced read-only execution for unapproved reads
   -> timeout and database-task cancellation
@@ -48,6 +49,9 @@ No AI tool or transport may bypass this application-layer path.
 7. ChatDBA does not expose `EXPLAIN ANALYZE`, because it executes the statement.
 8. Safety policy belongs in shared application services so desktop and web transports
    behave identically.
+9. Before an unapproved read executes, ChatDBA runs plain `EXPLAIN` with its own timeout.
+   Unrecognized plans, Cartesian joins, extreme cardinality estimates, large full scans,
+   and large scan-plus-sort plans fail closed.
 
 ## Current limits
 
@@ -81,9 +85,7 @@ labels when those limits change.
 
 1. Add a SQLite progress handler so CPU-bound local queries have a database-engine
    deadline in addition to task cancellation; `busy_timeout` already bounds lock waits.
-2. Add bounded `EXPLAIN` preflight and reject plans whose estimated scan, sort, or join
-   cost exceeds configured thresholds.
-3. Add connection-health and latency-based circuit breaking.
+2. Add connection-health and latency-based circuit breaking.
 4. Display the effective timeout, row cap, byte cap, read-only guarantee, and rejection
    reason in the tool-call card and audit export.
 5. Add fault-injection tests proving that timeout and cancellation discard connections

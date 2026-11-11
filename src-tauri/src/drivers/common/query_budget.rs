@@ -12,7 +12,7 @@ pub struct ResultByteBudget {
 
 impl ResultByteBudget {
     pub fn new(limit: usize) -> Self {
-        Self {limit, used: 0}
+        Self { limit, used: 0 }
     }
 
     /// Returns `false` without increasing the counter when the value would
