@@ -33,6 +33,8 @@ import {
     formatToolResult,
     shouldSubmitChat,
     classifyChatError,
+    isQueryBudgetPause,
+    summarizeChatTools,
 } from '@/utils/chat';
 import {
     buildLocalStarters,
@@ -50,13 +52,16 @@ function ToolCallRow({call}: {call: ChatToolCall}) {
     const {t} = useTranslation();
     const [open, setOpen] = useState(false);
     const result = useMemo(() => formatToolResult(call.result), [call.result]);
+    const budgetPaused = call.status === 'denied' && isQueryBudgetPause(call.summary);
     const statusClass =
         call.status === 'ok'
             ? 'text-accent-success'
-            : call.status === 'denied'
+            : call.status === 'denied' || budgetPaused
               ? 'text-accent-warning'
               : 'text-accent-error';
-    const statusLabel = t(`chat.toolStatus.${call.status}`, {defaultValue: call.status});
+    const statusLabel = budgetPaused
+        ? t('chat.toolStatus.paused')
+        : t(`chat.toolStatus.${call.status}`, {defaultValue: call.status});
 
     return (
         <div className="border border-default rounded-md bg-surface-secondary/60">
@@ -93,6 +98,58 @@ function ToolCallRow({call}: {call: ChatToolCall}) {
                             </pre>
                         </div>
                     )}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function ToolActivity({calls}: {calls: ChatToolCall[]}) {
+    const {t} = useTranslation();
+    const summary = useMemo(() => summarizeChatTools(calls), [calls]);
+    const [open, setOpen] = useState(() =>
+        calls.some(
+            (call) =>
+                call.status === 'pending' ||
+                (call.status !== 'ok' && !isQueryBudgetPause(call.summary)),
+        ),
+    );
+
+    return (
+        <div className="rounded-md border border-default bg-surface-secondary/40">
+            <button
+                type="button"
+                onClick={() => setOpen((value) => !value)}
+                aria-expanded={open}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+            >
+                {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                <Wrench size={12} className="text-muted" aria-hidden="true" />
+                <span className="min-w-0 flex-1 truncate text-secondary">
+                    {t('chat.toolActivity', {
+                        count: summary.total,
+                        completed: summary.completed,
+                        defaultValue: '{{count}} tool calls · {{completed}} completed',
+                    })}
+                </span>
+                {summary.pending > 0 && (
+                    <span className="text-accent-info">{t('chat.toolStatus.pending')}</span>
+                )}
+                {summary.issues > 0 && (
+                    <span className="text-accent-error">
+                        {t('chat.toolIssues', {
+                            count: summary.issues,
+                            defaultValue: '{{count}} issues',
+                        })}
+                    </span>
+                )}
+                <span className="shrink-0 tabular-nums text-muted">{summary.durationMs} ms</span>
+            </button>
+            {open && (
+                <div className="space-y-1 border-t border-default p-1.5">
+                    {calls.map((call) => (
+                        <ToolCallRow key={call.id} call={call} />
+                    ))}
                 </div>
             )}
         </div>
@@ -200,6 +257,9 @@ function MessageBubble({
     return (
         <div className="max-w-full space-y-2">
             <ChatMarkdown content={message.content} />
+            {message.toolCalls && message.toolCalls.length > 0 && (
+                <ToolActivity calls={message.toolCalls} />
+            )}
             <div className="flex items-center gap-3">
                 <button
                     type="button"
@@ -237,13 +297,6 @@ function MessageBubble({
                     </>
                 )}
             </div>
-            {message.toolCalls && message.toolCalls.length > 0 && (
-                <div className="space-y-1">
-                    {message.toolCalls.map((call) => (
-                        <ToolCallRow key={call.id} call={call} />
-                    ))}
-                </div>
-            )}
             {message.notice && (
                 <div className="text-[11px] text-accent-warning border border-accent-warning/30 rounded px-2 py-1">
                     {message.notice}
@@ -280,6 +333,7 @@ export function ChatPanel() {
     const [input, setInput] = useState('');
     const [showSessions, setShowSessions] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
+    const followsLatest = useRef(true);
 
     /**
      * Appends the SQL to the active editor tab, or opens a new console tab when
@@ -311,8 +365,8 @@ export function ChatPanel() {
 
     useEffect(() => {
         const node = scrollRef.current;
-        if (node) node.scrollTop = node.scrollHeight;
-    }, [messages.length, sending]);
+        if (node && followsLatest.current) node.scrollTop = node.scrollHeight;
+    }, [messages.length, sending, stream?.text, stream?.tools.length]);
 
     const connectionName = connections.find((entry) => entry.id === activeConnectionId)?.name;
     const activeConnection = connections.find((entry) => entry.id === activeConnectionId);
@@ -571,7 +625,15 @@ export function ChatPanel() {
                 </div>
             )}
 
-            <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-3 py-3">
+            <div
+                ref={scrollRef}
+                onScroll={(event) => {
+                    const node = event.currentTarget;
+                    followsLatest.current =
+                        node.scrollHeight - node.scrollTop - node.clientHeight < 48;
+                }}
+                className="flex-1 min-h-0 overflow-y-auto px-3 py-3"
+            >
                 {messages.length === 0 && !stream ? (
                     <div className="h-full flex flex-col items-center justify-center text-center gap-3 px-2">
                         <Sparkles size={20} className="text-accent" />
@@ -616,13 +678,7 @@ export function ChatPanel() {
                                         {t('chat.working', {defaultValue: 'Gathering evidence…'})}
                                     </div>
                                 )}
-                                {stream.tools.length > 0 && (
-                                    <div className="space-y-1">
-                                        {stream.tools.map((call) => (
-                                            <ToolCallRow key={call.id} call={call} />
-                                        ))}
-                                    </div>
-                                )}
+                                {stream.tools.length > 0 && <ToolActivity calls={stream.tools} />}
                                 {stream.batchProgress && (
                                     <div className="rounded border border-accent-info/40 bg-accent-info/10 px-2 py-1 text-[11px] text-accent-info">
                                         {t('chat.batchProgress', {

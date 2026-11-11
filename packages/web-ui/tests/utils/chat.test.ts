@@ -5,6 +5,8 @@ import {
     formatToolResult,
     reduceChatStream,
     classifyChatError,
+    isQueryBudgetPause,
+    summarizeChatTools,
     shouldSubmitChat,
 } from '@/utils/chat';
 
@@ -292,6 +294,50 @@ describe('chat utils', () => {
 
         it('keeps unknown failures generic', () => {
             expect(classifyChatError('provider returned an unexpected response')).toBe('unknown');
+        });
+    });
+
+    describe('tool activity summaries', () => {
+        it('treats a resumable query budget checkpoint as completed work', () => {
+            const summary =
+                'Stopped after 12 queries in one turn to protect database stability. Ask a follow-up to continue.';
+            expect(isQueryBudgetPause(summary)).toBe(true);
+            expect(
+                summarizeChatTools([
+                    {
+                        id: '1',
+                        name: 'run_query',
+                        arguments: {},
+                        status: 'denied',
+                        durationMs: 0,
+                        summary,
+                    },
+                ]),
+            ).toEqual({total: 1, completed: 1, pending: 0, issues: 0, durationMs: 0});
+        });
+
+        it('counts active, completed, and failed calls separately', () => {
+            expect(
+                summarizeChatTools([
+                    {id: '1', name: 'a', arguments: {}, status: 'ok', durationMs: 10, summary: ''},
+                    {
+                        id: '2',
+                        name: 'b',
+                        arguments: {},
+                        status: 'pending',
+                        durationMs: 0,
+                        summary: '',
+                    },
+                    {
+                        id: '3',
+                        name: 'c',
+                        arguments: {},
+                        status: 'error',
+                        durationMs: 5,
+                        summary: '',
+                    },
+                ]),
+            ).toEqual({total: 3, completed: 1, pending: 1, issues: 1, durationMs: 15});
         });
     });
 });

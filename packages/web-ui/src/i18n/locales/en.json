@@ -3072,8 +3072,11 @@
       "pending": "running",
       "ok": "completed",
       "error": "failed",
-      "denied": "denied"
+      "denied": "denied",
+      "paused": "paused"
     },
+    "toolActivity": "{{count}} tool calls · {{completed}} completed",
+    "toolIssues": "{{count}} issues",
     "error": {
       "authentication": "The AI provider rejected the credentials. Check the API key and try again.",
       "rateLimit": "The AI provider is busy or the request limit was reached. Try again shortly.",

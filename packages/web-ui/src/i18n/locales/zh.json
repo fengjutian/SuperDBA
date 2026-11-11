@@ -2903,8 +2903,11 @@
       "pending": "执行中",
       "ok": "已完成",
       "error": "失败",
-      "denied": "已拒绝"
+      "denied": "已拒绝",
+      "paused": "已暂停"
     },
+    "toolActivity": "{{count}} 次工具调用 · {{completed}} 次完成",
+    "toolIssues": "{{count}} 个问题",
     "error": {
       "authentication": "AI 服务商拒绝了凭据，请检查 API Key 后重试。",
       "rateLimit": "AI 服务商繁忙或已达到请求限额，请稍后重试。",

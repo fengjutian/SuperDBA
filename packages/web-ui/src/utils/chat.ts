@@ -116,6 +116,40 @@ export function classifyChatError(message: string): ChatErrorKind {
     return 'unknown';
 }
 
+/** Identifies the safety-budget checkpoint that can be resumed by the user. */
+export function isQueryBudgetPause(summary: string): boolean {
+    const normalized = summary.toLowerCase();
+    return (
+        normalized.includes('stopped after') &&
+        normalized.includes('queries') &&
+        normalized.includes('continue')
+    );
+}
+
+export interface ChatToolSummary {
+    total: number;
+    completed: number;
+    pending: number;
+    issues: number;
+    durationMs: number;
+}
+
+/** Builds the compact audit summary shown above a group of tool calls. */
+export function summarizeChatTools(calls: ChatToolCall[]): ChatToolSummary {
+    return calls.reduce<ChatToolSummary>(
+        (summary, call) => {
+            summary.total += 1;
+            summary.durationMs += call.durationMs;
+            if (call.status === 'pending') summary.pending += 1;
+            else if (call.status === 'ok' || isQueryBudgetPause(call.summary))
+                summary.completed += 1;
+            else summary.issues += 1;
+            return summary;
+        },
+        {total: 0, completed: 0, pending: 0, issues: 0, durationMs: 0},
+    );
+}
+
 /** Draft of the assistant message currently streaming in. */
 export interface ChatStreamState {
     requestId: string;
