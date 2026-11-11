@@ -1,9 +1,9 @@
 <h1 align="center">SuperDBA</h1>
 
-<p align="center"><strong>An open-source database workspace for people and AI agents.</strong></p>
+<p align="center"><strong>The open-source database workspace for people and AI agents.</strong></p>
 
 <p align="center">
-  Explore schemas, write and run SQL, edit data, build visual queries, inspect execution plans, and work with SQL notebooks—from the desktop app or a browser.
+  Explore schemas, write SQL, edit data, build visual queries, inspect execution plans, and create notebooks from a native desktop app or your browser.
 </p>
 
 <p align="center">
@@ -40,47 +40,35 @@
   <img src="https://raw.githubusercontent.com/SuperDBA/website/main/public/img/overview.gif" alt="SuperDBA query editor and data grid" width="100%">
 </p>
 
-## Why SuperDBA?
+## One workspace for the whole database workflow
 
-SuperDBA keeps the work around a database in one place. The schema explorer, SQL editor, notebooks, visual tools, data grid, query history, and AI integrations share the same connections and permissions.
+SuperDBA brings the tools around a database into one consistent workspace. Connections, permissions, schema context, query history, notebooks, visual tools, plugins, and optional AI assistance work together instead of living in separate applications.
 
-- **One workspace, two runtimes.** Use the native Tauri desktop app or run the same React interface with `superdba web`.
-- **SQL work without context switching.** Browse objects, edit SQL in Monaco, inspect multiple result sets, modify rows, and export data.
-- **Visual tools when text is not enough.** Build queries with a graph, explore ER diagrams, and read interactive `EXPLAIN` plans.
-- **Notebooks for repeatable analysis.** Combine SQL, Markdown, parameters, charts, and cross-cell results.
-- **Extensible database support.** Built-in SQL drivers are complemented by installable drivers and UI extensions from the plugin registry.
-- **AI on your terms.** Use optional text-to-SQL features, local models through Ollama, or the built-in MCP server from compatible AI clients.
+- **Explore before you query.** Search tables, columns, keys, indexes, views, and routines; inspect relationships in an ER diagram.
+- **Write and run SQL with context.** Use a Monaco-powered, dialect-aware editor with completion, formatting, statement selection, multiple result sets, saved queries, and history.
+- **Work directly with results.** Filter, sort, paginate, export, and edit rows in a virtualized data grid with reviewable batch changes.
+- **See what SQL is doing.** Build queries visually and turn supported `EXPLAIN` output into an interactive execution-plan view.
+- **Make analysis repeatable.** Combine SQL, Markdown, parameters, charts, and cross-cell results in notebooks that export to HTML, CSV, or JSON.
+- **Extend the workspace.** Add database drivers and UI contributions through installable plugins rather than waiting for a core release.
+- **Bring your own AI.** Use optional text-to-SQL and chat features with supported providers or local Ollama models, or connect compatible clients through the built-in MCP server.
 
-## Highlights
+## Run it your way
 
-### Database workspace
+The desktop app and Web mode share the same React interface and Rust application services. The transport changes; the product behavior stays aligned.
 
-- Saved connections, secure credential storage, SSH tunnels, and per-connection appearance
-- Searchable database explorer for tables, columns, keys, indexes, views, and routines
-- Multi-database and multi-schema workflows where supported by the driver
-- ER diagrams, schema actions, SQL import, and SQL export
+| Mode | Command | Use it for |
+| --- | --- | --- |
+| Desktop | `superdba` | Native dialogs, local files, OS credential storage, and daily desktop work |
+| Web | `superdba web` | Browser access, containers, remote hosts, and managed deployments |
+| MCP | `superdba --mcp` | Exposing controlled SuperDBA capabilities to compatible AI clients |
 
-### SQL editor and results
-
-- Monaco-powered editor with dialect-aware highlighting, completion, formatting, and query splitting
-- Tabbed sessions, SQL file editing, saved queries, query history, and customizable shortcuts
-- Selected-statement or multi-statement execution with independent result sets
-- Virtualized data grid with filtering, sorting, pagination, inline edits, batch changes, and export
-- Visual query builder and interactive execution-plan viewer
-
-### Notebooks, plugins, and AI
-
-- SQL and Markdown cells with parameters, charts, cross-cell variables, and HTML/CSV/JSON export
-- JSON-RPC driver plugins that can be implemented in any language
-- Optional plugin-provided UI extensions
-- MCP server for schema discovery and controlled query execution
-- Optional AI assistance with cloud providers or local Ollama models
+Web mode listens on loopback by default and uses an authenticated browser session. Before making it remotely reachable, read the [operations guide](./docs/web/WEB_MODE_OPERATIONS.md) and [remote security guide](./docs/web/WEB_REMOTE_SECURITY.md). Container and Helm deployment instructions are in [Web mode containers](./docs/web/WEB_MODE_CONTAINERS.md).
 
 ## Database support
 
-SuperDBA includes native support for MySQL/MariaDB, PostgreSQL, and SQLite. The plugin registry adds databases and services such as DuckDB, ClickHouse, SQL Server, Oracle, Redis, MongoDB, BigQuery, DynamoDB, Firestore, Trino, and others.
+SuperDBA ships with core SQL drivers and can add SQL, NoSQL, and service integrations through the plugin registry. MySQL/MariaDB, PostgreSQL, and SQLite workflows are supported; additional drivers include options for DuckDB, ClickHouse, SQL Server, Oracle, Redis, MongoDB, BigQuery, DynamoDB, Firestore, Trino, and more.
 
-Availability and maturity change independently of the application release. See the live [driver and plugin registry](https://superdba.dev/plugins) for the current list and installation status.
+Drivers evolve independently from the application, and built-in drivers may move to plugins over time. Check the live [plugin registry](https://superdba.dev/plugins) for current availability, platform support, and maturity.
 
 ## Install
 
@@ -97,57 +85,46 @@ brew install --cask SuperDBA
 sudo snap install SuperDBA
 ```
 
-Linux users can also install the Flatpak or AUR package. AppImage, `.deb`, `.rpm`, Windows, and macOS installers are available from the [download page](https://superdba.dev/download) and [GitHub Releases](https://github.com/SuperDBA/SuperDBA/releases).
+Linux packages are also available for Flatpak and AUR. AppImage, `.deb`, `.rpm`, Windows, and macOS installers are available from the [download page](https://superdba.dev/download) and [GitHub Releases](https://github.com/SuperDBA/SuperDBA/releases).
 
 > [!IMPORTANT]
-> Snap users must connect the password manager interface before saving credentials:
+> Snap users must connect the password-manager interface before saving credentials:
 >
 > ```bash
 > sudo snap connect superdba:password-manager-service
 > ```
 
-## Desktop and Web modes
-
-The desktop and browser interfaces use the same frontend and the same Rust application services. Only the transport changes.
-
-| Mode | Start command | Best for |
-| --- | --- | --- |
-| Desktop | `superdba` | Native dialogs, local files, OS integration, and everyday desktop use |
-| Web | `superdba web` | Browser access, containers, remote hosts, and managed deployments |
-| MCP | `superdba --mcp` | Connecting compatible AI clients to SuperDBA capabilities |
-
-`superdba web` binds to loopback by default and uses an authenticated browser session. Read the [Web mode operations guide](./docs/web/WEB_MODE_OPERATIONS.md) before exposing it beyond the local machine, and follow the [remote security guide](./docs/web/WEB_REMOTE_SECURITY.md) for reverse-proxy deployments.
-
-Container and Helm instructions are in [Web mode containers](./docs/web/WEB_MODE_CONTAINERS.md).
-
 ## Architecture
 
 ```text
-packages/web-ui/                  React 19 + TypeScript frontend
-        │
-        ├── Tauri IPC ──────────> src-tauri/src/transport/desktop/
-        └── HTTP / WebSocket ───> src-tauri/src/transport/web/
-                                      │
-                                      ▼
-                             src-tauri/src/application/
-                                      │
-                         drivers, plugins, storage, security
+packages/web-ui/                         React + TypeScript
+       │
+       ├── Tauri IPC ────────────────► src-tauri/src/transport/desktop/
+       │
+       └── HTTP / WebSocket ─────────► src-tauri/src/transport/web/
+                                                │
+                                                ▼
+                                  src-tauri/src/application/
+                                  shared application services
+                                                │
+                                                ▼
+                              drivers · plugins · storage · security
 ```
 
-Desktop commands and Web RPC handlers are thin transport adapters. Shared behavior belongs in `src-tauri/src/application/`, which keeps both runtimes aligned.
+Desktop commands and Web RPC handlers are thin transport adapters over `src-tauri/src/application/`. Keeping behavior in the shared application layer gives both runtimes the same connection, query, persistence, plugin, and security semantics.
 
-The main technologies are React 19, TypeScript, Tailwind CSS v4, Rust, Tauri v2, Axum, and SQLx. Architecture decisions are recorded in [docs/architecture/decisions](./docs/architecture/decisions/README.md).
+The main stack is React 19, TypeScript, Tailwind CSS v4, Rust, Tauri v2, Axum, and SQLx. Significant design choices are recorded in the [architecture decision log](./docs/architecture/decisions/README.md).
 
-## Development
+## Develop locally
 
 ### Prerequisites
 
-- Node.js 24 (the repository version is in [`.node-version`](./.node-version))
-- pnpm 9 or newer
+- Node.js 24 (the exact version is in [`.node-version`](./.node-version))
+- pnpm 10 through Corepack (the exact version is pinned in [`package.json`](./package.json))
 - Stable Rust toolchain
 - Tauri's [platform-specific system dependencies](https://v2.tauri.app/start/prerequisites/)
 
-### Setup
+### Set up the repository
 
 ```bash
 git clone https://github.com/SuperDBA/SuperDBA.git
@@ -156,26 +133,26 @@ corepack enable
 pnpm install
 ```
 
-Run the frontend with fast refresh:
+Start the frontend development server:
 
 ```bash
 pnpm dev
 ```
 
-Run the full desktop application:
+Run the complete desktop application:
 
 ```bash
 pnpm tauri dev
 ```
 
-Build and run the browser transport:
+Build the frontend and start Web mode:
 
 ```bash
 pnpm build
 pnpm dev:web
 ```
 
-### Quality checks
+### Validate a change
 
 ```bash
 pnpm typecheck
@@ -184,7 +161,7 @@ pnpm test
 pnpm test:rust
 ```
 
-Useful focused checks:
+Changes that affect themes or the Web transport may also need:
 
 ```bash
 pnpm lint:theme
@@ -193,28 +170,30 @@ pnpm web:boundaries
 pnpm test:web-contract
 ```
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for platform setup, test conventions, pull-request expectations, and plugin development. Repository-specific design rules live in [docs/DESIGN.md](./docs/DESIGN.md).
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for platform setup, testing conventions, pull-request expectations, and repository workflows. UI and theme rules live in [docs/DESIGN.md](./docs/DESIGN.md).
 
-## Plugin development
+## Build a plugin
 
-Driver plugins communicate with SuperDBA over JSON-RPC on standard input/output, so they are not tied to a particular programming language.
+Driver plugins are standalone processes that communicate with SuperDBA over JSON-RPC on standard input and output. They can be written in any language that can implement the protocol.
+
+Create a starter project:
 
 ```bash
 pnpm create @superdba/plugin@latest my-driver --db-type=network
 ```
 
-Start with the [Plugin Guide](./plugins/PLUGIN_GUIDE.md) and the [`@superdba/plugin-api` compatibility guide](./packages/plugin-api/README.md).
+Continue with the [Plugin Guide](./plugins/PLUGIN_GUIDE.md) and the [`@superdba/plugin-api` compatibility guide](./packages/plugin-api/README.md).
 
-## Contributing
+## Contribute
 
-Bug reports, focused feature proposals, documentation improvements, translations, drivers, and code contributions are welcome.
+Bug reports, focused feature proposals, documentation improvements, translations, plugins, and code contributions are welcome.
 
-1. Read [CONTRIBUTING.md](./CONTRIBUTING.md) and the repository rules in [AGENTS.md](./AGENTS.md).
+1. Read [CONTRIBUTING.md](./CONTRIBUTING.md) and the repository instructions in [AGENTS.md](./AGENTS.md).
 2. Search [existing issues](https://github.com/SuperDBA/SuperDBA/issues) before opening a new one.
 3. Keep changes focused and include tests appropriate to the affected behavior.
-4. Join [Discord](https://discord.com/invite/K2hmhfHRSt) when you want to discuss an implementation direction.
+4. Join [Discord](https://discord.com/invite/K2hmhfHRSt) to discuss an implementation direction with the community.
 
-The [changelog](./CHANGELOG.md) records shipped releases. Planned work is tracked in [GitHub Issues](https://github.com/SuperDBA/SuperDBA/issues).
+See the [changelog](./CHANGELOG.md) for shipped releases and [GitHub Issues](https://github.com/SuperDBA/SuperDBA/issues) for planned work.
 
 <!-- SPONSORS:START -->
 

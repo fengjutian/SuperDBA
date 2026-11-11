@@ -531,19 +531,38 @@ async fn execute_statement(
         request_id: Some(tool.request_id),
     };
     let started = Instant::now();
-    let query = queries::execute_query(
-        tool.runtime,
-        &tool.state.query_cancellation,
-        scope,
-        QueryResponsePolicy::Unbounded,
-        connection_id.to_string(),
-        sql,
-        Some(limit),
-        Some(1),
-        tool.chat.schema.clone(),
-        None,
-        tool.chat.database.clone(),
-    );
+    let query = async {
+        if approved {
+            queries::execute_query(
+                tool.runtime,
+                &tool.state.query_cancellation,
+                scope,
+                QueryResponsePolicy::AiBounded,
+                connection_id.to_string(),
+                sql,
+                Some(limit),
+                Some(1),
+                tool.chat.schema.clone(),
+                None,
+                tool.chat.database.clone(),
+            )
+            .await
+        } else {
+            queries::execute_read_only_query(
+                tool.runtime,
+                &tool.state.query_cancellation,
+                scope,
+                QueryResponsePolicy::AiBounded,
+                connection_id.to_string(),
+                sql,
+                Some(limit),
+                Some(1),
+                tool.chat.schema.clone(),
+                tool.chat.database.clone(),
+            )
+            .await
+        }
+    };
     tokio::pin!(query);
     let result = tokio::select! {
         result = &mut query => result,

@@ -1,0 +1,89 @@
+# AI Query Safety
+
+## Principle
+
+AI-generated SQL must never receive an unbounded opportunity to consume database
+resources. The model proposes a query; the application decides whether it can run, how
+long it may run, and how much data it may return. When safety cannot be established,
+execution fails closed and the investigation continues from existing evidence.
+
+User approval permits a write but never disables resource limits, cancellation,
+concurrency controls, or circuit breaking.
+
+## Mandatory execution path
+
+```text
+model tool call
+  -> SQL safety validation
+  -> single-statement classification
+  -> approval gate for writes
+  -> global and per-connection scheduler
+  -> database-enforced read-only execution for unapproved reads
+  -> timeout and database-task cancellation
+  -> row and serialized-byte limits
+  -> audit result and circuit-breaker update
+```
+
+No AI tool or transport may bypass this application-layer path.
+
+## Hard invariants
+
+1. Unapproved SQL runs only through `DatabaseDriver::execute_read_only_query`.
+   PostgreSQL, MySQL, and SQLite enforce read-only state in the database and always
+   roll it back. If cancellation interrupts cleanup, the physical connection is
+   discarded instead of returning to the pool.
+2. Automated SQL is one statement. Locking reads, transaction control, delay and
+   benchmark functions, recursive row generators, Cartesian joins, random full-table
+   sorts, excessive joins or nesting, and known unbounded operations are rejected.
+3. Every AI database workload holds global and per-connection scheduler permits.
+   Waiting for capacity is bounded.
+4. A ChatDBA query returns at most 50 rows and at most 2 MiB of serialized result data.
+   A model-provided limit may lower these ceilings but cannot raise them.
+5. Query execution is time-bounded. Timeout or user stop aborts the registered database
+   task; a read-only driver must not return an in-flight connection to its pool.
+6. Repeated failures open a per-connection AI circuit breaker. Normal editor traffic
+   remains independent from the AI scheduler.
+7. ChatDBA does not expose `EXPLAIN ANALYZE`, because it executes the statement.
+8. Safety policy belongs in shared application services so desktop and web transports
+   behave identically.
+
+## Current limits
+
+| Resource | Limit |
+| --- | ---: |
+| Chat rows per query | 50 |
+| Serialized chat result | 2 MiB |
+| Query execution | 30 seconds |
+| Scheduler wait | 5 seconds |
+| Concurrent AI queries globally | 4 |
+| Concurrent AI queries per connection | 1 |
+| Consecutive failures before circuit opens | 3 |
+| Circuit cooldown | 30 seconds |
+
+Constants in `src/application/ai_query_guard.rs`, `src/application/queries.rs`,
+and `src/application/chat/tools.rs` are authoritative. Update this document and any UI
+labels when those limits change.
+
+## Fail-closed behaviour
+
+- Unknown or unsupported statement classifications are denied.
+- Plugin drivers without database-enforced read-only execution rely on classification
+  and must not claim the stronger built-in-driver guarantee.
+- Oversized results are discarded and never forwarded to the model.
+- Timeout, cancellation, scheduler saturation, an open circuit, or cleanup failure ends
+  the tool call without automatically retrying SQL.
+
+## Planned strengthening
+
+1. Set dialect-aware database-side statement and lock timeouts inside read-only driver
+   transactions, in addition to task cancellation.
+2. Add bounded `EXPLAIN` preflight and reject plans whose estimated scan, sort, or join
+   cost exceeds configured thresholds.
+3. Add connection-health and latency-based circuit breaking.
+4. Display the effective timeout, row cap, byte cap, read-only guarantee, and rejection
+   reason in the tool-call card and audit export.
+5. Add fault-injection tests proving that timeout and cancellation discard connections
+   when rollback cannot complete.
+
+Future changes may make the policy stricter. They must never create a path that lets a
+model or provider increase a hard resource ceiling.

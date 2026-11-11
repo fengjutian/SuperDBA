@@ -9,11 +9,14 @@ use uuid::Uuid;
 
 pub const WEB_MAX_ROWS_PER_PAGE: u32 = 10_000;
 pub const WEB_MAX_RESPONSE_BYTES: usize = 16 * 1024 * 1024;
+pub const AI_MAX_ROWS_PER_PAGE: u32 = 50;
+pub const AI_MAX_RESPONSE_BYTES: usize = 2 * 1024 * 1024;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum QueryResponsePolicy {
     Unbounded,
     WebBounded,
+    AiBounded,
 }
 
 #[derive(Debug)]
@@ -346,6 +349,59 @@ pub async fn execute_query(
     }
 }
 
+/// Executes an automated read through the driver's database-enforced
+/// read-only path. Built-in drivers wrap the statement in a read-only
+/// transaction and discard the physical connection if cancellation prevents
+/// cleanup, so classifier mistakes cannot silently turn into writes.
+#[allow(clippy::too_many_arguments)]
+pub async fn execute_read_only_query(
+    runtime: &RuntimeContext,
+    cancellation: &super::cancellation::QueryCancellationState,
+    scope: QueryRequestScope<'_>,
+    policy: QueryResponsePolicy,
+    connection_id: String,
+    query: String,
+    limit: Option<u32>,
+    page: Option<u32>,
+    schema: Option<String>,
+    database: Option<String>,
+) -> Result<QueryResult, String> {
+    let sanitized_query = sanitize_user_query(&query);
+    let (driver, params) =
+        driver_and_params(runtime, scope.session_id, &connection_id, database).await?;
+    let _workload_permit = super::ai_query_guard::acquire_workload(&connection_id).await?;
+    let effective_limit = response_limit(policy, limit);
+    let task = tokio::spawn(async move {
+        driver
+            .execute_read_only_query(
+                &params,
+                &sanitized_query,
+                effective_limit,
+                page.unwrap_or(1),
+                schema.as_deref(),
+            )
+            .await
+    });
+    let _registration = QueryTaskRegistration::new(
+        cancellation,
+        cancellation_slot(scope, &connection_id),
+        Arc::new(task.abort_handle()),
+    );
+
+    match task.await {
+        Ok(Ok(result)) => {
+            enforce_response_size(policy, &result)?;
+            Ok(result)
+        }
+        Ok(Err(error)) => Err(error),
+        Err(error) if error.is_cancelled() => {
+            emit_query_cancelled(runtime, scope, &connection_id);
+            Err("Query cancelled".to_string())
+        }
+        Err(error) => Err(format!("Read-only query task failed: {error}")),
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub async fn execute_query_batch(
     runtime: &RuntimeContext,
@@ -650,6 +706,11 @@ fn response_limit(policy: QueryResponsePolicy, requested: Option<u32>) -> Option
                 .unwrap_or(WEB_MAX_ROWS_PER_PAGE)
                 .min(WEB_MAX_ROWS_PER_PAGE),
         ),
+        QueryResponsePolicy::AiBounded => Some(
+            requested
+                .unwrap_or(AI_MAX_ROWS_PER_PAGE)
+                .min(AI_MAX_ROWS_PER_PAGE),
+        ),
     }
 }
 
@@ -661,10 +722,23 @@ fn enforce_response_size<T: Serialize>(
         return Ok(());
     }
     let bytes = serde_json::to_vec(response).map_err(|error| error.to_string())?;
-    if bytes.len() > WEB_MAX_RESPONSE_BYTES {
-        return Err(format!(
-            "Query response exceeds the web limit of {WEB_MAX_RESPONSE_BYTES} bytes; use pagination with at most {WEB_MAX_ROWS_PER_PAGE} rows per page"
-        ));
+    let (max_bytes, message) = match policy {
+        QueryResponsePolicy::Unbounded => return Ok(()),
+        QueryResponsePolicy::WebBounded => (
+            WEB_MAX_RESPONSE_BYTES,
+            format!(
+                "Query response exceeds the web limit of {WEB_MAX_RESPONSE_BYTES} bytes; use pagination with at most {WEB_MAX_ROWS_PER_PAGE} rows per page"
+            ),
+        ),
+        QueryResponsePolicy::AiBounded => (
+            AI_MAX_RESPONSE_BYTES,
+            format!(
+                "AI query response exceeds the safety limit of {AI_MAX_RESPONSE_BYTES} bytes; select fewer or smaller columns"
+            ),
+        ),
+    };
+    if bytes.len() > max_bytes {
+        return Err(message);
     }
     Ok(())
 }

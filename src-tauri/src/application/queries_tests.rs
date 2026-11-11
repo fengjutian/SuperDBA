@@ -28,6 +28,22 @@ fn web_policy_caps_rows_and_rejects_oversized_payloads() {
 }
 
 #[test]
+fn ai_policy_caps_rows_and_payload_bytes_independently_from_web_queries() {
+    assert_eq!(
+        response_limit(QueryResponsePolicy::AiBounded, None),
+        Some(AI_MAX_ROWS_PER_PAGE)
+    );
+    assert_eq!(
+        response_limit(QueryResponsePolicy::AiBounded, Some(500)),
+        Some(AI_MAX_ROWS_PER_PAGE)
+    );
+
+    let oversized = "x".repeat(AI_MAX_RESPONSE_BYTES);
+    let error = enforce_response_size(QueryResponsePolicy::AiBounded, &oversized).unwrap_err();
+    assert!(error.contains("AI query response exceeds the safety limit"));
+}
+
+#[test]
 fn sanitizes_editor_quotes_and_trailing_semicolons() {
     assert_eq!(
         sanitize_user_query("  SELECT ‘value’, “column”;;;  "),
