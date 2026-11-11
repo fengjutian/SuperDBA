@@ -139,9 +139,7 @@ function ToolActivity({
                 (call.status !== 'ok' && call.status !== 'limitReached'),
         ),
     );
-    const highlightedNumber = highlightedEvidence
-        ? Number(highlightedEvidence.slice(1))
-        : null;
+    const highlightedNumber = highlightedEvidence ? Number(highlightedEvidence.slice(1)) : null;
     const containsHighlighted =
         highlightedNumber !== null &&
         highlightedNumber >= evidenceStart &&

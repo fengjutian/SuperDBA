@@ -423,11 +423,11 @@ describe('chat utils', () => {
         it('links only available evidence references outside code', () => {
             expect(
                 linkChatEvidenceReferences(
-                    'Use [E1], not [E3]. `literal [E2]`\n```sql\nSELECT \'[E2]\'\n```',
+                    "Use [E1], not [E3]. `literal [E2]`\n```sql\nSELECT '[E2]'\n```",
                     2,
                 ),
             ).toBe(
-                'Use [E1](#chat-evidence-E1), not [E3]. `literal [E2]`\n```sql\nSELECT \'[E2]\'\n```',
+                "Use [E1](#chat-evidence-E1), not [E3]. `literal [E2]`\n```sql\nSELECT '[E2]'\n```",
             );
         });
 
@@ -484,9 +484,9 @@ describe('chat utils', () => {
         });
 
         it('does not let later evidence validate an earlier answer', () => {
-            expect(validateChatEvidenceReferences('Premature [E2].', {E1: 'ok', E2: 'ok'}, 1)).toEqual(
-                [{evidenceId: 'E2', kind: 'missing'}],
-            );
+            expect(
+                validateChatEvidenceReferences('Premature [E2].', {E1: 'ok', E2: 'ok'}, 1),
+            ).toEqual([{evidenceId: 'E2', kind: 'missing'}]);
         });
     });
 });
