@@ -7,6 +7,7 @@ import {
     classifyChatError,
     summarizeChatTools,
     isDuplicateLiveChatFailure,
+    buildChatEvidenceIndex,
     shouldSubmitChat,
 } from '@/utils/chat';
 
@@ -362,6 +363,58 @@ describe('chat utils', () => {
                     '401 Unauthorized',
                 ),
             ).toBe(false);
+        });
+    });
+
+    describe('evidence indexing', () => {
+        it('assigns stable positions across message tool batches', () => {
+            const messages = [
+                {
+                    id: 'm1',
+                    role: 'assistant' as const,
+                    content: '',
+                    createdAt: '2026-11-11T00:00:00Z',
+                    toolCalls: [
+                        {
+                            id: 'c1',
+                            name: 'a',
+                            arguments: {},
+                            status: 'ok' as const,
+                            durationMs: 1,
+                            summary: '',
+                        },
+                        {
+                            id: 'c2',
+                            name: 'b',
+                            arguments: {},
+                            status: 'ok' as const,
+                            durationMs: 1,
+                            summary: '',
+                        },
+                    ],
+                },
+                {
+                    id: 'm2',
+                    role: 'assistant' as const,
+                    content: '',
+                    createdAt: '2026-11-11T00:00:01Z',
+                    toolCalls: [
+                        {
+                            id: 'c3',
+                            name: 'c',
+                            arguments: {},
+                            status: 'ok' as const,
+                            durationMs: 1,
+                            summary: '',
+                        },
+                    ],
+                },
+            ];
+
+            expect(buildChatEvidenceIndex(messages)).toEqual({
+                starts: {m1: 1, m2: 3},
+                next: 4,
+            });
         });
     });
 });

@@ -36,6 +36,7 @@ import {
     classifyChatError,
     summarizeChatTools,
     isDuplicateLiveChatFailure,
+    buildChatEvidenceIndex,
 } from '@/utils/chat';
 import {
     buildLocalStarters,
@@ -49,7 +50,7 @@ import type {ChatMessage, ChatToolCall} from '@/types/chat';
 import {useCopyFeedback} from '@/hooks/useCopyFeedback';
 import {isDbaChatProviderSupported} from '@/utils/dbaChat';
 
-function ToolCallRow({call}: {call: ChatToolCall}) {
+function ToolCallRow({call, evidenceId}: {call: ChatToolCall; evidenceId: string}) {
     const {t} = useTranslation();
     const [open, setOpen] = useState(false);
     const result = useMemo(() => formatToolResult(call.result), [call.result]);
@@ -71,6 +72,9 @@ function ToolCallRow({call}: {call: ChatToolCall}) {
             >
                 {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                 <Wrench size={12} className="text-muted" />
+                <span className="rounded bg-accent-info/10 px-1 font-mono text-[10px] text-accent-info">
+                    {evidenceId}
+                </span>
                 <span className="font-mono text-primary">{call.name}</span>
                 <span className={statusClass}>{statusLabel}</span>
                 <span className="text-muted truncate flex-1">{call.summary}</span>
@@ -102,7 +106,7 @@ function ToolCallRow({call}: {call: ChatToolCall}) {
     );
 }
 
-function ToolActivity({calls}: {calls: ChatToolCall[]}) {
+function ToolActivity({calls, evidenceStart}: {calls: ChatToolCall[]; evidenceStart: number}) {
     const {t} = useTranslation();
     const summary = useMemo(() => summarizeChatTools(calls), [calls]);
     const [open, setOpen] = useState(() =>
@@ -145,8 +149,12 @@ function ToolActivity({calls}: {calls: ChatToolCall[]}) {
             </button>
             {open && (
                 <div className="space-y-1 border-t border-default p-1.5">
-                    {calls.map((call) => (
-                        <ToolCallRow key={call.id} call={call} />
+                    {calls.map((call, index) => (
+                        <ToolCallRow
+                            key={call.id}
+                            call={call}
+                            evidenceId={`E${evidenceStart + index}`}
+                        />
                     ))}
                 </div>
             )}
@@ -233,9 +241,11 @@ function ChatErrorBanner({
 function MessageBubble({
     message,
     onInsert,
+    evidenceStart,
 }: {
     message: ChatMessage;
     onInsert: (sql: string) => void;
+    evidenceStart: number;
 }) {
     const {t} = useTranslation();
     const sql = message.role === 'assistant' ? extractSqlBlock(message.content) : null;
@@ -260,7 +270,7 @@ function MessageBubble({
         <div className="max-w-full space-y-2">
             <ChatMarkdown content={message.content} />
             {message.toolCalls && message.toolCalls.length > 0 && (
-                <ToolActivity calls={message.toolCalls} />
+                <ToolActivity calls={message.toolCalls} evidenceStart={evidenceStart} />
             )}
             <div className="flex items-center gap-3">
                 <button
@@ -366,7 +376,8 @@ export function ChatPanel() {
         [activeTab, addTab, updateTab],
     );
 
-    const messages = session?.messages ?? [];
+    const messages = useMemo(() => session?.messages ?? [], [session?.messages]);
+    const evidenceIndex = useMemo(() => buildChatEvidenceIndex(messages), [messages]);
 
     useEffect(() => {
         const node = scrollRef.current;
@@ -678,6 +689,7 @@ export function ChatPanel() {
                                         key={message.id}
                                         message={message}
                                         onInsert={insertSql}
+                                        evidenceStart={evidenceIndex.starts[message.id] ?? 1}
                                     />
                                 ))}
                             {stream && (
@@ -693,7 +705,10 @@ export function ChatPanel() {
                                         </div>
                                     )}
                                     {stream.tools.length > 0 && (
-                                        <ToolActivity calls={stream.tools} />
+                                        <ToolActivity
+                                            calls={stream.tools}
+                                            evidenceStart={evidenceIndex.next}
+                                        />
                                     )}
                                     {stream.batchProgress && (
                                         <div className="rounded border border-accent-info/40 bg-accent-info/10 px-2 py-1 text-[11px] text-accent-info">

@@ -124,6 +124,22 @@ export interface ChatToolSummary {
     durationMs: number;
 }
 
+export interface ChatEvidenceIndex {
+    starts: Record<string, number>;
+    next: number;
+}
+
+/** Assigns stable one-based evidence positions from persisted conversation order. */
+export function buildChatEvidenceIndex(messages: ChatMessage[]): ChatEvidenceIndex {
+    const starts: Record<string, number> = {};
+    let next = 1;
+    for (const message of messages) {
+        starts[message.id] = next;
+        next += message.toolCalls?.length ?? 0;
+    }
+    return {starts, next};
+}
+
 /** Builds the compact audit summary shown above a group of tool calls. */
 export function summarizeChatTools(calls: ChatToolCall[]): ChatToolSummary {
     return calls.reduce<ChatToolSummary>(

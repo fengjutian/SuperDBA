@@ -331,6 +331,8 @@ fn system_prompt_carries_connection_context() {
     assert!(prompt.contains("Schema: public"));
     assert!(prompt.contains("SELECT * FROM orders"));
     assert!(prompt.contains("read-only"));
+    assert!(prompt.contains("stable evidenceId"));
+    assert!(prompt.contains("[E1]"));
     assert!(prompt.contains("describe_tables"));
     assert!(prompt.contains("every metadata page and batch"));
     assert!(prompt.contains("most recent 7 days"));
@@ -415,7 +417,18 @@ fn old_tool_results_are_compacted_only_for_model_replay() {
         replay[0].tool_calls[0].result.as_ref().unwrap()["compacted"],
         json!(true)
     );
-    assert_eq!(replay[1].tool_calls[0].result, Some(json!({"rows": [[1]]})));
+    assert_eq!(
+        replay[0].tool_calls[0].result.as_ref().unwrap()["evidenceId"],
+        json!("E1")
+    );
+    assert_eq!(
+        replay[1].tool_calls[0].result.as_ref().unwrap()["rows"],
+        json!([[1]])
+    );
+    assert_eq!(
+        replay[16].tool_calls[0].result.as_ref().unwrap()["evidenceId"],
+        json!("E17")
+    );
 }
 
 #[test]

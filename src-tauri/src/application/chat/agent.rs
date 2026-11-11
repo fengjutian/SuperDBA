@@ -365,6 +365,7 @@ pub(crate) fn messages_for_model(
         .count();
     let compact_before = tool_turns.saturating_sub(calls_per_batch.max(1));
     let mut seen_tool_turns = 0;
+    let mut evidence_index = 0;
     messages
         .iter()
         .cloned()
@@ -378,6 +379,18 @@ pub(crate) fn messages_for_model(
                             "summary": call.summary,
                         }));
                     }
+                }
+                for call in &mut message.tool_calls {
+                    evidence_index += 1;
+                    let evidence_id = format!("E{evidence_index}");
+                    let result = call.result.take().unwrap_or(Value::Null);
+                    call.result = Some(match result {
+                        Value::Object(mut object) => {
+                            object.insert("evidenceId".to_string(), Value::String(evidence_id));
+                            Value::Object(object)
+                        }
+                        value => json!({"evidenceId": evidence_id, "value": value}),
+                    });
                 }
                 seen_tool_turns += 1;
             }
@@ -737,6 +750,7 @@ pub(crate) fn system_prompt(context: &ChatContext) -> String {
          \n\
          Rules:\n\
          - Gather evidence with the tools before answering schema or data questions. Never invent table or column names.\n\
+         - Tool results include stable evidenceId values such as E1. Cite material findings with [E1], [E2], and so on; never cite an evidence id that is not present in the conversation.\n\
          - Use paginated `list_tables` and `describe_tables` batches to inspect large schemas; use `describe_table` for one table, `run_query` for read-only SELECTs, and `explain_query` for plans.\n\
          - For database-wide schema requests, work through every metadata page and batch before answering. This does not authorize scanning every historical data row. Keep a compact running synthesis, avoid repeating completed batches, and combine the evidence into one final analysis.\n\
          - For audit, log, event, activity, or history data when the user did not specify a time range, start with the most recent 7 days. If that has no or insufficient evidence, expand once to 30 days and report the limitation; do not scan all history unless the user explicitly asks for full-history or lifetime analysis.\n\
