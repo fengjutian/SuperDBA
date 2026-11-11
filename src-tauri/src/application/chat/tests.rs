@@ -1,7 +1,7 @@
 use super::agent::{
     batch_limits, bound_result, build_audit_event, is_batch_boundary, is_production_environment,
     messages_for_model, reserve_database_query_budget, system_prompt, tool_cache_key,
-    turn_request_prompt,
+    turn_request_prompt, TurnResourceBudget,
 };
 use super::provider::{self, ProviderToolCall};
 use super::store;
@@ -11,6 +11,24 @@ use super::{
     ChatToolCall, ChatToolStatus,
 };
 use serde_json::json;
+
+#[test]
+fn cumulative_turn_budget_stops_preflights_slow_queries_and_large_results() {
+    let mut preflights = TurnResourceBudget::default();
+    for _ in 0..8 {
+        assert!(preflights.reserve("run_query").is_ok());
+    }
+    assert_eq!(preflights.reserve("run_query"), Err("EXPLAIN preflight count"));
+
+    let mut slow = TurnResourceBudget::default();
+    slow.record("run_query", 8_000, &json!({}));
+    slow.record("run_query", 8_000, &json!({}));
+    assert_eq!(slow.reserve("run_query"), Err("consecutive slow queries"));
+
+    let mut bytes = TurnResourceBudget::default();
+    bytes.record("run_query", 1, &json!("x".repeat(8 * 1024 * 1024)));
+    assert_eq!(bytes.reserve("run_query"), Err("cumulative result bytes"));
+}
 
 #[tokio::test]
 async fn chat_queries_are_serialized_per_connection() {
