@@ -53,6 +53,7 @@ export function useChatAgent() {
         if (!active || event.requestId !== active) return;
         if (event.type === 'failed') {
             setError(event.message);
+            setStream((current) => reduceChatStream(current, event));
             return;
         }
         if (event.type === 'continuationRequired') {
@@ -150,9 +151,9 @@ export function useChatAgent() {
     }, [client]);
 
     const send = useCallback(
-        async (message: string, context: ChatContext) => {
+        async (message: string, context: ChatContext): Promise<boolean> => {
             const trimmed = message.trim();
-            if (!trimmed || sending) return;
+            if (!trimmed || sending) return false;
             const provider = settings.dbaChatProvider ?? settings.aiProvider;
             if (!isDbaChatProviderSupported(provider)) {
                 setError(
@@ -160,7 +161,7 @@ export function useChatAgent() {
                         ? `${provider} does not support DBA tool calls. Choose a dedicated DBA provider in Settings.`
                         : 'Configure an AI provider in Settings before using DBA chat.',
                 );
-                return;
+                return false;
             }
             const requestId = newRequestId();
             activeRequest.current = requestId;
@@ -181,12 +182,14 @@ export function useChatAgent() {
             };
             try {
                 const updated = await client.call('chat_send', {request});
-                if (!mounted.current) return;
+                if (!mounted.current) return false;
                 setSession(updated);
                 setContinuationRequired(updated.continuation ?? null);
                 await refreshSessions();
+                return true;
             } catch (err) {
                 if (mounted.current) setError(String(err));
+                return false;
             } finally {
                 if (mounted.current) {
                     setSending(false);

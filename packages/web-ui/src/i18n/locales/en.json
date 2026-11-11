@@ -3067,6 +3067,19 @@
     "waitingApproval": "Waiting for approval: {{kind}}",
     "approvalHint": "Approve or deny it in the approval dialog. The statement runs only after you approve.",
     "copied": "Copied",
-    "batchProgress": "Batch {{completedBatch}}/{{totalBatches}} complete - {{completedCalls}}/{{totalCalls}} model calls"
+    "batchProgress": "Batch {{completedBatch}}/{{totalBatches}} complete - {{completedCalls}}/{{totalCalls}} model calls",
+    "toolStatus": {
+      "pending": "running",
+      "ok": "completed",
+      "error": "failed",
+      "denied": "denied"
+    },
+    "error": {
+      "authentication": "The AI provider rejected the credentials. Check the API key and try again.",
+      "rateLimit": "The AI provider is busy or the request limit was reached. Try again shortly.",
+      "network": "Could not reach the AI provider. Check the network and try again.",
+      "unknown": "The assistant could not complete this request.",
+      "openSettings": "Open settings"
+    }
   }
 }

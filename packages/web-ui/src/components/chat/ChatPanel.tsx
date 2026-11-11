@@ -13,6 +13,8 @@ import {
     Wrench,
     Copy,
     Check,
+    AlertCircle,
+    RotateCcw,
     Settings,
     Database,
     Code2,
@@ -30,6 +32,7 @@ import {
     formatQueryResultSummary,
     formatToolResult,
     shouldSubmitChat,
+    classifyChatError,
 } from '@/utils/chat';
 import {
     buildLocalStarters,
@@ -53,6 +56,7 @@ function ToolCallRow({call}: {call: ChatToolCall}) {
             : call.status === 'denied'
               ? 'text-accent-warning'
               : 'text-accent-error';
+    const statusLabel = t(`chat.toolStatus.${call.status}`, {defaultValue: call.status});
 
     return (
         <div className="border border-default rounded-md bg-surface-secondary/60">
@@ -65,7 +69,7 @@ function ToolCallRow({call}: {call: ChatToolCall}) {
                 {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                 <Wrench size={12} className="text-muted" />
                 <span className="font-mono text-primary">{call.name}</span>
-                <span className={statusClass}>{call.status}</span>
+                <span className={statusClass}>{statusLabel}</span>
                 <span className="text-muted truncate flex-1">{call.summary}</span>
                 <span className="text-muted tabular-nums">{call.durationMs} ms</span>
             </button>
@@ -91,6 +95,78 @@ function ToolCallRow({call}: {call: ChatToolCall}) {
                     )}
                 </div>
             )}
+        </div>
+    );
+}
+
+function ChatErrorBanner({
+    message,
+    sending,
+    onRetry,
+    onSettings,
+    onDismiss,
+}: {
+    message: string;
+    sending: boolean;
+    onRetry: () => void;
+    onSettings: () => void;
+    onDismiss: () => void;
+}) {
+    const {t} = useTranslation();
+    const [showDetails, setShowDetails] = useState(false);
+    const kind = classifyChatError(message);
+    const summary = t(`chat.error.${kind}`, {
+        defaultValue: t('chat.error.unknown'),
+    });
+
+    return (
+        <div
+            role="alert"
+            className="mx-3 mb-2 rounded-md border border-accent-error/30 bg-accent-error/10 px-2.5 py-2 text-xs text-accent-error"
+        >
+            <div className="flex items-start gap-2">
+                <AlertCircle size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
+                <div className="min-w-0 flex-1">
+                    <div className="font-medium">{summary}</div>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+                        <button
+                            type="button"
+                            onClick={onRetry}
+                            disabled={sending}
+                            className="inline-flex items-center gap-1 hover:underline disabled:opacity-50"
+                        >
+                            <RotateCcw size={11} aria-hidden="true" />
+                            {t('common.retry')}
+                        </button>
+                        {kind === 'authentication' && (
+                            <button type="button" onClick={onSettings} className="hover:underline">
+                                {t('chat.error.openSettings')}
+                            </button>
+                        )}
+                        <button
+                            type="button"
+                            onClick={() => setShowDetails((value) => !value)}
+                            aria-expanded={showDetails}
+                            className="hover:underline"
+                        >
+                            {showDetails ? t('common.hideDetails') : t('common.showDetails')}
+                        </button>
+                    </div>
+                    {showDetails && (
+                        <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap break-words rounded border border-accent-error/20 bg-base p-2 font-mono text-[10px] text-secondary">
+                            {message}
+                        </pre>
+                    )}
+                </div>
+                <button
+                    type="button"
+                    onClick={onDismiss}
+                    aria-label={t('common.dismiss', {defaultValue: 'Dismiss'})}
+                    className="rounded p-0.5 hover:bg-accent-error/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                >
+                    <X size={12} />
+                </button>
+            </div>
         </div>
     );
 }
@@ -379,8 +455,8 @@ export function ChatPanel() {
     const submit = async () => {
         if (!input.trim() || sending) return;
         const message = input;
-        setInput('');
-        await send(message, buildContext());
+        const succeeded = await send(message, buildContext());
+        if (succeeded) setInput('');
     };
 
     const providerReady = isDbaChatProviderSupported(chatProvider);
@@ -534,7 +610,7 @@ export function ChatPanel() {
                             <div className="max-w-full space-y-2">
                                 {stream.text ? (
                                     <ChatMarkdown content={stream.text} />
-                                ) : (
+                                ) : stream.failed ? null : (
                                     <div className="flex items-center gap-2 text-xs text-muted">
                                         <Loader2 size={12} className="animate-spin" />
                                         {t('chat.working', {defaultValue: 'Gathering evidence…'})}
@@ -596,16 +672,13 @@ export function ChatPanel() {
             </div>
 
             {error && (
-                <div className="mx-3 mb-2 text-[11px] text-accent-error border border-accent-error/30 rounded px-2 py-1 flex items-start gap-2">
-                    <span className="flex-1">{error}</span>
-                    <button
-                        type="button"
-                        onClick={() => setError(null)}
-                        aria-label={t('common.dismiss', {defaultValue: 'Dismiss'})}
-                    >
-                        <X size={12} />
-                    </button>
-                </div>
+                <ChatErrorBanner
+                    message={error}
+                    sending={sending}
+                    onRetry={() => void submit()}
+                    onSettings={() => navigate('/settings?tab=dba-chat')}
+                    onDismiss={() => setError(null)}
+                />
             )}
 
             {!providerReady && (

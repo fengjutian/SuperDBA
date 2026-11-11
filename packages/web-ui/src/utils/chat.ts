@@ -91,12 +91,39 @@ export function shouldSubmitChat(
     return sendOnEnter || event.ctrlKey || event.metaKey;
 }
 
+export type ChatErrorKind = 'authentication' | 'rateLimit' | 'network' | 'unknown';
+
+/** Reduces verbose provider failures to a stable category while preserving the raw details. */
+export function classifyChatError(message: string): ChatErrorKind {
+    const normalized = message.toLowerCase();
+    if (
+        /\b(401|403)\b/.test(normalized) ||
+        normalized.includes('unauthorized') ||
+        normalized.includes('invalid api key') ||
+        normalized.includes('authentication')
+    ) {
+        return 'authentication';
+    }
+    if (/\b429\b/.test(normalized) || normalized.includes('rate limit')) return 'rateLimit';
+    if (
+        normalized.includes('network') ||
+        normalized.includes('timed out') ||
+        normalized.includes('timeout') ||
+        normalized.includes('error sending request')
+    ) {
+        return 'network';
+    }
+    return 'unknown';
+}
+
 /** Draft of the assistant message currently streaming in. */
 export interface ChatStreamState {
     requestId: string;
     text: string;
     tools: ChatToolCall[];
     cancelled: boolean;
+    /** Provider or transport failure that ended this live turn. */
+    failed?: string;
     batchProgress?: {
         completedBatch: number;
         totalBatches: number;
@@ -190,6 +217,10 @@ export function reduceChatStream(
         }
         case 'cancelled':
             return current ? {...current, cancelled: true} : current;
+        case 'failed': {
+            const base = current ?? emptyStream(event.requestId);
+            return {...base, failed: event.message, awaitingApproval: null};
+        }
         default:
             return current;
     }

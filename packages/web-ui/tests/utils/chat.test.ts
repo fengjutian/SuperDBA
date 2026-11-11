@@ -4,6 +4,7 @@ import {
     formatQueryResultSummary,
     formatToolResult,
     reduceChatStream,
+    classifyChatError,
     shouldSubmitChat,
 } from '@/utils/chat';
 
@@ -215,6 +216,22 @@ describe('chat utils', () => {
             expect(state).toMatchObject({text: 'partial', cancelled: true});
         });
 
+        it('marks the draft failed without dropping partial evidence', () => {
+            let state = reduceChatStream(null, {
+                type: 'delta',
+                requestId: 'r1',
+                sessionId: 's1',
+                text: 'partial',
+            });
+            state = reduceChatStream(state, {
+                type: 'failed',
+                requestId: 'r1',
+                sessionId: 's1',
+                message: '401 Unauthorized',
+            });
+            expect(state).toMatchObject({text: 'partial', failed: '401 Unauthorized'});
+        });
+
         it('tracks automatic batch progress', () => {
             const state = reduceChatStream(null, {
                 type: 'batchProgress',
@@ -260,6 +277,21 @@ describe('chat utils', () => {
             expect(
                 reduceChatStream(null, {type: 'finished', requestId: 'r1', sessionId: 's1'}),
             ).toBeNull();
+        });
+    });
+
+    describe('classifyChatError', () => {
+        it('recognizes authentication failures from provider responses', () => {
+            expect(classifyChatError('401 Unauthorized: invalid api key')).toBe('authentication');
+        });
+
+        it('recognizes rate limits and network failures', () => {
+            expect(classifyChatError('429 rate limit exceeded')).toBe('rateLimit');
+            expect(classifyChatError('error sending request for url')).toBe('network');
+        });
+
+        it('keeps unknown failures generic', () => {
+            expect(classifyChatError('provider returned an unexpected response')).toBe('unknown');
         });
     });
 });

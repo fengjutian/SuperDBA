@@ -2898,6 +2898,19 @@
     "waitingApproval": "等待审批：{{kind}}",
     "approvalHint": "请在审批弹窗中批准或拒绝；只有批准后才会执行该语句。",
     "copied": "已复制",
-    "batchProgress": "第 {{completedBatch}}/{{totalBatches}} 批已完成 - 模型调用 {{completedCalls}}/{{totalCalls}}"
+    "batchProgress": "第 {{completedBatch}}/{{totalBatches}} 批已完成 - 模型调用 {{completedCalls}}/{{totalCalls}}",
+    "toolStatus": {
+      "pending": "执行中",
+      "ok": "已完成",
+      "error": "失败",
+      "denied": "已拒绝"
+    },
+    "error": {
+      "authentication": "AI 服务商拒绝了凭据，请检查 API Key 后重试。",
+      "rateLimit": "AI 服务商繁忙或已达到请求限额，请稍后重试。",
+      "network": "无法连接 AI 服务商，请检查网络后重试。",
+      "unknown": "助手未能完成这次请求。",
+      "openSettings": "打开设置"
+    }
   }
 }
