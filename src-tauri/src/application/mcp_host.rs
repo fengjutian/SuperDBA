@@ -260,14 +260,7 @@ fn build_command_client_invocation(
         "claude_code" => Some((
             "claude".to_string(),
             vec![
-                "mcp",
-                "add",
-                "--scope",
-                "user",
-                "superdba",
-                executable,
-                "--",
-                "--mcp",
+                "mcp", "add", "--scope", "user", "superdba", executable, "--", "--mcp",
             ]
             .into_iter()
             .map(str::to_string)

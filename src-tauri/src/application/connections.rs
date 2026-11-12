@@ -1172,7 +1172,8 @@ fn create_group_path(
     let mut last = None;
     for name in segments {
         if let Some(existing) =
-            super::connection_groups::find_child_group(&file.groups, &name, &current_parent).cloned()
+            super::connection_groups::find_child_group(&file.groups, &name, &current_parent)
+                .cloned()
         {
             current_parent = Some(existing.id.clone());
             last = Some(existing);

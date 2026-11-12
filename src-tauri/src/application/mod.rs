@@ -28,6 +28,7 @@ mod productivity_tests;
 pub mod queries;
 pub mod query_sessions;
 pub mod records;
+pub mod security;
 pub mod sql_builder;
 pub mod themes;
 pub mod tool_registry;

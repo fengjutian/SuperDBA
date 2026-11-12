@@ -12,6 +12,10 @@ use crate::application::ai_query_guard;
 use crate::application::ai_sql_safety;
 use crate::application::metadata;
 use crate::application::queries::{self, QueryRequestScope, QueryResponsePolicy};
+use crate::application::security::{
+    SecurityDecision, SecurityEngine, SecurityOperation, SecurityRequest, SecuritySubject,
+    SecurityVerdict,
+};
 use crate::runtime::{state::ApplicationState, RuntimeContext};
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -490,18 +494,41 @@ async fn run_query(
     if let Err(reason) = ai_sql_safety::validate_ai_sql(&args.sql) {
         return ToolOutcome::denied(reason);
     }
-    let (sql, approved) = match classify_statement(&args.sql) {
+    let (sql, approved, decision) = match classify_statement(&args.sql) {
         StatementClass::Rejected(reason) => return ToolOutcome::denied(reason),
-        StatementClass::ReadOnly => (args.sql, false),
-        StatementClass::Write(kind) => match request_approval(tool, &args.sql, kind).await {
+        StatementClass::ReadOnly => {
+            let decision =
+                authorize_chat_sql(tool, connection_id, SecurityOperation::SqlRead, limit);
+            if decision.verdict != SecurityVerdict::Allow {
+                return security_denied(&decision);
+            }
+            (args.sql, false, decision)
+        }
+        StatementClass::Write(kind) => {
+            let initial_decision = authorize_chat_sql(
+                tool,
+                connection_id,
+                SecurityOperation::SqlWrite { approved: false },
+                limit,
+            );
+            if initial_decision.verdict != SecurityVerdict::RequireApproval {
+                return security_denied(&initial_decision);
+            }
+            match request_approval(tool, &args.sql, kind).await {
             ApprovalOutcome::Approved(sql) => {
                 if let Err(reason) = ai_sql_safety::validate_ai_sql(&sql) {
                     return ToolOutcome::denied(reason);
                 }
-                match classify_statement(&sql) {
+                let operation = match classify_statement(&sql) {
                     StatementClass::Rejected(reason) => return ToolOutcome::denied(reason),
-                    _ => (sql, true),
+                    StatementClass::ReadOnly => SecurityOperation::SqlRead,
+                    StatementClass::Write(_) => SecurityOperation::SqlWrite { approved: true },
+                };
+                let decision = authorize_chat_sql(tool, connection_id, operation, limit);
+                if decision.verdict != SecurityVerdict::Allow {
+                    return security_denied(&decision);
                 }
+                (sql, true, decision)
             }
             ApprovalOutcome::Denied(reason) => return ToolOutcome::denied(reason),
             ApprovalOutcome::Cancelled => return ToolOutcome::denied(
@@ -510,14 +537,49 @@ async fn run_query(
             ApprovalOutcome::TimedOut => {
                 return ToolOutcome::error("Timed out waiting for approval. Nothing was executed.")
             }
-        },
+            }
+        }
     };
     if !approved {
         if let Err(outcome) = preflight_read_query(tool, connection_id, &sql).await {
             return outcome;
         }
     }
-    execute_statement(tool, connection_id, sql, limit, approved).await
+    execute_statement(tool, connection_id, sql, approved, decision).await
+}
+
+fn authorize_chat_sql(
+    tool: &ToolCallContext<'_>,
+    connection_id: &str,
+    operation: SecurityOperation,
+    requested_max_rows: u32,
+) -> SecurityDecision {
+    let user_id = tool
+        .web_session_id
+        .map(|session_id| format!("web-session:{session_id}"))
+        .unwrap_or_else(|| "local-desktop-user".to_string());
+    SecurityEngine::authorize_chat_sql(&SecurityRequest {
+        request_id: tool.request_id.to_string(),
+        task_id: tool.chat_session_id.to_string(),
+        subject: SecuritySubject {
+            user_id,
+            tenant_id: None,
+            agent_id: "chat-dba".to_string(),
+            service_id: "superdba".to_string(),
+            session_id: tool.web_session_id,
+        },
+        connection_id: connection_id.to_string(),
+        operation,
+        requested_max_rows,
+        requested_timeout: QUERY_TIMEOUT,
+    })
+}
+
+fn security_denied(decision: &SecurityDecision) -> ToolOutcome {
+    ToolOutcome::denied(format!(
+        "Security policy denied the operation ({}).",
+        decision.reason_code
+    ))
 }
 
 async fn preflight_read_query(
@@ -575,9 +637,10 @@ async fn execute_statement(
     tool: &ToolCallContext<'_>,
     connection_id: &str,
     sql: String,
-    limit: u32,
     approved: bool,
+    decision: SecurityDecision,
 ) -> ToolOutcome {
+    let limit = decision.restrictions.max_rows;
     let _permit = match acquire_query_permit(tool, connection_id).await {
         Ok(permit) => permit,
         Err(outcome) => return outcome,
@@ -622,11 +685,11 @@ async fn execute_statement(
     tokio::pin!(query);
     let result = tokio::select! {
         result = &mut query => result,
-        _ = tokio::time::sleep(QUERY_TIMEOUT) => {
+        _ = tokio::time::sleep(decision.restrictions.timeout) => {
             ai_query_guard::record_query_failure(connection_id);
             return ToolOutcome::error(format!(
                 "Query timed out after {} seconds and was cancelled to protect database stability.",
-                QUERY_TIMEOUT.as_secs()
+                decision.restrictions.timeout.as_secs()
             ));
         }
         _ = wait_for_cancellation(tool) => {
@@ -696,6 +759,11 @@ async fn execute_statement(
                     "affectedRows": affected_rows,
                     "truncated": truncated,
                     "approved": approved,
+                    "security": {
+                        "decisionId": decision.decision_id,
+                        "policyVersion": decision.policy_version,
+                        "riskLevel": decision.risk,
+                    },
                 }),
             )
         }

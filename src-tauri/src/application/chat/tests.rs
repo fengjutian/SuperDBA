@@ -18,7 +18,10 @@ fn cumulative_turn_budget_stops_preflights_slow_queries_and_large_results() {
     for _ in 0..8 {
         assert!(preflights.reserve("run_query").is_ok());
     }
-    assert_eq!(preflights.reserve("run_query"), Err("EXPLAIN preflight count"));
+    assert_eq!(
+        preflights.reserve("run_query"),
+        Err("EXPLAIN preflight count")
+    );
 
     let mut slow = TurnResourceBudget::default();
     slow.record("run_query", 8_000, &json!({}));
