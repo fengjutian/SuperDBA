@@ -1,12 +1,17 @@
 use super::{RiskLevel, SecurityOperation, SecurityRequest, SecurityRestrictions, SecurityVerdict};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 use std::time::Duration;
 
 const MAX_POLICY_BYTES: u64 = 1024 * 1024;
+pub const LOCAL_POLICY_FILE: &str = "ai-security-policy.yaml";
+
+static LAST_VALID_POLICIES: once_cell::sync::Lazy<Mutex<HashMap<PathBuf, PolicySet>>> =
+    once_cell::sync::Lazy::new(|| Mutex::new(HashMap::new()));
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -85,6 +90,34 @@ pub fn load_policy(path: &Path) -> Result<PolicySet, String> {
     let digest = format!("{digest:x}");
     policy.version = format!("{}:{}", policy.version, &digest[..16]);
     Ok(policy)
+}
+
+pub(crate) fn load_local_policy(config_dir: &Path) -> Result<Option<PolicySet>, String> {
+    let path = config_dir.join(LOCAL_POLICY_FILE);
+    if !path.exists() {
+        LAST_VALID_POLICIES
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .remove(&path);
+        return Ok(None);
+    }
+
+    match load_policy(&path) {
+        Ok(policy) => {
+            LAST_VALID_POLICIES
+                .lock()
+                .unwrap_or_else(|error| error.into_inner())
+                .insert(path, policy.clone());
+            Ok(Some(policy))
+        }
+        Err(load_error) => LAST_VALID_POLICIES
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .get(&path)
+            .cloned()
+            .map(Some)
+            .ok_or(load_error),
+    }
 }
 
 pub fn validate_policy(policy: &PolicySet) -> Result<(), String> {

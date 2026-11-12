@@ -12,6 +12,7 @@ pub use types::{
     SecuritySubject, SecurityVerdict,
 };
 
+use std::path::Path;
 use std::time::Duration;
 use uuid::Uuid;
 
@@ -75,6 +76,22 @@ impl SecurityEngine {
             evaluation.reason_code,
             policy.version.clone(),
         )
+    }
+
+    pub fn authorize_with_local_policy(
+        request: &SecurityRequest,
+        config_dir: &Path,
+    ) -> SecurityDecision {
+        match policy::load_local_policy(config_dir) {
+            Ok(Some(policy)) => Self::authorize_with_policy(request, &policy),
+            Ok(None) => Self::authorize_chat_sql(request),
+            Err(_error) => decision(
+                SecurityVerdict::Deny,
+                RiskLevel::L3,
+                SecurityRestrictions::none(),
+                "SECURITY_POLICY_LOAD_FAILED",
+            ),
+        }
     }
 }
 

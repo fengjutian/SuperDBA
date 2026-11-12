@@ -141,3 +141,84 @@ rules:
     assert!(loaded.version.starts_with("v1:"));
     assert_eq!(loaded.version.len(), 19);
 }
+
+#[test]
+fn local_policy_uses_last_valid_version_after_invalid_replacement() {
+    let directory = tempdir().unwrap();
+    let path = directory.path().join(LOCAL_POLICY_FILE);
+    fs::write(
+        &path,
+        r#"version: v1
+default: deny
+rules:
+  - id: allow-read
+    effect: allow
+    roles: [sales]
+    actions: [sql_read]
+"#,
+    )
+    .unwrap();
+    let first = load_local_policy(directory.path())
+        .unwrap()
+        .expect("policy should load");
+
+    fs::write(&path, "not: [valid").unwrap();
+    let cached = load_local_policy(directory.path())
+        .unwrap()
+        .expect("last valid policy should remain available");
+
+    assert_eq!(cached.version, first.version);
+}
+
+#[test]
+fn invalid_first_local_policy_fails_closed() {
+    let directory = tempdir().unwrap();
+    fs::write(directory.path().join(LOCAL_POLICY_FILE), "not: [valid").unwrap();
+
+    let error = load_local_policy(directory.path()).expect_err("invalid policy must fail");
+
+    assert!(error.contains("Invalid security policy"));
+}
+
+#[test]
+fn deleting_local_policy_returns_to_baseline() {
+    let directory = tempdir().unwrap();
+    let path = directory.path().join(LOCAL_POLICY_FILE);
+    fs::write(&path, "version: v1\ndefault: deny\nrules: []\n").unwrap();
+    assert!(load_local_policy(directory.path()).unwrap().is_some());
+
+    fs::remove_file(path).unwrap();
+
+    assert!(load_local_policy(directory.path()).unwrap().is_none());
+}
+
+#[test]
+fn runtime_authorization_applies_local_policy() {
+    let directory = tempdir().unwrap();
+    fs::write(
+        directory.path().join(LOCAL_POLICY_FILE),
+        r#"version: runtime-v1
+default: deny
+rules:
+  - id: allow-sales-read
+    effect: allow
+    roles: [sales]
+    agents: [chat-dba]
+    connections: [crm]
+    purposes: [sales-analysis]
+    actions: [sql_read]
+    limits:
+      max_rows: 7
+"#,
+    )
+    .unwrap();
+
+    let decision = SecurityEngine::authorize_with_local_policy(
+        &request(SecurityOperation::SqlRead),
+        directory.path(),
+    );
+
+    assert_eq!(decision.verdict, SecurityVerdict::Allow);
+    assert_eq!(decision.restrictions.max_rows, 7);
+    assert!(decision.policy_version.starts_with("runtime-v1:"));
+}

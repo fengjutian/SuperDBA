@@ -559,25 +559,28 @@ fn authorize_chat_sql(
         .web_session_id
         .map(|session_id| format!("web-session:{session_id}"))
         .unwrap_or_else(|| "local-desktop-user".to_string());
-    SecurityEngine::authorize_chat_sql(&SecurityRequest {
-        request_id: tool.request_id.to_string(),
-        task_id: tool.chat_session_id.to_string(),
-        purpose: "interactive-database-assistance".to_string(),
-        subject: SecuritySubject {
-            user_id,
-            roles: vec!["local-user".to_string()],
-            tenant_id: None,
-            agent_id: "chat-dba".to_string(),
-            service_id: "superdba".to_string(),
-            session_id: tool.web_session_id,
+    SecurityEngine::authorize_with_local_policy(
+        &SecurityRequest {
+            request_id: tool.request_id.to_string(),
+            task_id: tool.chat_session_id.to_string(),
+            purpose: "interactive-database-assistance".to_string(),
+            subject: SecuritySubject {
+                user_id,
+                roles: vec!["local-user".to_string()],
+                tenant_id: None,
+                agent_id: "chat-dba".to_string(),
+                service_id: "superdba".to_string(),
+                session_id: tool.web_session_id,
+            },
+            connection_id: connection_id.to_string(),
+            operation,
+            requested_max_rows,
+            requested_timeout: QUERY_TIMEOUT,
+            hard_max_rows: MAX_ROWS,
+            hard_timeout: QUERY_TIMEOUT,
         },
-        connection_id: connection_id.to_string(),
-        operation,
-        requested_max_rows,
-        requested_timeout: QUERY_TIMEOUT,
-        hard_max_rows: MAX_ROWS,
-        hard_timeout: QUERY_TIMEOUT,
-    })
+        tool.runtime.paths.config_dir(),
+    )
 }
 
 fn security_denied(decision: &SecurityDecision) -> ToolOutcome {

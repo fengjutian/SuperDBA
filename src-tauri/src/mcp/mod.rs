@@ -1574,25 +1574,28 @@ fn authorize_mcp_sql(
             approved: write_approved,
         }
     };
-    SecurityEngine::authorize_chat_sql(&SecurityRequest {
-        request_id: ai_activity::new_uuid(),
-        task_id: session_id.to_string(),
-        purpose: "mcp-database-assistance".to_string(),
-        subject: SecuritySubject {
-            user_id: "local-mcp-user".to_string(),
-            roles: vec!["local-user".to_string()],
-            tenant_id: None,
-            agent_id: "mcp".to_string(),
-            service_id: "superdba".to_string(),
-            session_id: None,
+    SecurityEngine::authorize_with_local_policy(
+        &SecurityRequest {
+            request_id: ai_activity::new_uuid(),
+            task_id: session_id.to_string(),
+            purpose: "mcp-database-assistance".to_string(),
+            subject: SecuritySubject {
+                user_id: "local-mcp-user".to_string(),
+                roles: vec!["local-user".to_string()],
+                tenant_id: None,
+                agent_id: "mcp".to_string(),
+                service_id: "superdba".to_string(),
+                session_id: None,
+            },
+            connection_id: connection_id.to_string(),
+            operation,
+            requested_max_rows,
+            requested_timeout: ai_query_guard::QUERY_TIMEOUT,
+            hard_max_rows: ai_query_guard::MCP_MAX_ROWS,
+            hard_timeout: ai_query_guard::QUERY_TIMEOUT,
         },
-        connection_id: connection_id.to_string(),
-        operation,
-        requested_max_rows,
-        requested_timeout: ai_query_guard::QUERY_TIMEOUT,
-        hard_max_rows: ai_query_guard::MCP_MAX_ROWS,
-        hard_timeout: ai_query_guard::QUERY_TIMEOUT,
-    })
+        &paths::get_app_config_dir(),
+    )
 }
 
 fn mcp_security_denied(audit: &mut CallAudit, decision: &SecurityDecision) -> JsonRpcError {
