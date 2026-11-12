@@ -65,18 +65,6 @@ export interface AiActivityEvent {
     error: string | null;
     clientHint: string | null;
     approvalId: string | null;
-    /** Authorization metadata emitted for AI database operations. */
-    securityDecision?: AiSecurityDecision | null;
-}
-
-export interface AiSecurityDecision {
-    decisionId: string;
-    verdict: "allow" | "require_approval" | "deny";
-    risk: "L0" | "L1" | "L2" | "L3";
-    policyVersion: string;
-    reasonCode: string;
-    maxRows: number;
-    timeoutMs: number;
 }
 
 export interface AiSessionSummary {

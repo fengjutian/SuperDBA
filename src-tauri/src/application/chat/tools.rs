@@ -65,7 +65,6 @@ pub struct ToolOutcome {
     pub status: ChatToolStatus,
     pub summary: String,
     pub result: Value,
-    pub security_decision: Option<crate::ai_activity::SecurityAuditDecision>,
 }
 
 impl ToolOutcome {
@@ -74,7 +73,6 @@ impl ToolOutcome {
             status: ChatToolStatus::Ok,
             summary: summary.into(),
             result,
-            security_decision: None,
         }
     }
 
@@ -84,7 +82,6 @@ impl ToolOutcome {
             status: ChatToolStatus::Error,
             summary: message.clone(),
             result: json!({ "error": message }),
-            security_decision: None,
         }
     }
 
@@ -94,13 +91,7 @@ impl ToolOutcome {
             status: ChatToolStatus::Denied,
             summary: message.clone(),
             result: json!({ "error": message, "denied": true }),
-            security_decision: None,
         }
-    }
-
-    fn with_security_decision(mut self, decision: &SecurityDecision) -> Self {
-        self.security_decision = Some(decision.into());
-        self
     }
 }
 
@@ -526,13 +517,10 @@ async fn run_query(
             match request_approval(tool, &args.sql, kind).await {
             ApprovalOutcome::Approved(sql) => {
                 if let Err(reason) = ai_sql_safety::validate_ai_sql(&sql) {
-                    return ToolOutcome::denied(reason).with_security_decision(&initial_decision);
+                    return ToolOutcome::denied(reason);
                 }
                 let operation = match classify_statement(&sql) {
-                    StatementClass::Rejected(reason) => {
-                        return ToolOutcome::denied(reason)
-                            .with_security_decision(&initial_decision)
-                    }
+                    StatementClass::Rejected(reason) => return ToolOutcome::denied(reason),
                     StatementClass::ReadOnly => SecurityOperation::SqlRead,
                     StatementClass::Write(_) => SecurityOperation::SqlWrite { approved: true },
                 };
@@ -543,25 +531,19 @@ async fn run_query(
                 let approved_write = matches!(operation, SecurityOperation::SqlWrite { .. });
                 (sql, approved_write, decision)
             }
-            ApprovalOutcome::Denied(reason) => {
-                return ToolOutcome::denied(reason).with_security_decision(&initial_decision)
-            }
-            ApprovalOutcome::Cancelled => {
-                return ToolOutcome::denied(
-                    "The user stopped the turn before approving this statement. Nothing was executed.",
-                )
-                .with_security_decision(&initial_decision)
-            }
+            ApprovalOutcome::Denied(reason) => return ToolOutcome::denied(reason),
+            ApprovalOutcome::Cancelled => return ToolOutcome::denied(
+                "The user stopped the turn before approving this statement. Nothing was executed.",
+            ),
             ApprovalOutcome::TimedOut => {
                 return ToolOutcome::error("Timed out waiting for approval. Nothing was executed.")
-                    .with_security_decision(&initial_decision)
             }
             }
         }
     };
     if !approved {
         if let Err(outcome) = preflight_read_query(tool, connection_id, &sql).await {
-            return outcome.with_security_decision(&decision);
+            return outcome;
         }
     }
     execute_statement(tool, connection_id, sql, approved, decision).await
@@ -606,7 +588,6 @@ fn security_denied(decision: &SecurityDecision) -> ToolOutcome {
         "Security policy denied the operation ({}).",
         decision.reason_code
     ))
-    .with_security_decision(decision)
 }
 
 async fn preflight_read_query(
@@ -670,7 +651,7 @@ async fn execute_statement(
     let limit = decision.restrictions.max_rows;
     let _permit = match acquire_query_permit(tool, connection_id).await {
         Ok(permit) => permit,
-        Err(outcome) => return outcome.with_security_decision(&decision),
+        Err(outcome) => return outcome,
     };
     let scope = QueryRequestScope {
         session_id: tool.web_session_id,
@@ -717,15 +698,15 @@ async fn execute_statement(
             return ToolOutcome::error(format!(
                 "Query timed out after {} seconds and was cancelled to protect database stability.",
                 decision.restrictions.timeout.as_secs()
-            )).with_security_decision(&decision);
+            ));
         }
         _ = wait_for_cancellation(tool) => {
             return ToolOutcome::denied(
                 "The user stopped the turn. The running query was cancelled."
-            ).with_security_decision(&decision);
+            );
         }
     };
-    let outcome = match result {
+    match result {
         Ok(result) => {
             ai_query_guard::record_query_success(connection_id);
             let config = crate::application::persistence::load_config(tool.runtime);
@@ -798,8 +779,7 @@ async fn execute_statement(
             ai_query_guard::record_query_failure(connection_id);
             ToolOutcome::error(format!("Query failed: {error}"))
         }
-    };
-    outcome.with_security_decision(&decision)
+    }
 }
 
 pub(super) fn query_semaphore(connection_id: &str) -> Arc<Semaphore> {

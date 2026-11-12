@@ -62,7 +62,13 @@ pub fn analyze(
 ) -> ImportPreview {
     let existing_keys: Vec<(DupKey, String, String)> = existing
         .iter()
-        .map(|c| (dup_key_existing(c), c.id.clone(), c.name.clone()))
+        .map(|c| {
+            (
+                dup_key_existing(c),
+                c.id.clone(),
+                c.name.clone(),
+            )
+        })
         .collect();
 
     let items = envelope
@@ -148,10 +154,7 @@ fn collect_warnings(
         }
     }
     if !driver_installed {
-        warnings.push(format!(
-            "Database driver \"{}\" is not installed",
-            driver_id
-        ));
+        warnings.push(format!("Database driver \"{}\" is not installed", driver_id));
     }
     warnings
 }
@@ -187,14 +190,7 @@ mod tests {
     use crate::connection_import::types::ImportedConnection;
     use crate::models::{ConnectionParams, DatabaseSelection};
 
-    fn conn(
-        name: &str,
-        host: &str,
-        port: u16,
-        db: &str,
-        user: &str,
-        driver: &str,
-    ) -> ImportedConnection {
+    fn conn(name: &str, host: &str, port: u16, db: &str, user: &str, driver: &str) -> ImportedConnection {
         ImportedConnection {
             name: name.to_string(),
             host: host.to_string(),

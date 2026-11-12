@@ -580,7 +580,6 @@ async fn execute_calls(
                 status: ChatToolStatus::Denied,
                 summary: "Denied by production strict mode (read-only tools only).".to_string(),
                 result: json!({"error": "Production strict mode blocks write operations.", "denied": true}),
-                security_decision: None,
             }
         } else if query_budget_exhausted || resource_limit.is_some() {
             tools::ToolOutcome {
@@ -594,7 +593,6 @@ async fn execute_calls(
                     "queryLimit": MAX_DATABASE_QUERIES_PER_TURN,
                     "resourceLimit": resource_limit,
                 }),
-                security_decision: None,
             }
         } else {
             tools::execute(&tool, &call.name, &call.arguments).await
@@ -743,7 +741,6 @@ pub(super) fn build_audit_event(
         .then(|| outcome.summary.clone()),
         client_hint: Some("SuperDBA chat".to_string()),
         approval_id: None,
-        security_decision: outcome.security_decision.clone(),
     }
 }
 

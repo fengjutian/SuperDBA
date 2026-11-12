@@ -72,9 +72,8 @@ impl ForeignAppImporter for DBeaverImporter {
             .find_data_sources_file()
             .ok_or_else(|| ForeignImportError::FileNotFound(self.display_name().to_string()))?;
 
-        let json = load_json(&ds_path).ok_or_else(|| {
-            ForeignImportError::ParseError("Could not parse data-sources.json".into())
-        })?;
+        let json = load_json(&ds_path)
+            .ok_or_else(|| ForeignImportError::ParseError("Could not parse data-sources.json".into()))?;
 
         let connections = json
             .get("connections")
@@ -84,10 +83,7 @@ impl ForeignAppImporter for DBeaverImporter {
             })?;
 
         let empty = serde_json::Map::new();
-        let folders = json
-            .get("folders")
-            .and_then(Value::as_object)
-            .unwrap_or(&empty);
+        let folders = json.get("folders").and_then(Value::as_object).unwrap_or(&empty);
 
         let creds_map = if include_passwords {
             let creds_path = ds_path
@@ -283,21 +279,14 @@ fn parse_ssh(config: &serde_json::Map<String, Value>) -> Option<ImportedSsh> {
         return None;
     }
     let props = properties?;
-    let host = props
-        .get("host")
-        .and_then(Value::as_str)
-        .unwrap_or("")
-        .to_string();
+    let host = props.get("host").and_then(Value::as_str).unwrap_or("").to_string();
     let port = props.get("port").and_then(parse_port);
     let username = props
         .get("username")
         .and_then(Value::as_str)
         .unwrap_or("")
         .to_string();
-    let auth_type = props
-        .get("authType")
-        .and_then(Value::as_str)
-        .unwrap_or("PASSWORD");
+    let auth_type = props.get("authType").and_then(Value::as_str).unwrap_or("PASSWORD");
     let key_path = props.get("keyPath").and_then(Value::as_str).unwrap_or("");
 
     let (auth, private_key_path) = if auth_type == "PUBLIC_KEY" {

@@ -130,9 +130,7 @@ impl ForeignAppImporter for BeekeeperImporter {
         _file: Option<&Path>,
     ) -> Result<ImportEnvelope, ForeignImportError> {
         if !self.app_db_path().is_file() {
-            return Err(ForeignImportError::FileNotFound(
-                self.display_name().to_string(),
-            ));
+            return Err(ForeignImportError::FileNotFound(self.display_name().to_string()));
         }
         let rows = self.read_rows().await?;
         let folder_map = self.read_folders().await.unwrap_or_default();
@@ -238,9 +236,7 @@ impl BeekeeperImporter {
         Ok(rows)
     }
 
-    async fn read_folders(
-        &self,
-    ) -> Result<std::collections::HashMap<i64, String>, ForeignImportError> {
+    async fn read_folders(&self) -> Result<std::collections::HashMap<i64, String>, ForeignImportError> {
         let pool = self.open().await?;
         let rows = sqlx::query("SELECT id, name FROM connection_folder")
             .fetch_all(&pool)
@@ -270,12 +266,7 @@ fn build_ssh(row: &SavedConnectionRow) -> Option<ImportedSsh> {
     if row.ssh_enabled.unwrap_or(0) == 0 {
         return None;
     }
-    let auth_type = match row
-        .ssh_mode
-        .as_deref()
-        .map(str::to_ascii_lowercase)
-        .as_deref()
-    {
+    let auth_type = match row.ssh_mode.as_deref().map(str::to_ascii_lowercase).as_deref() {
         Some("keyfile") => "ssh_key",
         _ => "password",
     }

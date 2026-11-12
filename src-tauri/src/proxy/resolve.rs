@@ -26,7 +26,9 @@ pub fn attach_password(endpoint: &mut ProxyEndpoint, slot: &str) {
         }
         Ok(_) => {}
         Err(e) => {
-            log::warn!("Failed to read proxy password from keychain slot '{slot}': {e}");
+            log::warn!(
+                "Failed to read proxy password from keychain slot '{slot}': {e}"
+            );
         }
     }
 }
@@ -92,11 +94,7 @@ pub fn endpoint_to_proxy_url(endpoint: &ProxyEndpoint) -> Result<String, String>
     }
 
     let auth = match (
-        endpoint
-            .username
-            .as_deref()
-            .map(str::trim)
-            .filter(|s| !s.is_empty()),
+        endpoint.username.as_deref().map(str::trim).filter(|s| !s.is_empty()),
         endpoint.password.as_deref().filter(|s| !s.is_empty()),
     ) {
         (Some(user), Some(pass)) => {
@@ -213,7 +211,12 @@ pub fn resolve_for_connection(
     let config = crate::config::get_cached_config();
     let global = config.proxy.clone().unwrap_or_default();
     let slot = connection_id.map(keychain_connection);
-    resolve(&global, scope, override_cfg, slot.as_deref())
+    resolve(
+        &global,
+        scope,
+        override_cfg,
+        slot.as_deref(),
+    )
 }
 
 #[cfg(test)]

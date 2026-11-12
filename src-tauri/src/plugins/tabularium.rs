@@ -124,7 +124,10 @@ pub async fn fetch_theme_list(base_url: &str) -> Result<Vec<RegistryPlugin>, Str
 }
 
 /// Fetch full detail for one plugin (releases + per-asset sha256/url).
-pub async fn fetch_plugin_detail(base_url: &str, slug: &str) -> Result<RegistryPlugin, String> {
+pub async fn fetch_plugin_detail(
+    base_url: &str,
+    slug: &str,
+) -> Result<RegistryPlugin, String> {
     let client = make_client(base_url)?;
     let resp = client
         .get_plugin()
@@ -419,30 +422,21 @@ pub async fn check_release_signature(
     };
 
     match integ {
-        Integ::Variant0 { jws, .. } => {
-            match crate::plugins::integrity::fetch_jwks(base_url).await {
-                Ok(jwks) => {
-                    match crate::plugins::integrity::verify_jws(
-                        &jws, &jwks, slug, version, base_url,
-                    ) {
-                        Ok(_) => SignatureStatus::Verified,
-                        Err(e) => {
-                            log::error!("Signature INVALID for {}@{}: {}", slug, version, e);
-                            SignatureStatus::Invalid
-                        }
+        Integ::Variant0 { jws, .. } => match crate::plugins::integrity::fetch_jwks(base_url).await {
+            Ok(jwks) => {
+                match crate::plugins::integrity::verify_jws(&jws, &jwks, slug, version, base_url) {
+                    Ok(_) => SignatureStatus::Verified,
+                    Err(e) => {
+                        log::error!("Signature INVALID for {}@{}: {}", slug, version, e);
+                        SignatureStatus::Invalid
                     }
                 }
-                Err(e) => {
-                    log::warn!(
-                        "JWKS fetch failed while probing {}@{}: {}",
-                        slug,
-                        version,
-                        e
-                    );
-                    SignatureStatus::Unknown
-                }
             }
-        }
+            Err(e) => {
+                log::warn!("JWKS fetch failed while probing {}@{}: {}", slug, version, e);
+                SignatureStatus::Unknown
+            }
+        },
         Integ::Variant1 { .. } => SignatureStatus::Unsigned,
     }
 }
@@ -472,9 +466,7 @@ fn pick_asset_entry<'a>(
 // SDK → legacy shape adapters
 // -----------------------------------------------------------------------------
 
-fn list_item_to_plugin(
-    item: tabularium_sdk::types::ListPluginsResponsePluginsItem,
-) -> RegistryPlugin {
+fn list_item_to_plugin(item: tabularium_sdk::types::ListPluginsResponsePluginsItem) -> RegistryPlugin {
     let homepage = choose_homepage(item.homepage.clone(), item.repo_url.clone());
     let facets = serde_json::to_value(&item).unwrap_or(serde_json::Value::Null);
     let (engine, paradigms, verified) = extract_driver_facets(&facets);
@@ -593,10 +585,7 @@ fn release_to_legacy(r: &tabularium_sdk::types::GetPluginResponseReleasesItem) -
 /// Works off `serde_json::Value` so it does not depend on the exact generated
 /// SDK field types — only that the SDK round-trips these keys.
 fn extract_driver_facets(item: &serde_json::Value) -> (Option<String>, Vec<String>, bool) {
-    let verified = item
-        .get("verified")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let verified = item.get("verified").and_then(|v| v.as_bool()).unwrap_or(false);
     let ext = item.get("extensions");
     let engine = ext
         .and_then(|e| e.get("engine"))
@@ -637,10 +626,7 @@ mod tests {
         });
         let (engine, paradigms, verified) = extract_driver_facets(&json);
         assert_eq!(engine.as_deref(), Some("firestore"));
-        assert_eq!(
-            paradigms,
-            vec!["document".to_string(), "vector".to_string()]
-        );
+        assert_eq!(paradigms, vec!["document".to_string(), "vector".to_string()]);
         assert!(verified);
     }
 
