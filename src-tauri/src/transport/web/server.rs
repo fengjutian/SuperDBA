@@ -595,7 +595,7 @@ async fn rpc(
     response
 }
 
-fn account_session_revocation(command: &str, body: &[u8]) -> Option<Uuid> {
+pub(crate) fn account_session_revocation(command: &str, body: &[u8]) -> Option<Uuid> {
     let payload: Value = serde_json::from_slice(body).ok()?;
     match command {
         "change_application_account_password" => payload

@@ -234,6 +234,38 @@ fn authenticates_named_accounts_and_binds_the_principal_to_the_session() {
 }
 
 #[test]
+fn revokes_sessions_only_for_credential_invalidating_account_commands() {
+    let id = uuid::Uuid::new_v4();
+    let password = serde_json::to_vec(&serde_json::json!({
+        "id": id,
+        "password": "replacement horse battery staple"
+    }))
+    .unwrap();
+    assert_eq!(
+        server::account_session_revocation(
+            "change_application_account_password",
+            &password,
+        ),
+        Some(id)
+    );
+
+    let disable = serde_json::to_vec(&serde_json::json!({"id": id, "disabled": true})).unwrap();
+    assert_eq!(
+        server::account_session_revocation("set_application_account_disabled", &disable),
+        Some(id)
+    );
+    let enable = serde_json::to_vec(&serde_json::json!({"id": id, "disabled": false})).unwrap();
+    assert_eq!(
+        server::account_session_revocation("set_application_account_disabled", &enable),
+        None
+    );
+    assert_eq!(
+        server::account_session_revocation("create_application_account", &password),
+        None
+    );
+}
+
+#[test]
 fn advertises_mcp_host_configuration_only_for_loopback_web_origins() {
     for origin in [
         "http://127.0.0.1:8080",
