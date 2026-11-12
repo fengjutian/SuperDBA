@@ -1577,8 +1577,10 @@ fn authorize_mcp_sql(
     SecurityEngine::authorize_chat_sql(&SecurityRequest {
         request_id: ai_activity::new_uuid(),
         task_id: session_id.to_string(),
+        purpose: "mcp-database-assistance".to_string(),
         subject: SecuritySubject {
             user_id: "local-mcp-user".to_string(),
+            roles: vec!["local-user".to_string()],
             tenant_id: None,
             agent_id: "mcp".to_string(),
             service_id: "superdba".to_string(),

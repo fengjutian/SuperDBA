@@ -5,6 +5,7 @@ use uuid::Uuid;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SecuritySubject {
     pub user_id: String,
+    pub roles: Vec<String>,
     pub tenant_id: Option<String>,
     pub agent_id: String,
     pub service_id: String,
@@ -21,6 +22,7 @@ pub enum SecurityOperation {
 pub struct SecurityRequest {
     pub request_id: String,
     pub task_id: String,
+    pub purpose: String,
     pub subject: SecuritySubject,
     pub connection_id: String,
     pub operation: SecurityOperation,
@@ -66,7 +68,7 @@ pub struct SecurityDecision {
     pub decision_id: Uuid,
     pub verdict: SecurityVerdict,
     pub risk: RiskLevel,
-    pub policy_version: &'static str,
+    pub policy_version: String,
     pub restrictions: SecurityRestrictions,
     pub reason_code: &'static str,
 }

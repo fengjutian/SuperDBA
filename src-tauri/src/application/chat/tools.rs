@@ -562,8 +562,10 @@ fn authorize_chat_sql(
     SecurityEngine::authorize_chat_sql(&SecurityRequest {
         request_id: tool.request_id.to_string(),
         task_id: tool.chat_session_id.to_string(),
+        purpose: "interactive-database-assistance".to_string(),
         subject: SecuritySubject {
             user_id,
+            roles: vec!["local-user".to_string()],
             tenant_id: None,
             agent_id: "chat-dba".to_string(),
             service_id: "superdba".to_string(),

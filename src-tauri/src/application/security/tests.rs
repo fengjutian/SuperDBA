@@ -4,8 +4,10 @@ fn request(operation: SecurityOperation) -> SecurityRequest {
     SecurityRequest {
         request_id: "request-1".to_string(),
         task_id: "task-1".to_string(),
+        purpose: "interactive-database-assistance".to_string(),
         subject: SecuritySubject {
             user_id: "local-user".to_string(),
+            roles: vec!["local-user".to_string()],
             tenant_id: None,
             agent_id: "chat-dba".to_string(),
             service_id: "superdba".to_string(),
