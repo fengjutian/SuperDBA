@@ -20,6 +20,7 @@ use std::time::Duration;
 use crate::paths::get_app_config_dir;
 
 const DIR_NAME: &str = "pending_approvals";
+const CONSUMED_DIR_NAME: &str = "consumed_approvals";
 const SIGNING_KEY_ACCOUNT: &str = "ai-approval-signing-key-v1";
 const SIGNING_KEY_LOCK: &str = ".signing-key.lock";
 
@@ -176,6 +177,48 @@ pub fn verify_signed_decision(
         ],
         signature,
     )
+}
+
+pub fn consume_signed_decision_in(
+    base: &Path,
+    pending: &PendingApproval,
+    decision: &ApprovalDecision,
+    key: &[u8],
+) -> Result<(), String> {
+    use std::io::Write;
+
+    verify_signed_decision(pending, decision, key)?;
+    let directory = base.join(CONSUMED_DIR_NAME);
+    fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
+    let marker_name = format!("{:x}.json", Sha256::digest(pending.id.as_bytes()));
+    let marker_path = directory.join(marker_name);
+    let mut options = fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut marker = match options.open(&marker_path) {
+        Ok(marker) => marker,
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+            return Err("Approval decision has already been consumed".to_string())
+        }
+        Err(error) => return Err(error.to_string()),
+    };
+    let record = serde_json::json!({
+        "approvalId": pending.id,
+        "decisionSignature": decision.signature,
+        "consumedAtUnixMs": std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|error| error.to_string())?
+            .as_millis(),
+    });
+    let content = serde_json::to_vec(&record).map_err(|error| error.to_string())?;
+    marker
+        .write_all(&content)
+        .and_then(|_| marker.sync_all())
+        .map_err(|error| error.to_string())
 }
 
 pub fn query_hash(query: &str) -> String {

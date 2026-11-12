@@ -173,6 +173,34 @@ mod tests {
         .is_err());
     }
 
+    #[test]
+    fn consumed_approval_cannot_be_replayed_after_cleanup() {
+        let tmp = TempDir::new().unwrap();
+        let key = [9u8; 32];
+        let mut pending = make_pending("single-use");
+        crate::ai_approval::sign_pending(&mut pending, &key).unwrap();
+        let mut decision = make_decision("single-use", "approve");
+        crate::ai_approval::sign_decision(&pending, &mut decision, &key).unwrap();
+
+        crate::ai_approval::consume_signed_decision_in(
+            tmp.path(),
+            &pending,
+            &decision,
+            &key,
+        )
+        .unwrap();
+        clear_in(tmp.path(), "single-use").unwrap();
+
+        let error = crate::ai_approval::consume_signed_decision_in(
+            tmp.path(),
+            &pending,
+            &decision,
+            &key,
+        )
+        .unwrap_err();
+        assert!(error.contains("already been consumed"));
+    }
+
     // Polling --------------------------------------------------------------
 
     #[tokio::test]

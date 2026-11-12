@@ -1048,9 +1048,12 @@ async fn request_approval(
         }
         match ai_approval::read_decision_in(&config_dir, &approval_id) {
             Ok(Some(decision)) => {
-                if let Err(error) =
-                    ai_approval::verify_signed_decision(&pending, &decision, &signing_key)
-                {
+                if let Err(error) = ai_approval::consume_signed_decision_in(
+                    &config_dir,
+                    &pending,
+                    &decision,
+                    &signing_key,
+                ) {
                     let _ = ai_approval::clear_in(&config_dir, &approval_id);
                     return ApprovalOutcome::Denied(format!(
                         "Approval binding validation failed: {error}"

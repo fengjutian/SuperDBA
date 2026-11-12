@@ -1402,9 +1402,12 @@ async fn tool_run_query(
         .await
         {
             Ok(PollOutcome::Decided(decision)) => {
-                if let Err(error) =
-                    ai_approval::verify_signed_decision(&pending, &decision, &signing_key)
-                {
+                if let Err(error) = ai_approval::consume_signed_decision_in(
+                    &paths::get_app_config_dir(),
+                    &pending,
+                    &decision,
+                    &signing_key,
+                ) {
                     audit.status = "blocked_security".to_string();
                     let message = format!("Approval binding validation failed: {error}");
                     audit.error = Some(message.clone());
