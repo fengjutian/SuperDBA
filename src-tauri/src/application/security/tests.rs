@@ -15,6 +15,8 @@ fn request(operation: SecurityOperation) -> SecurityRequest {
         operation,
         requested_max_rows: 500,
         requested_timeout: Duration::from_secs(30),
+        hard_max_rows: MAX_CHAT_ROWS,
+        hard_timeout: MAX_CHAT_TIMEOUT,
     }
 }
 
@@ -70,4 +72,15 @@ fn zero_row_limit_is_denied() {
 
     assert_eq!(decision.verdict, SecurityVerdict::Deny);
     assert_eq!(decision.reason_code, "SECURITY_INVALID_ROW_LIMIT");
+}
+
+#[test]
+fn invalid_hard_limits_are_denied() {
+    let mut request = request(SecurityOperation::SqlRead);
+    request.hard_timeout = Duration::ZERO;
+
+    let decision = SecurityEngine::authorize_chat_sql(&request);
+
+    assert_eq!(decision.verdict, SecurityVerdict::Deny);
+    assert_eq!(decision.reason_code, "SECURITY_INVALID_TIMEOUT");
 }

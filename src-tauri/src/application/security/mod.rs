@@ -37,7 +37,7 @@ impl SecurityEngine {
             );
         }
 
-        if request.requested_max_rows == 0 {
+        if request.requested_max_rows == 0 || request.hard_max_rows == 0 {
             return decision(
                 SecurityVerdict::Deny,
                 RiskLevel::L3,
@@ -45,10 +45,18 @@ impl SecurityEngine {
                 "SECURITY_INVALID_ROW_LIMIT",
             );
         }
+        if request.requested_timeout.is_zero() || request.hard_timeout.is_zero() {
+            return decision(
+                SecurityVerdict::Deny,
+                RiskLevel::L3,
+                SecurityRestrictions::none(),
+                "SECURITY_INVALID_TIMEOUT",
+            );
+        }
 
         let restrictions = SecurityRestrictions {
-            max_rows: request.requested_max_rows.min(MAX_CHAT_ROWS),
-            timeout: request.requested_timeout.min(MAX_CHAT_TIMEOUT),
+            max_rows: request.requested_max_rows.min(request.hard_max_rows),
+            timeout: request.requested_timeout.min(request.hard_timeout),
         };
 
         match request.operation {

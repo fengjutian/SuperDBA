@@ -26,6 +26,8 @@ pub struct SecurityRequest {
     pub operation: SecurityOperation,
     pub requested_max_rows: u32,
     pub requested_timeout: Duration,
+    pub hard_max_rows: u32,
+    pub hard_timeout: Duration,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]

@@ -33,6 +33,30 @@ fn run_query_schema_and_runtime_cap_returned_rows() {
 }
 
 #[test]
+fn mcp_sql_security_requires_write_approval_and_allows_reads() {
+    let read = authorize_mcp_sql("session-1", "connection-1", "select", 500, false);
+    assert_eq!(read.verdict, SecurityVerdict::Allow);
+    assert_eq!(read.risk, crate::application::security::RiskLevel::L0);
+    assert_eq!(read.restrictions.max_rows, 500);
+
+    let oversized = authorize_mcp_sql("session-1", "connection-1", "select", 2_000, false);
+    assert_eq!(
+        oversized.restrictions.max_rows,
+        ai_query_guard::MCP_MAX_ROWS
+    );
+
+    let pending_write = authorize_mcp_sql("session-1", "connection-1", "write", 10, false);
+    assert_eq!(pending_write.verdict, SecurityVerdict::RequireApproval);
+
+    let approved_write = authorize_mcp_sql("session-1", "connection-1", "write", 10, true);
+    assert_eq!(approved_write.verdict, SecurityVerdict::Allow);
+    assert_eq!(
+        approved_write.risk,
+        crate::application::security::RiskLevel::L2
+    );
+}
+
+#[test]
 fn tool_output_rejects_oversized_payloads() {
     let oversized = "x".repeat(ai_query_guard::MCP_MAX_OUTPUT_BYTES + 1);
     let error = tool_result(&oversized, ToolOutputFormat::Json)

@@ -573,6 +573,8 @@ fn authorize_chat_sql(
         operation,
         requested_max_rows,
         requested_timeout: QUERY_TIMEOUT,
+        hard_max_rows: MAX_ROWS,
+        hard_timeout: QUERY_TIMEOUT,
     })
 }
 

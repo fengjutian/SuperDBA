@@ -3,6 +3,10 @@ use crate::ai_approval::{self, PendingApproval, PollOutcome};
 use crate::application::ai_query_guard;
 use crate::application::ai_sql_safety;
 use crate::application::connection_params;
+use crate::application::security::{
+    SecurityDecision, SecurityEngine, SecurityOperation, SecurityRequest, SecuritySubject,
+    SecurityVerdict,
+};
 use crate::config::{
     self, AppConfig, DEFAULT_AI_AUDIT_ENABLED, DEFAULT_AI_AUDIT_MAX_ENTRIES,
     DEFAULT_AI_SESSION_GAP_MINUTES, DEFAULT_MCP_APPROVAL_MODE,
@@ -1284,7 +1288,24 @@ async fn tool_run_query(
         _ => kind != "select",
     };
 
+    let initial_decision = authorize_mcp_sql(
+        session_id,
+        conn_id,
+        kind,
+        max_rows,
+        kind != "select" && !needs_approval,
+    );
+    let expected_initial_verdict = if kind != "select" && needs_approval {
+        SecurityVerdict::RequireApproval
+    } else {
+        SecurityVerdict::Allow
+    };
+    if initial_decision.verdict != expected_initial_verdict {
+        return Err(mcp_security_denied(audit, &initial_decision));
+    }
+
     let mut effective_query: String = query.to_string();
+    let mut approval_granted = false;
 
     if needs_approval {
         // Fail fast if the GUI is not running — otherwise we'd queue a
@@ -1355,6 +1376,7 @@ async fn tool_run_query(
         {
             Ok(PollOutcome::Decided(decision)) => {
                 if decision.decision == "approve" {
+                    approval_granted = true;
                     if let Some(edited) = decision
                         .edited_query
                         .as_deref()
@@ -1450,12 +1472,26 @@ async fn tool_run_query(
         }
     }
 
+    let effective_kind =
+        ai_activity::classify_query_kind_for_capabilities(&effective_query, Some(&capabilities));
+    audit.query_kind = Some(effective_kind.to_string());
+    let final_decision = authorize_mcp_sql(
+        session_id,
+        conn_id,
+        effective_kind,
+        max_rows,
+        effective_kind != "select" && (!needs_approval || approval_granted),
+    );
+    if final_decision.verdict != SecurityVerdict::Allow {
+        return Err(mcp_security_denied(audit, &final_decision));
+    }
+
     // A query that reached this point without the user approving it is only
     // here because it was classified as a read, and so is anything sent to a
     // read-only connection. Classification cannot see what a function call
     // does, so have the database refuse writes too.
-    let run_read_only = config::is_connection_readonly(config, &conn.id)
-        || (approval_mode != "off" && !needs_approval);
+    let run_read_only =
+        config::is_connection_readonly(config, &conn.id) || effective_kind == "select";
     let _permit = ai_query_guard::acquire(conn_id)
         .await
         .map_err(|message| JsonRpcError {
@@ -1473,15 +1509,27 @@ async fn tool_run_query(
     let execution = async {
         if run_read_only {
             driver
-                .execute_read_only_query(&db_params, &effective_query, Some(max_rows), 1, None)
+                .execute_read_only_query(
+                    &db_params,
+                    &effective_query,
+                    Some(final_decision.restrictions.max_rows),
+                    1,
+                    None,
+                )
                 .await
         } else {
             driver
-                .execute_query(&db_params, &effective_query, Some(max_rows), 1, None)
+                .execute_query(
+                    &db_params,
+                    &effective_query,
+                    Some(final_decision.restrictions.max_rows),
+                    1,
+                    None,
+                )
                 .await
         }
     };
-    let result = match tokio::time::timeout(ai_query_guard::QUERY_TIMEOUT, execution).await {
+    let result = match tokio::time::timeout(final_decision.restrictions.timeout, execution).await {
         Ok(Ok(result)) => {
             ai_query_guard::record_query_success(conn_id);
             result
@@ -1500,7 +1548,7 @@ async fn tool_run_query(
                 code: -32000,
                 message: format!(
                     "Query timed out after {} seconds and was cancelled to protect database stability",
-                    ai_query_guard::QUERY_TIMEOUT.as_secs()
+                    final_decision.restrictions.timeout.as_secs()
                 ),
                 data: None,
             });
@@ -1510,4 +1558,51 @@ async fn tool_run_query(
     audit.rows = Some(result.rows.len());
 
     tool_result(&result, format)
+}
+
+fn authorize_mcp_sql(
+    session_id: &str,
+    connection_id: &str,
+    query_kind: &str,
+    requested_max_rows: u32,
+    write_approved: bool,
+) -> SecurityDecision {
+    let operation = if query_kind == "select" {
+        SecurityOperation::SqlRead
+    } else {
+        SecurityOperation::SqlWrite {
+            approved: write_approved,
+        }
+    };
+    SecurityEngine::authorize_chat_sql(&SecurityRequest {
+        request_id: ai_activity::new_uuid(),
+        task_id: session_id.to_string(),
+        subject: SecuritySubject {
+            user_id: "local-mcp-user".to_string(),
+            tenant_id: None,
+            agent_id: "mcp".to_string(),
+            service_id: "superdba".to_string(),
+            session_id: None,
+        },
+        connection_id: connection_id.to_string(),
+        operation,
+        requested_max_rows,
+        requested_timeout: ai_query_guard::QUERY_TIMEOUT,
+        hard_max_rows: ai_query_guard::MCP_MAX_ROWS,
+        hard_timeout: ai_query_guard::QUERY_TIMEOUT,
+    })
+}
+
+fn mcp_security_denied(audit: &mut CallAudit, decision: &SecurityDecision) -> JsonRpcError {
+    audit.status = "blocked_security".to_string();
+    let message = format!(
+        "Security policy denied the operation ({}).",
+        decision.reason_code
+    );
+    audit.error = Some(message.clone());
+    JsonRpcError {
+        code: -32000,
+        message,
+        data: None,
+    }
 }
