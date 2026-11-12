@@ -551,6 +551,7 @@ async fn rpc(
 ) -> Response {
     let session_id = session.event_scope();
     let request_id_text = request_id.0.clone();
+    let revoke_principal = account_session_revocation(&command, &body);
     let response = state
         .rpc
         .dispatch(
@@ -562,6 +563,15 @@ async fn rpc(
             session.authorization(),
         )
         .await;
+    if response.status().is_success() {
+        if let Some(principal_id) = revoke_principal {
+            for revoked_session in state.security.revoke_principal_sessions(principal_id) {
+                state.events.remove_session(revoked_session);
+                state.rpc.clear_session(revoked_session);
+                state.transfers.cleanup_session(revoked_session);
+            }
+        }
+    }
     let audited_command = if response.status() == StatusCode::NOT_FOUND {
         "unknown"
     } else {
@@ -582,6 +592,28 @@ async fn rpc(
         ),
     );
     response
+}
+
+fn account_session_revocation(command: &str, body: &[u8]) -> Option<Uuid> {
+    let payload: Value = serde_json::from_slice(body).ok()?;
+    match command {
+        "change_application_account_password" => payload
+            .get("id")
+            .and_then(Value::as_str)
+            .and_then(|id| Uuid::parse_str(id).ok()),
+        "set_application_account_disabled"
+            if payload
+                .get("disabled")
+                .and_then(Value::as_bool)
+                .unwrap_or(false) =>
+        {
+            payload
+                .get("id")
+                .and_then(Value::as_str)
+                .and_then(|id| Uuid::parse_str(id).ok())
+        }
+        _ => None,
+    }
 }
 
 async fn upload_connection_icon(

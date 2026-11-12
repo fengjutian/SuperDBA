@@ -242,11 +242,13 @@ impl AccountStore {
 pub fn execute(data_dir: &Path, command: AccountCommand) -> Result<Value, String> {
     let store = AccountStore::open(data_dir)?;
     match command {
-        AccountCommand::List => serde_json::to_value(store.list()).map_err(|error| error.to_string()),
-        AccountCommand::Create { username, password } => serde_json::to_value(
-            store.create(&username, &password)?,
-        )
-        .map_err(|error| error.to_string()),
+        AccountCommand::List => {
+            serde_json::to_value(store.list()).map_err(|error| error.to_string())
+        }
+        AccountCommand::Create { username, password } => {
+            serde_json::to_value(store.create(&username, &password)?)
+                .map_err(|error| error.to_string())
+        }
         AccountCommand::SetDisabled { id, disabled } => {
             serde_json::to_value(store.set_disabled(id, disabled)?)
                 .map_err(|error| error.to_string())

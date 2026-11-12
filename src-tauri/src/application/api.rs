@@ -1,7 +1,7 @@
 use super::{
-    accounts, ai, connection_files, connections, database_objects, database_transfers, generic_exports,
-    host_settings, mcp_host, metadata, notebooks, operations, persistence, plugins, productivity,
-    queries, records, themes, tunnels, ui_state,
+    accounts, ai, connection_files, connections, database_objects, database_transfers,
+    generic_exports, host_settings, mcp_host, metadata, notebooks, operations, persistence,
+    plugins, productivity, queries, records, themes, tunnels, ui_state,
 };
 use crate::runtime::{state::ApplicationState, RuntimeContext};
 use async_trait::async_trait;
@@ -249,8 +249,7 @@ impl ApplicationApi for RuntimeApplicationApi {
         _context: ApplicationRequestContext,
         command: accounts::AccountCommand,
     ) -> Result<Value, ApplicationError> {
-        accounts::execute(self.runtime.paths.data_dir(), command)
-            .map_err(ApplicationError::new)
+        accounts::execute(self.runtime.paths.data_dir(), command).map_err(ApplicationError::new)
     }
 
     async fn is_debug_mode(

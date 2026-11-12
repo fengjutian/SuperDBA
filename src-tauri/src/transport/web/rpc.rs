@@ -1,4 +1,5 @@
 use crate::application::{
+    accounts::AccountCommand,
     ai::AiCommand,
     connection_files::{ConnectionExportMode, ConnectionFilesCommand, ConnectionImportFile},
     connections::ConnectionCommand,
@@ -162,6 +163,7 @@ pub struct RequestId(pub String);
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum RpcCommand {
+    Account(AccountRpcCommand),
     IsDebugMode,
     GetConnections,
     CancelQuery,
@@ -190,6 +192,14 @@ enum RpcCommand {
     Plugin(PluginRpcCommand),
     Operational(OperationalRpcCommand),
     McpHost(McpHostRpcCommand),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum AccountRpcCommand {
+    List,
+    Create,
+    SetDisabled,
+    ChangePassword,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -844,6 +854,27 @@ struct AddQueryHistoryEntryRequest {
     rows_affected: Option<i64>,
     error: Option<String>,
     database: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct CreateApplicationAccountRequest {
+    username: String,
+    password: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct SetApplicationAccountDisabledRequest {
+    id: uuid::Uuid,
+    disabled: bool,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ChangeApplicationAccountPasswordRequest {
+    id: uuid::Uuid,
+    password: String,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize)]
@@ -1653,6 +1684,14 @@ impl RpcDispatcher {
         )
         .await?;
         match command {
+            RpcCommand::Account(command) => {
+                let command = decode_account_command(command, body)
+                    .map_err(InvocationError::InvalidPayload)?;
+                self.application
+                    .execute_account_command(context, command)
+                    .await
+                    .map_err(InvocationError::Application)
+            }
             RpcCommand::IsDebugMode => {
                 decode_empty_payload(body).map_err(InvocationError::InvalidPayload)?;
                 let result = self
@@ -1976,8 +2015,9 @@ impl RpcCommand {
             "create_sqlite_database" => Some(Self::CreateSqliteDatabase),
             "read_sql_file" => Some(Self::ReadSqlFile),
             "write_sql_file" => Some(Self::WriteSqlFile),
-            name => QueryRpcCommand::parse(name)
-                .map(Self::Query)
+            name => AccountRpcCommand::parse(name)
+                .map(Self::Account)
+                .or_else(|| QueryRpcCommand::parse(name).map(Self::Query))
                 .or_else(|| RecordRpcCommand::parse(name).map(Self::Record))
                 .or_else(|| TunnelRpcCommand::parse(name).map(Self::Tunnel))
                 .or_else(|| DatabaseObjectRpcCommand::parse(name).map(Self::DatabaseObject))
@@ -2001,6 +2041,11 @@ impl RpcCommand {
 
     fn metadata(self) -> CommandMetadata {
         match self {
+            Self::Account(_) => CommandMetadata {
+                authorization: AuthorizationLevel::LocalAdmin,
+                application_error_code: "ACCOUNT_COMMAND_FAILED",
+                application_error_status: StatusCode::CONFLICT,
+            },
             Self::IsDebugMode => CommandMetadata {
                 authorization: AuthorizationLevel::LocalAdmin,
                 application_error_code: "DEBUG_MODE_FAILED",
@@ -2310,7 +2355,10 @@ impl ConnectionFilesRpcCommand {
             Self::ListImportSources
             | Self::PreviewForeignImport
             | Self::ApplyForeignImport
-            | Self::GetBackupStatus | Self::GetDatabaseBackupStatus | Self::RunDatabaseBackup | Self::CancelDatabaseBackup => AuthorizationLevel::LocalAdmin,
+            | Self::GetBackupStatus
+            | Self::GetDatabaseBackupStatus
+            | Self::RunDatabaseBackup
+            | Self::CancelDatabaseBackup => AuthorizationLevel::LocalAdmin,
             Self::Export
             | Self::PreviewSuperDBAImport
             | Self::ApplyPreparedSuperDBAImport
@@ -2406,6 +2454,18 @@ impl PersistenceRpcCommand {
             | Self::SetLastOpenConnections => AuthorizationLevel::Session,
             _ => AuthorizationLevel::LocalAdmin,
         }
+    }
+}
+
+impl AccountRpcCommand {
+    fn parse(name: &str) -> Option<Self> {
+        Some(match name {
+            "list_application_accounts" => Self::List,
+            "create_application_account" => Self::Create,
+            "set_application_account_disabled" => Self::SetDisabled,
+            "change_application_account_password" => Self::ChangePassword,
+            _ => return None,
+        })
     }
 }
 
@@ -3274,6 +3334,39 @@ fn decode_persistence_command(
         PersistenceRpcCommand::SetLastOpenConnections => {
             let request: SetLastOpenConnectionsRequest = decode_payload(body)?;
             PersistenceCommand::SetLastOpenConnections(request.connection_ids)
+        }
+    })
+}
+
+fn decode_account_command(
+    command: AccountRpcCommand,
+    body: &[u8],
+) -> Result<AccountCommand, String> {
+    Ok(match command {
+        AccountRpcCommand::List => {
+            decode_empty_payload(body)?;
+            AccountCommand::List
+        }
+        AccountRpcCommand::Create => {
+            let request: CreateApplicationAccountRequest = decode_payload(body)?;
+            AccountCommand::Create {
+                username: request.username,
+                password: request.password,
+            }
+        }
+        AccountRpcCommand::SetDisabled => {
+            let request: SetApplicationAccountDisabledRequest = decode_payload(body)?;
+            AccountCommand::SetDisabled {
+                id: request.id,
+                disabled: request.disabled,
+            }
+        }
+        AccountRpcCommand::ChangePassword => {
+            let request: ChangeApplicationAccountPasswordRequest = decode_payload(body)?;
+            AccountCommand::ChangePassword {
+                id: request.id,
+                password: request.password,
+            }
         }
     })
 }

@@ -671,6 +671,49 @@ fn declares_authorization_for_each_registered_command() {
 }
 
 #[test]
+fn registers_account_management_commands_as_local_admin() {
+    for name in [
+        "list_application_accounts",
+        "create_application_account",
+        "set_application_account_disabled",
+        "change_application_account_password",
+    ] {
+        let command = RpcCommand::parse(name).unwrap_or_else(|| panic!("missing {name}"));
+        assert_eq!(
+            command.metadata().authorization,
+            AuthorizationLevel::LocalAdmin,
+            "{name}"
+        );
+    }
+}
+
+#[test]
+fn decodes_account_management_payloads() {
+    let id = uuid::Uuid::new_v4();
+    assert!(matches!(
+        decode_account_command(AccountRpcCommand::List, b"null").unwrap(),
+        crate::application::accounts::AccountCommand::List
+    ));
+    assert!(matches!(
+        decode_account_command(
+            AccountRpcCommand::Create,
+            br#"{"username":"alice","password":"correct horse battery staple"}"#,
+        )
+        .unwrap(),
+        crate::application::accounts::AccountCommand::Create { username, .. }
+            if username == "alice"
+    ));
+    let payload = serde_json::to_vec(&serde_json::json!({"id": id, "disabled": true})).unwrap();
+    assert!(matches!(
+        decode_account_command(AccountRpcCommand::SetDisabled, &payload).unwrap(),
+        crate::application::accounts::AccountCommand::SetDisabled {
+            id: decoded,
+            disabled: true
+        } if decoded == id
+    ));
+}
+
+#[test]
 fn registers_generic_export_commands_with_explicit_authorization() {
     for name in ["export_query_to_file", "cancel_export"] {
         let command = RpcCommand::parse(name).unwrap_or_else(|| panic!("missing {name}"));
@@ -3087,9 +3130,25 @@ async fn connection_policy_accepts_omitted_blank_ssl_mode_on_saved_connections()
 #[tokio::test]
 async fn database_backup_rpc_requires_local_admin_and_uses_the_shared_application() {
     let dispatcher = RpcDispatcher::new(Arc::new(FixtureApplication::new(Duration::ZERO)));
-    for command in ["get_database_backup_status", "run_database_backup_now", "cancel_database_backup"] {
-        for (authorization, expected) in [(AuthorizationLevel::Database, StatusCode::FORBIDDEN), (AuthorizationLevel::LocalAdmin, StatusCode::OK)] {
-            let response = dispatcher.dispatch(command, RequestId(command.to_string()), &json_headers(), Bytes::from_static(b"null"), Some(Uuid::new_v4()), authorization).await;
+    for command in [
+        "get_database_backup_status",
+        "run_database_backup_now",
+        "cancel_database_backup",
+    ] {
+        for (authorization, expected) in [
+            (AuthorizationLevel::Database, StatusCode::FORBIDDEN),
+            (AuthorizationLevel::LocalAdmin, StatusCode::OK),
+        ] {
+            let response = dispatcher
+                .dispatch(
+                    command,
+                    RequestId(command.to_string()),
+                    &json_headers(),
+                    Bytes::from_static(b"null"),
+                    Some(Uuid::new_v4()),
+                    authorization,
+                )
+                .await;
             assert_eq!(response.status(), expected, "{command}");
         }
     }
