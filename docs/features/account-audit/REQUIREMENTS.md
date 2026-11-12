@@ -133,6 +133,13 @@ Audit exports require `sensitive`; retention changes and audit deletion require 
 
 ## Delivery phases
 
+### Implementation status
+
+- Implemented: durable Argon2id account storage, one-time named administrator bootstrap, named Web login, immutable account IDs in Web sessions and RPC audit logs.
+- Implemented: account listing, account creation, enable/disable, password replacement, protection for the last active account, and revocation of all Web sessions for one account.
+- Pending: expose account lifecycle operations through `local-admin` application/RPC commands and the administration UI. The application service and Web authentication layer must share one account-store instance before these commands are exposed.
+- Pending: role and per-connection grants, durable database-operation audit storage, retention, and audit review/export.
+
 ### Phase 1: Principal propagation
 
 - Add the principal type to the application layer.

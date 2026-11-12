@@ -455,6 +455,19 @@ impl LocalSessionSecurity {
         self.lock_state().sessions.remove(&session.token_hash);
     }
 
+    pub fn revoke_principal_sessions(&self, principal_id: Uuid) -> Vec<Uuid> {
+        let mut revoked = Vec::new();
+        self.lock_state().sessions.retain(|token_hash, session| {
+            if session.principal_id == Some(principal_id) {
+                revoked.push(session_id(*token_hash));
+                false
+            } else {
+                true
+            }
+        });
+        revoked
+    }
+
     fn authenticate_remote(
         &self,
         valid_credentials: bool,

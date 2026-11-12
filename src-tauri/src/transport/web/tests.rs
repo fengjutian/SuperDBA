@@ -222,6 +222,8 @@ fn authenticates_named_accounts_and_binds_the_principal_to_the_session() {
 
     assert_eq!(session.principal_id(), Some(account_id));
     assert_eq!(session.principal_subject(), "alice@example.com");
+    assert_eq!(security.revoke_principal_sessions(account_id).len(), 1);
+    assert!(security.authenticate(&issued.cookie_value).is_none());
     assert!(security
         .authenticate_account(
             "alice@example.com",

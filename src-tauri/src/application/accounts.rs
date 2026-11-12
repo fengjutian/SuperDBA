@@ -14,6 +14,14 @@ pub struct AccountPrincipal {
     pub subject: String,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AccountSummary {
+    pub id: Uuid,
+    pub username: String,
+    pub disabled: bool,
+}
+
 #[derive(Clone)]
 pub struct AccountStore {
     path: PathBuf,
@@ -71,6 +79,20 @@ impl AccountStore {
             .is_empty()
     }
 
+    pub fn list(&self) -> Vec<AccountSummary> {
+        let accounts = self
+            .accounts
+            .read()
+            .unwrap_or_else(|error| error.into_inner());
+        let mut summaries: Vec<_> = accounts
+            .accounts
+            .iter()
+            .map(AccountRecord::summary)
+            .collect();
+        summaries.sort_by(|left, right| left.username.cmp(&right.username));
+        summaries
+    }
+
     pub fn bootstrap_administrator(&self, username: &str, password: &str) -> Result<Uuid, String> {
         validate_username(username)?;
         validate_password(password)?;
@@ -82,14 +104,84 @@ impl AccountStore {
             return Err("Application accounts have already been initialized".to_string());
         }
         let id = Uuid::new_v4();
-        accounts.accounts.push(AccountRecord {
+        let mut updated = accounts.clone();
+        updated.accounts.push(AccountRecord {
             id,
             username: username.to_string(),
             password_hash: hash_password(password)?,
             disabled: false,
         });
-        self.persist(&accounts)?;
+        self.persist(&updated)?;
+        *accounts = updated;
         Ok(id)
+    }
+
+    pub fn create(&self, username: &str, password: &str) -> Result<AccountSummary, String> {
+        validate_username(username)?;
+        validate_password(password)?;
+        let mut accounts = self
+            .accounts
+            .write()
+            .unwrap_or_else(|error| error.into_inner());
+        if accounts
+            .accounts
+            .iter()
+            .any(|account| account.username == username)
+        {
+            return Err("An application account with this username already exists".to_string());
+        }
+        let account = AccountRecord {
+            id: Uuid::new_v4(),
+            username: username.to_string(),
+            password_hash: hash_password(password)?,
+            disabled: false,
+        };
+        let summary = account.summary();
+        let mut updated = accounts.clone();
+        updated.accounts.push(account);
+        self.persist(&updated)?;
+        *accounts = updated;
+        Ok(summary)
+    }
+
+    pub fn set_disabled(&self, id: Uuid, disabled: bool) -> Result<AccountSummary, String> {
+        let mut accounts = self
+            .accounts
+            .write()
+            .unwrap_or_else(|error| error.into_inner());
+        let mut updated = accounts.clone();
+        let account_index = updated
+            .accounts
+            .iter()
+            .position(|account| account.id == id)
+            .ok_or_else(|| "Application account not found".to_string())?;
+        updated.accounts[account_index].disabled = disabled;
+        if disabled && !updated.accounts.iter().any(|account| !account.disabled) {
+            return Err("The last active application account cannot be disabled".to_string());
+        }
+        let summary = updated.accounts[account_index].summary();
+        self.persist(&updated)?;
+        *accounts = updated;
+        Ok(summary)
+    }
+
+    pub fn change_password(&self, id: Uuid, password: &str) -> Result<(), String> {
+        validate_password(password)?;
+        let password_hash = hash_password(password)?;
+        let mut accounts = self
+            .accounts
+            .write()
+            .unwrap_or_else(|error| error.into_inner());
+        let mut updated = accounts.clone();
+        let account = updated
+            .accounts
+            .iter_mut()
+            .find(|account| account.id == id)
+            .ok_or_else(|| "Application account not found".to_string())?;
+        account.password_hash = password_hash;
+        self.persist(&updated)?;
+        *accounts = updated;
+        Ok(())
     }
 
     pub fn authenticate(&self, username: &str, password: &str) -> Option<AccountPrincipal> {
@@ -124,6 +216,16 @@ impl AccountStore {
         crate::persistence::write_private_file(&temporary, bytes)?;
         std::fs::rename(&temporary, &self.path)
             .map_err(|error| format!("Failed to replace application accounts: {error}"))
+    }
+}
+
+impl AccountRecord {
+    fn summary(&self) -> AccountSummary {
+        AccountSummary {
+            id: self.id,
+            username: self.username.clone(),
+            disabled: self.disabled,
+        }
     }
 }
 
