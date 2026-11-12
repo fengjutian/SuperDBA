@@ -35,6 +35,15 @@ use std::sync::{Arc, Mutex, Weak};
 use std::time::{Duration, Instant};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
+fn authorization_role(authorization: AuthorizationLevel) -> &'static str {
+    match authorization {
+        AuthorizationLevel::Session => "session-user",
+        AuthorizationLevel::Database => "database-user",
+        AuthorizationLevel::Sensitive => "sensitive-data-user",
+        AuthorizationLevel::LocalAdmin => "local-admin",
+    }
+}
+
 #[path = "rpc_connection_policy.rs"]
 mod connection_policy;
 
@@ -1529,6 +1538,55 @@ impl RpcDispatcher {
         session_id: Option<uuid::Uuid>,
         granted_authorization: AuthorizationLevel,
     ) -> Response {
+        self.dispatch_with_identity(
+            command_name,
+            request_id,
+            headers,
+            body,
+            session_id,
+            granted_authorization,
+            None,
+        )
+        .await
+    }
+
+    pub(crate) async fn dispatch_authenticated(
+        &self,
+        command_name: &str,
+        request_id: RequestId,
+        headers: &HeaderMap,
+        body: Bytes,
+        session_id: uuid::Uuid,
+        granted_authorization: AuthorizationLevel,
+        principal_subject: &str,
+    ) -> Response {
+        let identity = crate::application::chat::ChatSecurityIdentity {
+            subject: principal_subject.to_string(),
+            roles: vec![authorization_role(granted_authorization).to_string()],
+            tenant_id: None,
+        };
+        self.dispatch_with_identity(
+            command_name,
+            request_id,
+            headers,
+            body,
+            Some(session_id),
+            granted_authorization,
+            Some(identity),
+        )
+        .await
+    }
+
+    async fn dispatch_with_identity(
+        &self,
+        command_name: &str,
+        request_id: RequestId,
+        headers: &HeaderMap,
+        body: Bytes,
+        session_id: Option<uuid::Uuid>,
+        granted_authorization: AuthorizationLevel,
+        security_identity: Option<crate::application::chat::ChatSecurityIdentity>,
+    ) -> Response {
         let Some(command) = RpcCommand::parse(command_name) else {
             return failure(
                 StatusCode::NOT_FOUND,
@@ -1634,7 +1692,13 @@ impl RpcDispatcher {
             authorization: granted_authorization,
             session_id,
         };
-        let invocation = self.invoke(command, context, &body, granted_authorization);
+        let invocation = self.invoke(
+            command,
+            context,
+            &body,
+            granted_authorization,
+            security_identity,
+        );
         match tokio::time::timeout(deadline, invocation).await {
             Ok(Ok(data)) => success(data),
             Ok(Err(InvocationError::Forbidden(message))) => failure(
@@ -1674,6 +1738,7 @@ impl RpcDispatcher {
         context: ApplicationRequestContext,
         body: &[u8],
         granted_authorization: AuthorizationLevel,
+        security_identity: Option<crate::application::chat::ChatSecurityIdentity>,
     ) -> Result<Value, InvocationError> {
         connection_policy::authorize_saved_access(
             self.application.as_ref(),
@@ -1824,8 +1889,8 @@ impl RpcDispatcher {
                     .map_err(InvocationError::Application)
             }
             RpcCommand::Ai(command) => {
-                let command =
-                    decode_ai_command(command, body).map_err(InvocationError::InvalidPayload)?;
+                let command = decode_ai_command(command, body, security_identity)
+                    .map_err(InvocationError::InvalidPayload)?;
                 self.application
                     .execute_ai_command(context, command)
                     .await
@@ -2645,7 +2710,11 @@ impl ConnectionRpcCommand {
     }
 }
 
-fn decode_ai_command(command: AiRpcCommand, body: &[u8]) -> Result<AiCommand, String> {
+fn decode_ai_command(
+    command: AiRpcCommand,
+    body: &[u8],
+    security_identity: Option<crate::application::chat::ChatSecurityIdentity>,
+) -> Result<AiCommand, String> {
     Ok(match command {
         AiRpcCommand::SetKey => {
             let request: SetAiKeyRequest = decode_payload(body)?;
@@ -2757,7 +2826,8 @@ fn decode_ai_command(command: AiRpcCommand, body: &[u8]) -> Result<AiCommand, St
             })
         }
         AiRpcCommand::ChatSend => {
-            let request: AiChatSendRequest = decode_payload(body)?;
+            let mut request: AiChatSendRequest = decode_payload(body)?;
+            request.request.security_identity = security_identity;
             AiCommand::Chat(crate::application::chat::ChatCommand::Send(request.request))
         }
         AiRpcCommand::ChatCancel => {

@@ -555,13 +555,14 @@ async fn rpc(
     let revoke_principal = account_session_revocation(&command, &body);
     let response = state
         .rpc
-        .dispatch(
+        .dispatch_authenticated(
             &command,
             request_id,
             &headers,
             body,
-            Some(session_id),
+            session_id,
             session.authorization(),
+            session.principal_subject(),
         )
         .await;
     if response.status().is_success() {

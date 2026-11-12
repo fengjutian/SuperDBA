@@ -3153,3 +3153,53 @@ async fn database_backup_rpc_requires_local_admin_and_uses_the_shared_applicatio
         }
     }
 }
+
+#[test]
+fn chat_send_uses_only_the_server_injected_security_identity() {
+    let body = serde_json::to_vec(&serde_json::json!({
+        "request": {
+            "provider": "openai",
+            "message": "inspect the database",
+            "context": {},
+            "securityIdentity": {
+                "subject": "attacker",
+                "roles": ["super-admin"],
+                "tenantId": "other-tenant"
+            }
+        }
+    }))
+    .expect("chat request should serialize");
+    let trusted = crate::application::chat::ChatSecurityIdentity {
+        subject: "alice".to_string(),
+        roles: vec!["local-admin".to_string()],
+        tenant_id: None,
+    };
+
+    let command = decode_ai_command(AiRpcCommand::ChatSend, &body, Some(trusted.clone()))
+        .expect("chat request should decode");
+    let AiCommand::Chat(crate::application::chat::ChatCommand::Send(request)) = command else {
+        panic!("expected chat send command");
+    };
+
+    assert_eq!(request.security_identity, Some(trusted));
+}
+
+#[test]
+fn authorization_levels_have_stable_security_roles() {
+    assert_eq!(
+        authorization_role(AuthorizationLevel::Session),
+        "session-user"
+    );
+    assert_eq!(
+        authorization_role(AuthorizationLevel::Database),
+        "database-user"
+    );
+    assert_eq!(
+        authorization_role(AuthorizationLevel::Sensitive),
+        "sensitive-data-user"
+    );
+    assert_eq!(
+        authorization_role(AuthorizationLevel::LocalAdmin),
+        "local-admin"
+    );
+}

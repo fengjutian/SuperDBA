@@ -169,6 +169,17 @@ pub struct ChatSendRequest {
     pub temperature: Option<f32>,
     #[serde(default)]
     pub max_output_tokens: Option<u32>,
+    /// Authenticated identity injected by the server transport. This is never
+    /// accepted from a serialized client request.
+    #[serde(skip)]
+    pub(crate) security_identity: Option<ChatSecurityIdentity>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ChatSecurityIdentity {
+    pub subject: String,
+    pub roles: Vec<String>,
+    pub tenant_id: Option<String>,
 }
 
 /// Asks the configured model for the opening questions of an empty conversation.

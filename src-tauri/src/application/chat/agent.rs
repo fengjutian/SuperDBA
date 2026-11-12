@@ -90,6 +90,7 @@ pub async fn run_turn(
     web_session_id: Option<Uuid>,
     request: ChatSendRequest,
 ) -> Result<ChatSession, String> {
+    let security_identity = request.security_identity.clone();
     let message = request.message.trim();
     if message.is_empty() {
         return Err("The chat message must not be empty".to_string());
@@ -271,6 +272,7 @@ pub async fn run_turn(
             runtime,
             state,
             web_session_id,
+            security_identity.as_ref(),
             &context,
             &request_id,
             &session.id,
@@ -494,6 +496,7 @@ async fn execute_calls(
     runtime: &RuntimeContext,
     state: &ApplicationState,
     web_session_id: Option<Uuid>,
+    security_identity: Option<&super::ChatSecurityIdentity>,
     context: &ChatContext,
     request_id: &str,
     chat_session_id: &str,
@@ -550,6 +553,7 @@ async fn execute_calls(
             runtime,
             state,
             web_session_id,
+            security_identity,
             chat_session_id,
             request_id,
             chat: context,

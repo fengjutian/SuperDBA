@@ -6,7 +6,9 @@
 //! DDL statement is held behind the same file-queue approval gate the MCP
 //! server uses, and only runs after the user approves it.
 
-use super::{emit_chat_event, is_cancelled, plan_facts, ChatContext, ChatToolStatus};
+use super::{
+    emit_chat_event, is_cancelled, plan_facts, ChatContext, ChatSecurityIdentity, ChatToolStatus,
+};
 use crate::ai_approval::{self, PendingApproval};
 use crate::application::ai_query_guard;
 use crate::application::ai_sql_safety;
@@ -43,6 +45,7 @@ pub struct ToolCallContext<'a> {
     pub runtime: &'a RuntimeContext,
     pub state: &'a ApplicationState,
     pub web_session_id: Option<Uuid>,
+    pub security_identity: Option<&'a ChatSecurityIdentity>,
     pub chat_session_id: &'a str,
     pub request_id: &'a str,
     pub chat: &'a ChatContext,
@@ -597,10 +600,22 @@ fn authorize_chat_sql(
     operation: SecurityOperation,
     requested_max_rows: u32,
 ) -> SecurityDecision {
-    let user_id = tool
-        .web_session_id
-        .map(|session_id| format!("web-session:{session_id}"))
-        .unwrap_or_else(|| "local-desktop-user".to_string());
+    let (user_id, roles, tenant_id) = tool.security_identity.map_or_else(
+        || {
+            (
+                "local-desktop-user".to_string(),
+                vec!["local-user".to_string()],
+                None,
+            )
+        },
+        |identity| {
+            (
+                identity.subject.clone(),
+                identity.roles.clone(),
+                identity.tenant_id.clone(),
+            )
+        },
+    );
     SecurityEngine::authorize_with_local_policy(
         &SecurityRequest {
             request_id: tool.request_id.to_string(),
@@ -608,8 +623,8 @@ fn authorize_chat_sql(
             purpose: "interactive-database-assistance".to_string(),
             subject: SecuritySubject {
                 user_id,
-                roles: vec!["local-user".to_string()],
-                tenant_id: None,
+                roles,
+                tenant_id,
                 agent_id: "chat-dba".to_string(),
                 service_id: "superdba".to_string(),
                 session_id: tool.web_session_id,
