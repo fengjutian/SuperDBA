@@ -251,6 +251,7 @@ fn chat_tool_audit_event_captures_sql_context_and_result() {
         status: ChatToolStatus::Ok,
         summary: "2 rows returned in 4 ms".to_string(),
         result: json!({"rowCount": 2}),
+        security_decision: None,
     };
 
     let event = build_audit_event("chat-session", &context, &call, &outcome, 4);
@@ -279,6 +280,7 @@ fn chat_tool_audit_event_records_denials_as_errors() {
         status: ChatToolStatus::Denied,
         summary: "The statement was denied".to_string(),
         result: json!({"denied": true}),
+        security_decision: None,
     };
 
     let event = build_audit_event("chat-session", &ChatContext::default(), &call, &outcome, 1);
@@ -299,6 +301,7 @@ fn chat_tool_audit_event_treats_query_limits_as_checkpoints() {
         status: ChatToolStatus::LimitReached,
         summary: "The per-turn query budget was reached.".to_string(),
         result: json!({"limitReached": true, "queryLimit": 12}),
+        security_decision: None,
     };
     let event = build_audit_event("chat-session", &ChatContext::default(), &call, &outcome, 0);
     assert_eq!(event.status, "success");

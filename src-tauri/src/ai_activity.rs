@@ -17,6 +17,7 @@ use std::path::{Path, PathBuf};
 
 use std::borrow::Cow;
 
+use crate::application::security::{RiskLevel, SecurityDecision, SecurityVerdict};
 use crate::drivers::driver_trait::{DriverCapabilities, SqlDialect};
 use crate::drivers::sql_syntax::SqlSyntax;
 use crate::paths::get_app_config_dir;
@@ -46,6 +47,47 @@ pub struct AiActivityEvent {
     pub error: Option<String>,
     pub client_hint: Option<String>,
     pub approval_id: Option<String>,
+    /// Authorization metadata for database operations. Absent in older events
+    /// and in tool calls that do not pass through the AI security engine.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub security_decision: Option<SecurityAuditDecision>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SecurityAuditDecision {
+    pub decision_id: String,
+    pub verdict: String,
+    pub risk: String,
+    pub policy_version: String,
+    pub reason_code: String,
+    pub max_rows: u32,
+    pub timeout_ms: u64,
+}
+
+impl From<&SecurityDecision> for SecurityAuditDecision {
+    fn from(decision: &SecurityDecision) -> Self {
+        let verdict = match decision.verdict {
+            SecurityVerdict::Allow => "allow",
+            SecurityVerdict::RequireApproval => "require_approval",
+            SecurityVerdict::Deny => "deny",
+        };
+        let risk = match decision.risk {
+            RiskLevel::L0 => "L0",
+            RiskLevel::L1 => "L1",
+            RiskLevel::L2 => "L2",
+            RiskLevel::L3 => "L3",
+        };
+        Self {
+            decision_id: decision.decision_id.to_string(),
+            verdict: verdict.to_string(),
+            risk: risk.to_string(),
+            policy_version: decision.policy_version.clone(),
+            reason_code: decision.reason_code.to_string(),
+            max_rows: decision.restrictions.max_rows,
+            timeout_ms: decision.restrictions.timeout.as_millis() as u64,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -537,8 +579,7 @@ fn has_complete_end_before_terminal_statement(upper_sql: &str) -> bool {
             continue;
         }
         cursor += 1;
-        while cursor < bytes.len()
-            && (bytes[cursor].is_ascii_whitespace() || bytes[cursor] == b';')
+        while cursor < bytes.len() && (bytes[cursor].is_ascii_whitespace() || bytes[cursor] == b';')
         {
             cursor += 1;
         }

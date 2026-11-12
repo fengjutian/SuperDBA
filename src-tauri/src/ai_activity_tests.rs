@@ -27,6 +27,7 @@ mod tests {
             error: None,
             client_hint: Some("claude-desktop".to_string()),
             approval_id: None,
+            security_decision: None,
         }
     }
 
@@ -1105,15 +1106,48 @@ mod tests {
     }
 
     #[test]
+    fn event_round_trips_security_decision_metadata() {
+        let tmp = TempDir::new().unwrap();
+        let decision = crate::application::security::SecurityDecision {
+            decision_id: uuid::Uuid::parse_str("cae2f899-6796-4448-9336-561e617f9638").unwrap(),
+            verdict: crate::application::security::SecurityVerdict::Allow,
+            risk: crate::application::security::RiskLevel::L1,
+            policy_version: "local-v1".to_string(),
+            restrictions: crate::application::security::SecurityRestrictions {
+                max_rows: 25,
+                timeout: std::time::Duration::from_millis(1_500),
+            },
+            reason_code: "POLICY_ALLOWED",
+        };
+        append(
+            tmp.path(),
+            AiActivityEvent {
+                security_decision: Some((&decision).into()),
+                ..make_event("a", "s1", "run_query", "2026-04-24T10:00:00Z")
+            },
+        );
+        let events = read_events_in(tmp.path(), &EventFilter::default()).unwrap();
+        let security = events[0].security_decision.as_ref().unwrap();
+        assert_eq!(security.verdict, "allow");
+        assert_eq!(security.risk, "L1");
+        assert_eq!(security.policy_version, "local-v1");
+        assert_eq!(security.reason_code, "POLICY_ALLOWED");
+        assert_eq!(security.max_rows, 25);
+        assert_eq!(security.timeout_ms, 1_500);
+    }
+
+    #[test]
     fn event_written_by_an_older_build_still_parses() {
         let tmp = TempDir::new().unwrap();
         let mut json =
             serde_json::to_value(make_event("old", "s1", "run_query", "2026-04-24T10:00:00Z"))
                 .unwrap();
         json.as_object_mut().unwrap().remove("database");
+        json.as_object_mut().unwrap().remove("securityDecision");
         std::fs::write(tmp.path().join("ai_activity.jsonl"), format!("{}\n", json)).unwrap();
         let events = read_events_in(tmp.path(), &EventFilter::default()).unwrap();
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].database, None);
+        assert_eq!(events[0].security_decision, None);
     }
 }
