@@ -5,6 +5,14 @@ use super::*;
 use crate::models::DatabaseSelection;
 use serde_json::{json, Map, Value};
 
+fn test_sql_access() -> SqlAccess {
+    SqlAccess {
+        tables: vec!["public.users".to_string()],
+        columns: vec!["users.id".to_string()],
+        column_wildcard: false,
+    }
+}
+
 #[test]
 fn run_query_schema_and_runtime_cap_returned_rows() {
     let result = handle_list_tools(&AppConfig::default()).expect("tool discovery should succeed");
@@ -37,7 +45,7 @@ fn mcp_sql_security_requires_write_approval_and_allows_reads() {
     let read = authorize_mcp_sql(
         "session-1",
         "connection-1",
-        vec!["public.users".to_string()],
+        test_sql_access(),
         "select",
         500,
         false,
@@ -49,7 +57,7 @@ fn mcp_sql_security_requires_write_approval_and_allows_reads() {
     let oversized = authorize_mcp_sql(
         "session-1",
         "connection-1",
-        vec!["public.users".to_string()],
+        test_sql_access(),
         "select",
         2_000,
         false,
@@ -62,7 +70,7 @@ fn mcp_sql_security_requires_write_approval_and_allows_reads() {
     let pending_write = authorize_mcp_sql(
         "session-1",
         "connection-1",
-        vec!["public.users".to_string()],
+        test_sql_access(),
         "write",
         10,
         false,
@@ -72,7 +80,7 @@ fn mcp_sql_security_requires_write_approval_and_allows_reads() {
     let approved_write = authorize_mcp_sql(
         "session-1",
         "connection-1",
-        vec!["public.users".to_string()],
+        test_sql_access(),
         "write",
         10,
         true,

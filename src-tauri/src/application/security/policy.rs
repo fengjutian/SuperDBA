@@ -54,6 +54,8 @@ pub struct PolicyRule {
     #[serde(default)]
     pub tables: Vec<String>,
     #[serde(default)]
+    pub columns: Vec<String>,
+    #[serde(default)]
     pub purposes: Vec<String>,
     #[serde(default)]
     pub actions: Vec<PolicyAction>,
@@ -225,8 +227,33 @@ fn matches_rule(rule: &PolicyRule, request: &SecurityRequest) -> bool {
         && matches_selector(&rule.services, &request.subject.service_id)
         && matches_selector(&rule.connections, &request.connection_id)
         && matches_resource_selector(rule, &request.resources)
+        && matches_column_selector(rule, request)
         && matches_selector(&rule.purposes, &request.purpose)
         && rule.actions.contains(&operation_action(request.operation))
+}
+
+fn matches_column_selector(rule: &PolicyRule, request: &SecurityRequest) -> bool {
+    if rule.columns.is_empty() {
+        return true;
+    }
+    if request.column_wildcard {
+        return rule.effect == PolicyEffect::Deny;
+    }
+    if request.columns.is_empty() {
+        return false;
+    }
+    let matches = |column: &str| {
+        let normalized = column.to_ascii_lowercase();
+        let short_name = normalized.rsplit('.').next().unwrap_or(&normalized);
+        rule.columns.iter().any(|candidate| {
+            let candidate = candidate.to_ascii_lowercase();
+            candidate == normalized || candidate == short_name
+        })
+    };
+    match rule.effect {
+        PolicyEffect::Allow => request.columns.iter().all(|column| matches(column)),
+        PolicyEffect::Deny => request.columns.iter().any(|column| matches(column)),
+    }
 }
 
 fn matches_resource_selector(rule: &PolicyRule, resources: &[String]) -> bool {

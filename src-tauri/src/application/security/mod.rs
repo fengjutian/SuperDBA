@@ -8,11 +8,11 @@ pub mod policy;
 mod resources;
 mod types;
 
+pub use resources::{extract_sql_access, extract_sql_resources, SqlAccess};
 pub use types::{
     RiskLevel, SecurityDecision, SecurityOperation, SecurityRequest, SecurityRestrictions,
     SecuritySubject, SecurityVerdict,
 };
-pub use resources::extract_sql_resources;
 
 use std::path::Path;
 use std::time::Duration;

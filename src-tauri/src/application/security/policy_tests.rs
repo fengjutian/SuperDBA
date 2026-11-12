@@ -18,6 +18,8 @@ fn request(operation: SecurityOperation) -> SecurityRequest {
         },
         connection_id: "crm".to_string(),
         resources: vec!["public.users".to_string()],
+        columns: vec!["users.id".to_string()],
+        column_wildcard: false,
         operation,
         requested_max_rows: 500,
         requested_timeout: Duration::from_secs(30),
@@ -37,6 +39,7 @@ fn rule(id: &str, effect: PolicyEffect) -> PolicyRule {
         services: vec!["superdba".to_string()],
         connections: vec!["crm".to_string()],
         tables: Vec::new(),
+        columns: Vec::new(),
         purposes: vec!["sales-analysis".to_string()],
         actions: vec![PolicyAction::SqlRead],
         limits: None,
@@ -97,6 +100,52 @@ fn table_scoped_deny_wins_when_any_resource_matches() {
     request.resources.push("audit.events".to_string());
 
     let decision = SecurityEngine::authorize_with_policy(&request, &policy);
+
+    assert_eq!(decision.verdict, SecurityVerdict::Deny);
+    assert_eq!(decision.reason_code, "SECURITY_POLICY_EXPLICIT_DENY");
+}
+
+#[test]
+fn column_scoped_allow_must_cover_every_referenced_column() {
+    let mut allow = rule("allow-user-id", PolicyEffect::Allow);
+    allow.columns = vec!["id".to_string()];
+    let policy = policy(vec![allow]);
+
+    let allowed =
+        SecurityEngine::authorize_with_policy(&request(SecurityOperation::SqlRead), &policy);
+    assert_eq!(allowed.verdict, SecurityVerdict::Allow);
+
+    let mut mixed = request(SecurityOperation::SqlRead);
+    mixed.columns.push("users.email".to_string());
+    let denied = SecurityEngine::authorize_with_policy(&mixed, &policy);
+    assert_eq!(denied.verdict, SecurityVerdict::Deny);
+    assert_eq!(denied.reason_code, "SECURITY_POLICY_DEFAULT_DENY");
+}
+
+#[test]
+fn wildcard_fails_closed_for_column_scoped_allow() {
+    let mut allow = rule("allow-user-id", PolicyEffect::Allow);
+    allow.columns = vec!["id".to_string()];
+    let policy = policy(vec![allow]);
+    let mut wildcard = request(SecurityOperation::SqlRead);
+    wildcard.column_wildcard = true;
+
+    let decision = SecurityEngine::authorize_with_policy(&wildcard, &policy);
+
+    assert_eq!(decision.verdict, SecurityVerdict::Deny);
+    assert_eq!(decision.reason_code, "SECURITY_POLICY_DEFAULT_DENY");
+}
+
+#[test]
+fn wildcard_matches_column_scoped_deny() {
+    let allow = rule("allow-read", PolicyEffect::Allow);
+    let mut deny = rule("deny-email", PolicyEffect::Deny);
+    deny.columns = vec!["email".to_string()];
+    let policy = policy(vec![allow, deny]);
+    let mut wildcard = request(SecurityOperation::SqlRead);
+    wildcard.column_wildcard = true;
+
+    let decision = SecurityEngine::authorize_with_policy(&wildcard, &policy);
 
     assert_eq!(decision.verdict, SecurityVerdict::Deny);
     assert_eq!(decision.reason_code, "SECURITY_POLICY_EXPLICIT_DENY");

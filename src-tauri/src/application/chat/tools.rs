@@ -13,8 +13,8 @@ use crate::application::ai_sql_safety;
 use crate::application::metadata;
 use crate::application::queries::{self, QueryRequestScope, QueryResponsePolicy};
 use crate::application::security::{
-    extract_sql_resources, SecurityDecision, SecurityEngine, SecurityOperation, SecurityRequest,
-    SecuritySubject, SecurityVerdict,
+    extract_sql_access, SecurityDecision, SecurityEngine, SecurityOperation, SecurityRequest,
+    SecuritySubject, SecurityVerdict, SqlAccess,
 };
 use crate::drivers::driver_trait::SqlDialect;
 use crate::runtime::{state::ApplicationState, RuntimeContext};
@@ -508,8 +508,8 @@ async fn run_query(
         Ok(dialect) => dialect,
         Err(error) => return ToolOutcome::denied(error),
     };
-    let resources = match extract_sql_resources(&args.sql, dialect) {
-        Ok(resources) => resources,
+    let access = match extract_sql_access(&args.sql, dialect) {
+        Ok(access) => access,
         Err(error) => return ToolOutcome::denied(error),
     };
     let (sql, approved, decision) = match classify_statement(&args.sql) {
@@ -518,7 +518,7 @@ async fn run_query(
             let decision = authorize_chat_sql(
                 tool,
                 connection_id,
-                resources.clone(),
+                access.clone(),
                 SecurityOperation::SqlRead,
                 limit,
             );
@@ -531,7 +531,7 @@ async fn run_query(
             let initial_decision = authorize_chat_sql(
                 tool,
                 connection_id,
-                resources,
+                access,
                 SecurityOperation::SqlWrite { approved: false },
                 limit,
             );
@@ -551,15 +551,15 @@ async fn run_query(
                     StatementClass::ReadOnly => SecurityOperation::SqlRead,
                     StatementClass::Write(_) => SecurityOperation::SqlWrite { approved: true },
                 };
-                let resources = match extract_sql_resources(&sql, dialect) {
-                    Ok(resources) => resources,
+                let access = match extract_sql_access(&sql, dialect) {
+                    Ok(access) => access,
                     Err(error) => {
                         return ToolOutcome::denied(error)
                             .with_security_decision(&initial_decision)
                     }
                 };
                 let decision =
-                    authorize_chat_sql(tool, connection_id, resources, operation, limit);
+                    authorize_chat_sql(tool, connection_id, access, operation, limit);
                 if decision.verdict != SecurityVerdict::Allow {
                     return security_denied(&decision);
                 }
@@ -593,7 +593,7 @@ async fn run_query(
 fn authorize_chat_sql(
     tool: &ToolCallContext<'_>,
     connection_id: &str,
-    resources: Vec<String>,
+    access: SqlAccess,
     operation: SecurityOperation,
     requested_max_rows: u32,
 ) -> SecurityDecision {
@@ -615,7 +615,9 @@ fn authorize_chat_sql(
                 session_id: tool.web_session_id,
             },
             connection_id: connection_id.to_string(),
-            resources,
+            resources: access.tables,
+            columns: access.columns,
+            column_wildcard: access.column_wildcard,
             operation,
             requested_max_rows,
             requested_timeout: QUERY_TIMEOUT,

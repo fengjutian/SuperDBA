@@ -15,6 +15,8 @@ fn request(operation: SecurityOperation) -> SecurityRequest {
         },
         connection_id: "connection-1".to_string(),
         resources: vec!["public.users".to_string()],
+        columns: vec!["users.id".to_string()],
+        column_wildcard: false,
         operation,
         requested_max_rows: 500,
         requested_timeout: Duration::from_secs(30),

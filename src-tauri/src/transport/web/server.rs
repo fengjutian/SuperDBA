@@ -114,7 +114,7 @@ pub async fn run(options: WebServerOptions) -> Result<(), String> {
             let public_url = options.public_url.clone().ok_or_else(|| {
                 "Remote Web UI mode requires --public-url with an HTTPS (or loopback HTTP) origin".to_string()
             })?;
-            let authentication = remote_authentication(auth_mode)?;
+            let authentication = remote_authentication(auth_mode, &options.data_dir)?;
             let authorization = if options.allow_high_risk {
                 AuthorizationLevel::LocalAdmin
             } else {
@@ -186,11 +186,36 @@ pub async fn run(options: WebServerOptions) -> Result<(), String> {
     .map_err(|error| format!("Web UI server failed: {error}"))
 }
 
-fn remote_authentication(auth_mode: WebAuthMode) -> Result<RemoteAuthentication, String> {
+fn remote_authentication(
+    auth_mode: WebAuthMode,
+    data_dir: &std::path::Path,
+) -> Result<RemoteAuthentication, String> {
     match auth_mode {
-        WebAuthMode::Password => std::env::var("SUPERDBA_WEB_PASSWORD")
-            .map(|password| RemoteAuthentication::password(&password))
-            .map_err(|_| "Password authentication requires SUPERDBA_WEB_PASSWORD".to_string()),
+        WebAuthMode::Password => {
+            let accounts = crate::application::accounts::AccountStore::open(data_dir)?;
+            if accounts.has_accounts() {
+                return Ok(RemoteAuthentication::accounts(accounts));
+            }
+            match (
+                std::env::var("SUPERDBA_WEB_ADMIN_USERNAME"),
+                std::env::var("SUPERDBA_WEB_ADMIN_PASSWORD"),
+            ) {
+                (Ok(username), Ok(password)) => {
+                    accounts.bootstrap_administrator(&username, &password)?;
+                    Ok(RemoteAuthentication::accounts(accounts))
+                }
+                (Err(_), Err(_)) => std::env::var("SUPERDBA_WEB_PASSWORD")
+                    .map(|password| RemoteAuthentication::password(&password))
+                    .map_err(|_| {
+                        "Password authentication requires an existing account store, SUPERDBA_WEB_ADMIN_USERNAME with SUPERDBA_WEB_ADMIN_PASSWORD, or legacy SUPERDBA_WEB_PASSWORD"
+                            .to_string()
+                    }),
+                _ => Err(
+                    "Set both SUPERDBA_WEB_ADMIN_USERNAME and SUPERDBA_WEB_ADMIN_PASSWORD"
+                        .to_string(),
+                ),
+            }
+        }
         WebAuthMode::Proxy => std::env::var("SUPERDBA_WEB_PROXY_SECRET")
             .map(|secret| RemoteAuthentication::proxy(&secret))
             .map_err(|_| "Proxy authentication requires SUPERDBA_WEB_PROXY_SECRET".to_string()),
@@ -428,7 +453,7 @@ async fn login(
     if !state.security.password_authentication() {
         return status_response(StatusCode::NOT_FOUND);
     }
-    let Some(password) = form_password(&body) else {
+    let Some(credentials) = form_credentials(&body) else {
         audit_event(
             "authentication",
             &request_id.0,
@@ -443,7 +468,18 @@ async fn login(
             .get("x-forwarded-for")
             .and_then(|value| value.to_str().ok()),
     );
-    match state.security.authenticate_password(&password, client) {
+    let authentication = if state.security.account_authentication() {
+        state.security.authenticate_account(
+            credentials.username.as_deref().unwrap_or_default(),
+            &credentials.password,
+            client,
+        )
+    } else {
+        state
+            .security
+            .authenticate_password(&credentials.password, client)
+    };
+    match authentication {
         Ok(session) => {
             audit_event(
                 "authentication",
@@ -1214,9 +1250,25 @@ fn session_cookie(session: &IssuedSession, secure: bool) -> HeaderValue {
     .expect("generated session cookies contain only valid header characters")
 }
 
-fn form_password(body: &[u8]) -> Option<String> {
-    url::form_urlencoded::parse(body)
-        .find_map(|(name, value)| (name == "password").then(|| value.into_owned()))
+struct LoginCredentials {
+    username: Option<String>,
+    password: String,
+}
+
+fn form_credentials(body: &[u8]) -> Option<LoginCredentials> {
+    let mut username = None;
+    let mut password = None;
+    for (name, value) in url::form_urlencoded::parse(body) {
+        match name.as_ref() {
+            "username" => username = Some(value.into_owned()),
+            "password" => password = Some(value.into_owned()),
+            _ => {}
+        }
+    }
+    Some(LoginCredentials {
+        username,
+        password: password?,
+    })
 }
 
 fn login_page_response(status: StatusCode, error: Option<&str>) -> Response {
@@ -1224,7 +1276,7 @@ fn login_page_response(status: StatusCode, error: Option<&str>) -> Response {
         .map(|message| format!("<p role=\"alert\">{message}</p>"))
         .unwrap_or_default();
     let body = format!(
-        "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\"><title>SuperDBA Web sign in</title></head><body><main><h1>Sign in to SuperDBA Web</h1>{error}<form method=\"post\" action=\"{LOGIN_PATH}\"><label>Password <input type=\"password\" name=\"password\" required autofocus autocomplete=\"current-password\"></label><button type=\"submit\">Sign in</button></form></main></body></html>"
+        "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\"><title>SuperDBA Web sign in</title></head><body><main><h1>Sign in to SuperDBA Web</h1>{error}<form method=\"post\" action=\"{LOGIN_PATH}\"><label>Username <input type=\"text\" name=\"username\" autocomplete=\"username\"></label><label>Password <input type=\"password\" name=\"password\" required autofocus autocomplete=\"current-password\"></label><button type=\"submit\">Sign in</button></form></main></body></html>"
     );
     let mut response = (status, body).into_response();
     let headers = response.headers_mut();

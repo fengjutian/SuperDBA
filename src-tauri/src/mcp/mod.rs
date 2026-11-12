@@ -4,8 +4,8 @@ use crate::application::ai_query_guard;
 use crate::application::ai_sql_safety;
 use crate::application::connection_params;
 use crate::application::security::{
-    extract_sql_resources, SecurityDecision, SecurityEngine, SecurityOperation, SecurityRequest,
-    SecuritySubject, SecurityVerdict,
+    extract_sql_access, SecurityDecision, SecurityEngine, SecurityOperation, SecurityRequest,
+    SecuritySubject, SecurityVerdict, SqlAccess,
 };
 use crate::config::{
     self, AppConfig, DEFAULT_AI_AUDIT_ENABLED, DEFAULT_AI_AUDIT_MAX_ENTRIES,
@@ -1295,8 +1295,8 @@ async fn tool_run_query(
     let initial_decision = authorize_mcp_sql(
         session_id,
         conn_id,
-        match extract_sql_resources(query, dialect) {
-            Ok(resources) => resources,
+        match extract_sql_access(query, dialect) {
+            Ok(access) => access,
             Err(error) => return Err(mcp_resource_parse_denied(audit, error)),
         },
         kind,
@@ -1500,8 +1500,8 @@ async fn tool_run_query(
     let final_decision = authorize_mcp_sql(
         session_id,
         conn_id,
-        match extract_sql_resources(&effective_query, dialect) {
-            Ok(resources) => resources,
+        match extract_sql_access(&effective_query, dialect) {
+            Ok(access) => access,
             Err(error) => return Err(mcp_resource_parse_denied(audit, error)),
         },
         effective_kind,
@@ -1590,7 +1590,7 @@ async fn tool_run_query(
 fn authorize_mcp_sql(
     session_id: &str,
     connection_id: &str,
-    resources: Vec<String>,
+    access: SqlAccess,
     query_kind: &str,
     requested_max_rows: u32,
     write_approved: bool,
@@ -1616,7 +1616,9 @@ fn authorize_mcp_sql(
                 session_id: None,
             },
             connection_id: connection_id.to_string(),
-            resources,
+            resources: access.tables,
+            columns: access.columns,
+            column_wildcard: access.column_wildcard,
             operation,
             requested_max_rows,
             requested_timeout: ai_query_guard::QUERY_TIMEOUT,

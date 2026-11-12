@@ -1,5 +1,5 @@
 use crate::drivers::driver_trait::SqlDialect;
-use sqlparser::ast::{visit_relations, Query, Visit, Visitor};
+use sqlparser::ast::{visit_relations, Expr, Query, SelectItem, SetExpr, Visit, Visitor};
 use sqlparser::dialect::{
     GenericDialect, MsSqlDialect, MySqlDialect, PostgreSqlDialect, SQLiteDialect,
 };
@@ -7,12 +7,21 @@ use sqlparser::parser::Parser;
 use std::collections::BTreeSet;
 use std::ops::ControlFlow;
 
-#[derive(Default)]
-struct CteCollector {
-    aliases: BTreeSet<String>,
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct SqlAccess {
+    pub tables: Vec<String>,
+    pub columns: Vec<String>,
+    pub column_wildcard: bool,
 }
 
-impl Visitor for CteCollector {
+#[derive(Default)]
+struct AccessCollector {
+    aliases: BTreeSet<String>,
+    columns: BTreeSet<String>,
+    column_wildcard: bool,
+}
+
+impl Visitor for AccessCollector {
     type Break = ();
 
     fn pre_visit_query(&mut self, query: &Query) -> ControlFlow<Self::Break> {
@@ -23,11 +32,37 @@ impl Visitor for CteCollector {
                     .map(|cte| cte.alias.name.value.to_ascii_lowercase()),
             );
         }
+        if let SetExpr::Select(select) = query.body.as_ref() {
+            self.column_wildcard |= select.projection.iter().any(|item| {
+                matches!(
+                    item,
+                    SelectItem::Wildcard(_) | SelectItem::QualifiedWildcard(_, _)
+                )
+            });
+        }
+        ControlFlow::Continue(())
+    }
+
+    fn pre_visit_expr(&mut self, expr: &Expr) -> ControlFlow<Self::Break> {
+        let column = match expr {
+            Expr::Identifier(identifier) => Some(identifier.value.to_ascii_lowercase()),
+            Expr::CompoundIdentifier(parts) => Some(
+                parts
+                    .iter()
+                    .map(|part| part.value.to_ascii_lowercase())
+                    .collect::<Vec<_>>()
+                    .join("."),
+            ),
+            _ => None,
+        };
+        if let Some(column) = column.filter(|column| !column.is_empty()) {
+            self.columns.insert(column);
+        }
         ControlFlow::Continue(())
     }
 }
 
-pub fn extract_sql_resources(sql: &str, dialect: SqlDialect) -> Result<Vec<String>, String> {
+pub fn extract_sql_access(sql: &str, dialect: SqlDialect) -> Result<SqlAccess, String> {
     let statements = match dialect {
         SqlDialect::Postgres => Parser::parse_sql(&PostgreSqlDialect {}, sql),
         SqlDialect::Mysql => Parser::parse_sql(&MySqlDialect {}, sql),
@@ -37,9 +72,9 @@ pub fn extract_sql_resources(sql: &str, dialect: SqlDialect) -> Result<Vec<Strin
     }
     .map_err(|error| format!("Security policy could not parse SQL resources: {error}"))?;
 
-    let mut ctes = CteCollector::default();
-    let _ = statements.visit(&mut ctes);
-    let mut resources = BTreeSet::new();
+    let mut access = AccessCollector::default();
+    let _ = statements.visit(&mut access);
+    let mut tables = BTreeSet::new();
     let _ = visit_relations(&statements, |relation| {
         let normalized = relation
             .0
@@ -47,12 +82,20 @@ pub fn extract_sql_resources(sql: &str, dialect: SqlDialect) -> Result<Vec<Strin
             .map(|part| part.value.to_ascii_lowercase())
             .collect::<Vec<_>>()
             .join(".");
-        if !normalized.is_empty() && !ctes.aliases.contains(&normalized) {
-            resources.insert(normalized);
+        if !normalized.is_empty() && !access.aliases.contains(&normalized) {
+            tables.insert(normalized);
         }
         ControlFlow::<()>::Continue(())
     });
-    Ok(resources.into_iter().collect())
+    Ok(SqlAccess {
+        tables: tables.into_iter().collect(),
+        columns: access.columns.into_iter().collect(),
+        column_wildcard: access.column_wildcard,
+    })
+}
+
+pub fn extract_sql_resources(sql: &str, dialect: SqlDialect) -> Result<Vec<String>, String> {
+    extract_sql_access(sql, dialect).map(|access| access.tables)
 }
 
 #[cfg(test)]
@@ -104,5 +147,28 @@ mod tests {
     #[test]
     fn rejects_unparseable_sql() {
         assert!(extract_sql_resources("SELECT * FROM", SqlDialect::Generic).is_err());
+    }
+
+    #[test]
+    fn extracts_columns_from_projection_filters_and_joins() {
+        let access = extract_sql_access(
+            "SELECT u.id, o.total FROM users u JOIN orders o ON o.user_id = u.id WHERE u.email = 'a@example.com'",
+            SqlDialect::Postgres,
+        )
+        .unwrap();
+        assert_eq!(
+            access.columns,
+            vec!["o.total", "o.user_id", "u.email", "u.id"]
+        );
+        assert!(!access.column_wildcard);
+    }
+
+    #[test]
+    fn marks_qualified_and_unqualified_projection_wildcards() {
+        let all = extract_sql_access("SELECT * FROM users", SqlDialect::Postgres).unwrap();
+        assert!(all.column_wildcard);
+        let qualified =
+            extract_sql_access("SELECT users.* FROM users", SqlDialect::Postgres).unwrap();
+        assert!(qualified.column_wildcard);
     }
 }

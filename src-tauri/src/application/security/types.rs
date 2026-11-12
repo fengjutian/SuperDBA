@@ -26,6 +26,8 @@ pub struct SecurityRequest {
     pub subject: SecuritySubject,
     pub connection_id: String,
     pub resources: Vec<String>,
+    pub columns: Vec<String>,
+    pub column_wildcard: bool,
     pub operation: SecurityOperation,
     pub requested_max_rows: u32,
     pub requested_timeout: Duration,

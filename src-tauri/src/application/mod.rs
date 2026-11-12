@@ -1,3 +1,6 @@
+pub mod accounts;
+#[cfg(test)]
+mod accounts_tests;
 pub mod ai;
 pub mod ai_query_guard;
 pub mod ai_sql_safety;

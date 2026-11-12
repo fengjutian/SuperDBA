@@ -63,6 +63,7 @@ pub struct RemoteSessionSecurityConfig {
 
 pub enum RemoteAuthentication {
     Password { hash: TokenHash, length: usize },
+    Accounts(crate::application::accounts::AccountStore),
     Proxy { hash: TokenHash, length: usize },
 }
 
@@ -79,6 +80,10 @@ impl RemoteAuthentication {
             hash: hash_token(secret),
             length: secret.len(),
         }
+    }
+
+    pub fn accounts(store: crate::application::accounts::AccountStore) -> Self {
+        Self::Accounts(store)
     }
 }
 
@@ -109,10 +114,11 @@ struct SecurityInner {
     state: Mutex<SecurityState>,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 enum Authentication {
     LocalBootstrap,
     Password(TokenHash),
+    Accounts(crate::application::accounts::AccountStore),
     Proxy(TokenHash),
 }
 
@@ -240,11 +246,18 @@ impl LocalSessionSecurity {
             RemoteAuthentication::Password { hash, length } if length >= 12 => {
                 Authentication::Password(hash)
             }
+            RemoteAuthentication::Accounts(store) if store.has_accounts() => {
+                Authentication::Accounts(store)
+            }
             RemoteAuthentication::Proxy { hash, length } if length >= 32 => {
                 Authentication::Proxy(hash)
             }
             RemoteAuthentication::Password { .. } => {
                 return Err("SUPERDBA_WEB_PASSWORD must contain at least 12 characters".to_string())
+            }
+            RemoteAuthentication::Accounts(_) => {
+                return Err("Application account authentication requires at least one account"
+                    .to_string())
             }
             RemoteAuthentication::Proxy { .. } => {
                 return Err(
@@ -311,15 +324,22 @@ impl LocalSessionSecurity {
     }
 
     pub fn password_authentication(&self) -> bool {
-        matches!(self.inner.authentication, Authentication::Password(_))
+        matches!(
+            &self.inner.authentication,
+            Authentication::Password(_) | Authentication::Accounts(_)
+        )
+    }
+
+    pub fn account_authentication(&self) -> bool {
+        matches!(&self.inner.authentication, Authentication::Accounts(_))
     }
 
     pub fn proxy_authentication(&self) -> bool {
-        matches!(self.inner.authentication, Authentication::Proxy(_))
+        matches!(&self.inner.authentication, Authentication::Proxy(_))
     }
 
     pub fn consume_bootstrap(&self, candidate: &str) -> Option<IssuedSession> {
-        if !matches!(self.inner.authentication, Authentication::LocalBootstrap) {
+        if !matches!(&self.inner.authentication, Authentication::LocalBootstrap) {
             return None;
         }
         let now = Instant::now();
@@ -345,10 +365,28 @@ impl LocalSessionSecurity {
         candidate: &str,
         client: IpAddr,
     ) -> Result<IssuedSession, AuthenticationError> {
-        let Authentication::Password(expected) = self.inner.authentication else {
+        let Authentication::Password(expected) = &self.inner.authentication else {
             return Err(AuthenticationError::UnsupportedMode);
         };
-        self.authenticate_remote(expected, candidate, client)
+        self.authenticate_remote(hash_token(candidate) == *expected, "shared-password", client)
+    }
+
+    pub fn authenticate_account(
+        &self,
+        username: &str,
+        password: &str,
+        client: IpAddr,
+    ) -> Result<IssuedSession, AuthenticationError> {
+        let Authentication::Accounts(store) = &self.inner.authentication else {
+            return Err(AuthenticationError::UnsupportedMode);
+        };
+        let principal = store.authenticate(username, password);
+        let valid = principal.is_some();
+        let subject = principal
+            .as_ref()
+            .map(|principal| principal.subject.as_str())
+            .unwrap_or("invalid-account");
+        self.authenticate_remote(valid, subject, client)
     }
 
     pub fn authenticate_proxy(
@@ -356,14 +394,14 @@ impl LocalSessionSecurity {
         candidate: &str,
         user: &str,
     ) -> Result<IssuedSession, AuthenticationError> {
-        let Authentication::Proxy(expected) = self.inner.authentication else {
+        let Authentication::Proxy(expected) = &self.inner.authentication else {
             return Err(AuthenticationError::UnsupportedMode);
         };
         let valid_user =
             !user.is_empty() && user.len() <= 256 && !user.chars().any(char::is_control);
         // No lockout: the 32+ character secret cannot be brute-forced, and a shared
         // lockout would let anyone reaching the port deny every proxied user.
-        if hash_token(candidate) != expected || !valid_user {
+        if hash_token(candidate) != *expected || !valid_user {
             return Err(AuthenticationError::InvalidCredentials);
         }
         let mut state = self.lock_state();
@@ -408,8 +446,8 @@ impl LocalSessionSecurity {
 
     fn authenticate_remote(
         &self,
-        expected: TokenHash,
-        candidate: &str,
+        valid_credentials: bool,
+        principal_subject: &str,
         client: IpAddr,
     ) -> Result<IssuedSession, AuthenticationError> {
         let now = Instant::now();
@@ -441,7 +479,7 @@ impl LocalSessionSecurity {
             attempts.failures.pop_front();
         }
 
-        if hash_token(candidate) != expected {
+        if !valid_credentials {
             attempts.failures.push_back(now);
             if attempts.failures.len() >= limit.max_failures {
                 attempts.blocked_until = Some(now + limit.lockout);
@@ -450,7 +488,7 @@ impl LocalSessionSecurity {
         }
 
         state.login_attempts.remove(&client);
-        self.issue_session(&mut state, now, "shared-password")
+        self.issue_session(&mut state, now, principal_subject)
     }
 
     fn issue_session(
