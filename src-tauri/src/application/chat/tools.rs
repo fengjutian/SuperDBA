@@ -528,7 +528,8 @@ async fn run_query(
                 if decision.verdict != SecurityVerdict::Allow {
                     return security_denied(&decision);
                 }
-                (sql, true, decision)
+                let approved_write = matches!(operation, SecurityOperation::SqlWrite { .. });
+                (sql, approved_write, decision)
             }
             ApprovalOutcome::Denied(reason) => return ToolOutcome::denied(reason),
             ApprovalOutcome::Cancelled => return ToolOutcome::denied(
