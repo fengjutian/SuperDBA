@@ -5,9 +5,7 @@ const GithubIcon = () => (
 );
 
 const ArrowIcon = () => (
-    <svg aria-hidden="true" viewBox="0 0 20 20">
-        <path d="m7 4 6 6-6 6M4 10h9" />
-    </svg>
+    <svg aria-hidden="true" viewBox="0 0 20 20"><path d="m7 4 6 6-6 6M4 10h9" /></svg>
 );
 
 const DatabaseMark = () => (
@@ -17,396 +15,120 @@ const DatabaseMark = () => (
     </svg>
 );
 
-const FeatureIcon = ({name}: {name: 'editor' | 'visual' | 'notebook' | 'agent'}) => {
-    const paths = {
-        editor: <path d="M5 6h14M5 12h9M5 18h6M17 15l2 2-4 4-3 1 1-3 4-4Z" />,
-        visual: <path d="M6 6h4v4H6V6Zm8 8h4v4h-4v-4ZM8 10v6h6M16 14V8h-6" />,
-        notebook: (
-            <path d="M7 3h10a2 2 0 0 1 2 2v16H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm2 5h6M9 12h6M9 16h4" />
-        ),
-        agent: (
-            <path d="M12 3v3M6 8h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2Zm3 5v2M9 13v2M8 20v2m8-2v2" />
-        ),
-    };
-    return (
-        <svg aria-hidden="true" className="feature-icon" viewBox="0 0 24 24">
-            {paths[name]}
-        </svg>
-    );
-};
+const principles = [
+    ['01', 'One core, two transports', 'Desktop and Web call the same Rust application services. Product behavior and policy stay in one place; only the delivery channel changes.'],
+    ['02', 'Capabilities, not assumptions', 'The interface asks what a driver or runtime can do, then exposes only the operations that are actually supported.'],
+    ['03', 'Local-first by default', 'The desktop app keeps daily database work close to your machine while Web mode supports controlled shared access.'],
+    ['04', 'Open and inspectable', 'The interface, application layer, transports, and plugin contracts are open source—so teams can review how access really works.'],
+] as const;
+
+const securityLayers = [
+    ['01', 'WHO', 'Identity & session', 'Named local accounts or trusted reverse-proxy identity establish who makes each Web request. Passwords are stored as Argon2id hashes.'],
+    ['02', 'WHAT', 'Authorization', 'Commands carry an authorization level, from session access through database and sensitive operations to local administration.'],
+    ['03', 'HOW', 'Request boundary', 'Same-origin sessions, CSRF tokens, capability negotiation, and server-side checks protect the browser-to-backend boundary.'],
+    ['04', 'WHERE', 'Secrets & network', 'Connection and plugin secrets stay behind backend APIs. SSH and Kubernetes tunnels provide controlled routes to private databases.'],
+    ['05', 'PROOF', 'Audit trail', 'Backend-generated events attribute auditable operations to an application principal without recording passwords, tokens, or result sets.'],
+] as const;
 
 export function App() {
     return (
         <div className="site-shell">
             <header className="topbar">
-                <a className="brand" href="#top" aria-label="SuperDBA home">
-                    <DatabaseMark />
-                    <span>SuperDBA</span>
-                </a>
+                <a className="brand" href="#top" aria-label="SuperDBA home"><DatabaseMark /><span>SuperDBA</span></a>
                 <nav aria-label="Primary navigation">
-                    <a href="#workspace">Workspace</a>
-                    <a href="#features">Features</a>
-                    <a href="#modes">Desktop &amp; Web</a>
-                    <a href="https://superdba.dev/wiki">Docs</a>
+                    <a href="#principles">Principles</a><a href="#architecture">How it works</a><a href="#security">Security</a><a href="https://superdba.dev/wiki">Docs</a>
                 </nav>
-                <a className="nav-action" href="https://github.com/SuperDBA/SuperDBA">
-                    <GithubIcon />
-                    <span>GitHub</span>
-                </a>
+                <a className="nav-action" href="https://github.com/SuperDBA/SuperDBA"><GithubIcon /><span>GitHub</span></a>
             </header>
 
             <main id="top">
                 <section className="hero" aria-labelledby="hero-title">
-                    <div className="hero-copy">
-                        <p className="eyebrow">
-                            <span /> Open source database workspace
-                        </p>
-                        <h1 id="hero-title">
-                            Your database work,
-                            <br />
-                            <em>finally in one place.</em>
-                        </h1>
-                        <p className="hero-lede">
-                            Explore schemas, write and run SQL, edit data, build visual queries,
-                            inspect plans, and collaborate with AI — from desktop or browser.
-                        </p>
-                        <div className="hero-actions">
-                            <a
-                                className="button button-primary"
-                                href="https://superdba.dev/download"
-                            >
-                                Download SuperDBA <ArrowIcon />
-                            </a>
-                            <a
-                                className="button button-secondary"
-                                href="https://github.com/SuperDBA/SuperDBA"
-                            >
-                                <GithubIcon /> View source
-                            </a>
+                    <div>
+                        <p className="eyebrow"><span /> Open source database workspace</p>
+                        <h1 id="hero-title">See the data.<br /><em>Keep the control.</em></h1>
+                        <p className="hero-lede">SuperDBA brings schemas, SQL, results, visual tools, and AI into one workspace—built on a shared Rust core with explicit security boundaries.</p>
+                        <div className="actions">
+                            <a className="button primary" href="https://superdba.dev/download">Download SuperDBA <ArrowIcon /></a>
+                            <a className="button secondary" href="https://github.com/SuperDBA/SuperDBA"><GithubIcon /> Read the source</a>
                         </div>
-                        <p className="hero-note">
-                            Free and open source · Windows, macOS, Linux &amp; Web
-                        </p>
+                        <p className="hero-note">Free and open source · Windows, macOS, Linux &amp; Web</p>
                     </div>
-
-                    <div
-                        className="product-window"
-                        aria-label="Illustration of the SuperDBA SQL workspace"
-                    >
-                        <div className="window-bar">
-                            <div className="window-dots">
-                                <span />
-                                <span />
-                                <span />
-                            </div>
-                            <div className="window-title">analytics · SuperDBA</div>
-                            <div className="window-command">⌘ K</div>
+                    <div className="hero-system" aria-label="SuperDBA request flow illustration">
+                        <div className="system-header"><span>REQUEST / QUERY</span><i>protected path</i></div>
+                        <div className="system-flow">
+                            {[
+                                ['01', 'Workspace', 'SQL + intent'],
+                                ['02', 'Transport', 'Desktop / Web'],
+                                ['03', 'Policy gate', 'Identity + capability'],
+                                ['04', 'Driver', 'Dialect-aware execution'],
+                            ].map(([number, title, detail], index) => (
+                                <div className="flow-wrap" key={number}>
+                                    <div className={index === 2 ? 'flow-node secure' : 'flow-node'}><small>{number}</small><strong>{title}</strong><span>{detail}</span></div>
+                                    {index < 3 && <b aria-hidden="true">↓</b>}
+                                </div>
+                            ))}
                         </div>
-                        <div className="workspace-grid">
-                            <aside className="schema-panel">
-                                <div className="panel-heading">
-                                    <span>Explorer</span>
-                                    <b>+</b>
-                                </div>
-                                <div className="connection">
-                                    <i /> production
-                                </div>
-                                <div className="tree-row tree-muted">⌄ public</div>
-                                <div className="tree-row active">
-                                    ▦ customers <small>24k</small>
-                                </div>
-                                <div className="tree-row">
-                                    ▦ orders <small>86k</small>
-                                </div>
-                                <div className="tree-row">
-                                    ▦ products <small>1.2k</small>
-                                </div>
-                                <div className="tree-row tree-muted">› analytics</div>
-                            </aside>
-                            <div className="editor-panel">
-                                <div className="tab-row">
-                                    <span className="tab-active">Customer growth.sql</span>
-                                    <span>Untitled 2</span>
-                                    <button type="button" aria-label="Create a new query tab">
-                                        +
-                                    </button>
-                                </div>
-                                <div className="query-area">
-                                    <div className="line-numbers">
-                                        1<br />2<br />3<br />4<br />5<br />6
-                                    </div>
-                                    <pre>
-                                        <code>
-                                            <span className="sql-keyword">SELECT</span>
-                                            {'\n'} date_trunc(
-                                            <span className="sql-string">'month'</span>, created_at){' '}
-                                            <span className="sql-keyword">AS</span> month,{'\n'}{' '}
-                                            count(*) <span className="sql-keyword">AS</span>{' '}
-                                            new_customers{'\n'}
-                                            <span className="sql-keyword">FROM</span> customers
-                                            {'\n'}
-                                            <span className="sql-keyword">GROUP BY</span> month
-                                            {'\n'}
-                                            <span className="sql-keyword">ORDER BY</span> month;
-                                        </code>
-                                    </pre>
-                                    <button
-                                        className="run-button"
-                                        type="button"
-                                        aria-label="Run query illustration"
-                                    >
-                                        ▶ Run
-                                    </button>
-                                </div>
-                                <div className="results-area">
-                                    <div className="result-tabs">
-                                        <span>Results</span>
-                                        <span>Chart</span>
-                                        <small>12 rows · 38 ms</small>
-                                    </div>
-                                    <div className="chart" aria-hidden="true">
-                                        {[38, 48, 43, 61, 57, 72, 68, 84, 79, 92, 88, 100].map(
-                                            (height, index) => (
-                                                <i
-                                                    key={index}
-                                                    style={
-                                                        {
-                                                            '--bar-height': `${height}%`,
-                                                        } as React.CSSProperties
-                                                    }
-                                                />
-                                            ),
-                                        )}
-                                    </div>
-                                    <div className="chart-labels">
-                                        <span>Jan</span>
-                                        <span>Apr</span>
-                                        <span>Jul</span>
-                                        <span>Oct</span>
-                                        <span>Dec</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        <div className="system-status"><span /> Application policy checked before execution</div>
                     </div>
                 </section>
 
                 <section className="database-strip" aria-label="Supported databases">
                     <p>One workspace. Your databases.</p>
+                    <div><span>PostgreSQL</span><span>MySQL</span><span>SQLite</span><span>DuckDB</span><span>ClickHouse</span><span>SQL Server</span><span className="accent">+ plugins</span></div>
+                </section>
+
+                <section className="principles" id="principles">
+                    <div className="section-intro">
+                        <p className="eyebrow"><span /> Design principles</p>
+                        <h2>Powerful tools.<br /><em>Understandable boundaries.</em></h2>
+                        <p>SuperDBA is designed as a system you can reason about—not a black box between you and your data.</p>
+                    </div>
+                    <div className="principle-grid">
+                        {principles.map(([number, title, copy]) => <article key={number}><span>{number}</span><h3>{title}</h3><p>{copy}</p></article>)}
+                    </div>
+                </section>
+
+                <section className="architecture" id="architecture">
                     <div>
-                        <span>PostgreSQL</span>
-                        <span>MySQL</span>
-                        <span>SQLite</span>
-                        <span>DuckDB</span>
-                        <span>ClickHouse</span>
-                        <span>SQL Server</span>
-                        <span className="more-databases">+ more via plugins</span>
+                        <p className="eyebrow"><span /> How it works</p>
+                        <h2>The interface changes.<br /><em>The rules do not.</em></h2>
+                        <p className="section-copy">The desktop app and <code>superdba web</code> use the same React interface and Rust application layer. Thin transports translate native commands or HTTP requests into the same application operations.</p>
+                        <ol className="steps">
+                            <li><b>1</b><span><strong>Describe the operation</strong>Typed commands define the request, response, and required authorization.</span></li>
+                            <li><b>2</b><span><strong>Cross the transport</strong>Tauri handles native integration; Web RPC handles browser sessions and request security.</span></li>
+                            <li><b>3</b><span><strong>Enforce shared policy</strong>The application layer owns behavior so transports cannot quietly diverge.</span></li>
+                            <li><b>4</b><span><strong>Use a capable driver</strong>Database-specific features are exposed through explicit driver capabilities.</span></li>
+                        </ol>
+                    </div>
+                    <div className="layers" aria-label="SuperDBA architecture diagram">
+                        <div className="layer"><span>Interface</span><strong>One React workspace</strong><small>Editor · Explorer · Results · AI</small></div>
+                        <div className="transport"><span>Desktop transport</span><i /><span>Web transport</span></div>
+                        <div className="layer core"><span>Application</span><strong>One policy and service layer</strong><small>Queries · Connections · Audit · Plugins</small></div>
+                        <div className="layer"><span>Drivers</span><strong>Capability-aware database access</strong><small>PostgreSQL · MySQL · SQLite · more</small></div>
                     </div>
                 </section>
 
-                <section className="workspace-section" id="workspace">
-                    <div className="section-heading">
-                        <p className="eyebrow">
-                            <span /> Built for real database work
-                        </p>
-                        <h2>
-                            Less context switching.
-                            <br />
-                            <em>More useful answers.</em>
-                        </h2>
-                        <p>
-                            Connections, schemas, queries, results, history, and AI tools share one
-                            secure workspace — so your flow stays intact.
-                        </p>
+                <section className="security" id="security">
+                    <div className="security-heading">
+                        <div><p className="eyebrow"><span /> Defense in depth</p><h2>Security is a stack,<br /><em>not a switch.</em></h2></div>
+                        <p>Each layer has a narrow job. Together they establish identity, limit authority, protect requests, isolate secrets, and leave evidence—while database-native grants remain the final authority over the data itself.</p>
                     </div>
-                    <div className="workflow" aria-label="SuperDBA workflow">
-                        <div className="workflow-item">
-                            <b>01</b>
-                            <span>Connect</span>
-                            <p>Secure credentials, SSH tunnels, and connection-aware workspaces.</p>
-                        </div>
-                        <div className="workflow-line" />
-                        <div className="workflow-item">
-                            <b>02</b>
-                            <span>Understand</span>
-                            <p>
-                                Search schemas, inspect relationships, and explore execution plans.
-                            </p>
-                        </div>
-                        <div className="workflow-line" />
-                        <div className="workflow-item">
-                            <b>03</b>
-                            <span>Build</span>
-                            <p>Write SQL, edit rows, create notebooks, and export what matters.</p>
-                        </div>
+                    <div className="security-stack">
+                        {securityLayers.map(([number, tag, title, copy]) => (
+                            <article className="security-layer" key={number}><span>{number}</span><div><small>{tag}</small><h3>{title}</h3></div><p>{copy}</p><i aria-hidden="true" /></article>
+                        ))}
                     </div>
+                    <aside className="security-note"><strong>Shared responsibility</strong><p>SuperDBA adds application controls; it does not replace TLS, network policy, individual database accounts, least-privilege grants, backups, or database-native auditing.</p></aside>
                 </section>
 
-                <section className="features-section" id="features">
-                    <article className="feature-card feature-wide">
-                        <div>
-                            <FeatureIcon name="editor" />
-                            <p className="card-kicker">SQL workspace</p>
-                            <h3>From idea to result, without leaving the editor.</h3>
-                            <p>
-                                Dialect-aware Monaco editing, saved queries, history, multiple
-                                result sets, inline data editing, filtering, pagination, and export.
-                            </p>
-                        </div>
-                        <div className="mini-editor" aria-hidden="true">
-                            <div className="mini-tabs">
-                                query.sql <span>38 ms</span>
-                            </div>
-                            <pre>
-                                <span>SELECT</span> region, sum(revenue){'\n'}
-                                <span>FROM</span> sales <span>GROUP BY</span> region;
-                            </pre>
-                            <div className="mini-table">
-                                <b>region</b>
-                                <b>revenue</b>
-                                <span>APAC</span>
-                                <span>$842,930</span>
-                                <span>EMEA</span>
-                                <span>$731,240</span>
-                                <span>AMER</span>
-                                <span>$1,024,510</span>
-                            </div>
-                        </div>
-                    </article>
-                    <article className="feature-card">
-                        <FeatureIcon name="visual" />
-                        <p className="card-kicker">Visual tools</p>
-                        <h3>See structure, not just rows.</h3>
-                        <p>
-                            Build queries visually, explore ER diagrams, and turn complex execution
-                            plans into something you can reason about.
-                        </p>
-                        <div className="node-map" aria-hidden="true">
-                            <i className="node-a">customers</i>
-                            <i className="node-b">orders</i>
-                            <i className="node-c">products</i>
-                            <span />
-                        </div>
-                    </article>
-                    <article className="feature-card">
-                        <FeatureIcon name="notebook" />
-                        <p className="card-kicker">SQL notebooks</p>
-                        <h3>Analysis that explains itself.</h3>
-                        <p>
-                            Combine SQL, Markdown, parameters, charts, and cross-cell results in
-                            repeatable notebooks built to share.
-                        </p>
-                        <div className="notebook-stack" aria-hidden="true">
-                            <span>Markdown</span>
-                            <span>SQL</span>
-                            <span>Chart</span>
-                        </div>
-                    </article>
-                    <article className="feature-card feature-agent">
-                        <FeatureIcon name="agent" />
-                        <p className="card-kicker">AI on your terms</p>
-                        <h3>Your schema. Your model. Your control.</h3>
-                        <p>
-                            Use cloud providers, local models through Ollama, or connect compatible
-                            AI clients through the built-in MCP server.
-                        </p>
-                        <div className="agent-prompt" aria-hidden="true">
-                            <span>Ask your database…</span>
-                            <b>↗</b>
-                        </div>
-                    </article>
-                </section>
-
-                <section className="modes-section" id="modes">
-                    <div className="modes-copy">
-                        <p className="eyebrow">
-                            <span /> One interface, two runtimes
-                        </p>
-                        <h2>
-                            Native when you want it.
-                            <br />
-                            <em>In the browser when you need it.</em>
-                        </h2>
-                        <p>
-                            The same React interface and Rust application services power desktop and
-                            Web modes. Only the transport changes.
-                        </p>
-                        <a className="text-link" href="https://superdba.dev/wiki">
-                            Explore the architecture <ArrowIcon />
-                        </a>
-                    </div>
-                    <div className="mode-cards">
-                        <div className="mode-card">
-                            <span className="mode-number">01</span>
-                            <div>
-                                <h3>Desktop</h3>
-                                <p>
-                                    Native dialogs, local files, OS integration, and everyday
-                                    database work.
-                                </p>
-                                <code>superdba</code>
-                            </div>
-                            <b>Windows · macOS · Linux</b>
-                        </div>
-                        <div className="mode-card mode-card-accent">
-                            <span className="mode-number">02</span>
-                            <div>
-                                <h3>Web</h3>
-                                <p>
-                                    Browser access for containers, remote hosts, and managed
-                                    deployments.
-                                </p>
-                                <code>superdba web</code>
-                            </div>
-                            <b>Docker · Compose · Helm</b>
-                        </div>
-                    </div>
-                </section>
-
-                <section className="cta-section">
-                    <div>
-                        <p className="eyebrow">
-                            <span /> Open source, ready to explore
-                        </p>
-                        <h2>
-                            Bring every database
-                            <br />
-                            <em>into one workspace.</em>
-                        </h2>
-                    </div>
-                    <div>
-                        <p>
-                            Start with the desktop app, run it in your browser, or dig into the
-                            source. SuperDBA is free and Apache-2.0 licensed.
-                        </p>
-                        <div className="hero-actions">
-                            <a
-                                className="button button-primary"
-                                href="https://superdba.dev/download"
-                            >
-                                Download now <ArrowIcon />
-                            </a>
-                            <a className="button button-secondary" href="https://superdba.dev/wiki">
-                                Read the docs
-                            </a>
-                        </div>
-                    </div>
+                <section className="proof">
+                    <p className="eyebrow"><span /> Inspect the implementation</p>
+                    <h2>Trust is better<br /><em>when it is verifiable.</em></h2>
+                    <div><p>Read the source, review the architecture, and deploy the runtime that fits your environment.</p><a className="button primary" href="https://github.com/SuperDBA/SuperDBA">Explore on GitHub <ArrowIcon /></a></div>
                 </section>
             </main>
 
-            <footer>
-                <a className="brand" href="#top">
-                    <DatabaseMark />
-                    <span>SuperDBA</span>
-                </a>
-                <p>Open-source database workspace for people and AI agents.</p>
-                <div>
-                    <a href="https://github.com/SuperDBA/SuperDBA">GitHub</a>
-                    <a href="https://superdba.dev/wiki">Documentation</a>
-                    <a href="https://superdba.dev/plugins">Plugins</a>
-                    <a href="https://discord.com/invite/K2hmhfHRSt">Discord</a>
-                </div>
-            </footer>
+            <footer><a className="brand" href="#top"><DatabaseMark /><span>SuperDBA</span></a><p>Open source database workspace.</p><div><a href="https://superdba.dev/wiki">Docs</a><a href="https://github.com/SuperDBA/SuperDBA">Source</a><a href="https://discord.com/invite/K2hmhfHRSt">Discord</a></div></footer>
         </div>
     );
 }
