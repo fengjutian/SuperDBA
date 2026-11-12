@@ -201,6 +201,45 @@ mod tests {
         assert!(error.contains("already been consumed"));
     }
 
+    #[test]
+    fn concurrent_consumers_allow_exactly_one_execution() {
+        let tmp = TempDir::new().unwrap();
+        let key = Arc::new([11u8; 32]);
+        let mut pending = make_pending("concurrent");
+        crate::ai_approval::sign_pending(&mut pending, key.as_ref()).unwrap();
+        let mut decision = make_decision("concurrent", "approve");
+        crate::ai_approval::sign_decision(&pending, &mut decision, key.as_ref()).unwrap();
+        let pending = Arc::new(pending);
+        let decision = Arc::new(decision);
+        let barrier = Arc::new(std::sync::Barrier::new(2));
+
+        let handles = (0..2)
+            .map(|_| {
+                let base = tmp.path().to_path_buf();
+                let key = key.clone();
+                let pending = pending.clone();
+                let decision = decision.clone();
+                let barrier = barrier.clone();
+                std::thread::spawn(move || {
+                    barrier.wait();
+                    crate::ai_approval::consume_signed_decision_in(
+                        &base,
+                        &pending,
+                        &decision,
+                        key.as_ref(),
+                    )
+                })
+            })
+            .collect::<Vec<_>>();
+        let results = handles
+            .into_iter()
+            .map(|handle| handle.join().unwrap())
+            .collect::<Vec<_>>();
+
+        assert_eq!(results.iter().filter(|result| result.is_ok()).count(), 1);
+        assert_eq!(results.iter().filter(|result| result.is_err()).count(), 1);
+    }
+
     // Polling --------------------------------------------------------------
 
     #[tokio::test]
