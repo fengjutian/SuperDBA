@@ -17,6 +17,7 @@ fn request(operation: SecurityOperation) -> SecurityRequest {
             session_id: None,
         },
         connection_id: "crm".to_string(),
+        resources: vec!["public.users".to_string()],
         operation,
         requested_max_rows: 500,
         requested_timeout: Duration::from_secs(30),
@@ -35,6 +36,7 @@ fn rule(id: &str, effect: PolicyEffect) -> PolicyRule {
         agents: vec!["chat-dba".to_string()],
         services: vec!["superdba".to_string()],
         connections: vec!["crm".to_string()],
+        tables: Vec::new(),
         purposes: vec!["sales-analysis".to_string()],
         actions: vec![PolicyAction::SqlRead],
         limits: None,
@@ -66,6 +68,38 @@ fn matching_allow_rule_grants_read_and_tightens_limits() {
     assert_eq!(decision.restrictions.max_rows, 25);
     assert_eq!(decision.restrictions.timeout, Duration::from_secs(2));
     assert_eq!(decision.policy_version, "v1");
+}
+
+#[test]
+fn table_scoped_allow_must_cover_every_resource() {
+    let mut allow = rule("allow-users", PolicyEffect::Allow);
+    allow.tables = vec!["users".to_string()];
+    let policy = policy(vec![allow]);
+
+    let allowed =
+        SecurityEngine::authorize_with_policy(&request(SecurityOperation::SqlRead), &policy);
+    assert_eq!(allowed.verdict, SecurityVerdict::Allow);
+
+    let mut mixed = request(SecurityOperation::SqlRead);
+    mixed.resources.push("audit.events".to_string());
+    let denied = SecurityEngine::authorize_with_policy(&mixed, &policy);
+    assert_eq!(denied.verdict, SecurityVerdict::Deny);
+    assert_eq!(denied.reason_code, "SECURITY_POLICY_DEFAULT_DENY");
+}
+
+#[test]
+fn table_scoped_deny_wins_when_any_resource_matches() {
+    let allow = rule("allow-read", PolicyEffect::Allow);
+    let mut deny = rule("deny-audit", PolicyEffect::Deny);
+    deny.tables = vec!["audit.events".to_string()];
+    let policy = policy(vec![allow, deny]);
+    let mut request = request(SecurityOperation::SqlRead);
+    request.resources.push("audit.events".to_string());
+
+    let decision = SecurityEngine::authorize_with_policy(&request, &policy);
+
+    assert_eq!(decision.verdict, SecurityVerdict::Deny);
+    assert_eq!(decision.reason_code, "SECURITY_POLICY_EXPLICIT_DENY");
 }
 
 #[test]

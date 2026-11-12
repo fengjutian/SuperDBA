@@ -24,16 +24,7 @@
 
 <p align="center">
   <a href="./README.md">English</a> ·
-  <a href="./docs/translations/README.zh-CN.md">简体中文</a> ·
-  <a href="./docs/translations/README.es.md">Español</a> ·
-  <a href="./docs/translations/README.fr.md">Français</a> ·
-  <a href="./docs/translations/README.de.md">Deutsch</a> ·
-  <a href="./docs/translations/README.it.md">Italiano</a> ·
-  <a href="./docs/translations/README.ja.md">日本語</a> ·
-  <a href="./docs/translations/README.ko.md">한국어</a> ·
-  <a href="./docs/translations/README.pt-BR.md">Português</a> ·
-  <a href="./docs/translations/README.ru.md">Русский</a> ·
-  <a href="./docs/translations/README.tl.md">Tagalog</a>
+  <a href="./docs/translations/README.zh-CN.md">简体中文</a>
 </p>
 
 <p align="center">

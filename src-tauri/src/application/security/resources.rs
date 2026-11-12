@@ -1,11 +1,31 @@
 use crate::drivers::driver_trait::SqlDialect;
-use sqlparser::ast::visit_relations;
+use sqlparser::ast::{visit_relations, Query, Visit, Visitor};
 use sqlparser::dialect::{
     GenericDialect, MsSqlDialect, MySqlDialect, PostgreSqlDialect, SQLiteDialect,
 };
 use sqlparser::parser::Parser;
 use std::collections::BTreeSet;
 use std::ops::ControlFlow;
+
+#[derive(Default)]
+struct CteCollector {
+    aliases: BTreeSet<String>,
+}
+
+impl Visitor for CteCollector {
+    type Break = ();
+
+    fn pre_visit_query(&mut self, query: &Query) -> ControlFlow<Self::Break> {
+        if let Some(with) = &query.with {
+            self.aliases.extend(
+                with.cte_tables
+                    .iter()
+                    .map(|cte| cte.alias.name.value.to_ascii_lowercase()),
+            );
+        }
+        ControlFlow::Continue(())
+    }
+}
 
 pub fn extract_sql_resources(sql: &str, dialect: SqlDialect) -> Result<Vec<String>, String> {
     let statements = match dialect {
@@ -17,15 +37,17 @@ pub fn extract_sql_resources(sql: &str, dialect: SqlDialect) -> Result<Vec<Strin
     }
     .map_err(|error| format!("Security policy could not parse SQL resources: {error}"))?;
 
+    let mut ctes = CteCollector::default();
+    let _ = statements.visit(&mut ctes);
     let mut resources = BTreeSet::new();
-    visit_relations(&statements, |relation| {
+    let _ = visit_relations(&statements, |relation| {
         let normalized = relation
             .0
             .iter()
             .map(|part| part.value.to_ascii_lowercase())
             .collect::<Vec<_>>()
             .join(".");
-        if !normalized.is_empty() {
+        if !normalized.is_empty() && !ctes.aliases.contains(&normalized) {
             resources.insert(normalized);
         }
         ControlFlow::<()>::Continue(())
@@ -55,6 +77,16 @@ mod tests {
         )
         .unwrap();
         assert_eq!(resources, vec!["archive_users", "users"]);
+    }
+
+    #[test]
+    fn does_not_report_cte_aliases_as_tables() {
+        let resources = extract_sql_resources(
+            "WITH recent AS (SELECT * FROM orders) SELECT * FROM recent",
+            SqlDialect::Postgres,
+        )
+        .unwrap();
+        assert_eq!(resources, vec!["orders"]);
     }
 
     #[test]
