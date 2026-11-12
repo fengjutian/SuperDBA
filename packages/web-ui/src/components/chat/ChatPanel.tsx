@@ -51,6 +51,7 @@ import {
 import type {ChatMessage, ChatToolCall} from '@/types/chat';
 import {useCopyFeedback} from '@/hooks/useCopyFeedback';
 import {isDbaChatProviderSupported} from '@/utils/dbaChat';
+import {localizeChatToolSummary} from '@/utils/chatToolSummary';
 
 function ToolCallRow({
     call,
@@ -61,7 +62,7 @@ function ToolCallRow({
     evidenceId: string;
     highlighted: boolean;
 }) {
-    const {t} = useTranslation();
+    const {t, i18n} = useTranslation();
     const [open, setOpen] = useState(false);
     const result = useMemo(() => formatToolResult(call.result), [call.result]);
     const statusClass =
@@ -71,6 +72,7 @@ function ToolCallRow({
               ? 'text-accent-warning'
               : 'text-accent-error';
     const statusLabel = t(`chat.toolStatus.${call.status}`, {defaultValue: call.status});
+    const summary = localizeChatToolSummary(call.summary, i18n.resolvedLanguage ?? i18n.language, t);
 
     return (
         <div
@@ -92,7 +94,7 @@ function ToolCallRow({
                 </span>
                 <span className="font-mono text-primary">{call.name}</span>
                 <span className={statusClass}>{statusLabel}</span>
-                <span className="text-muted truncate flex-1">{call.summary}</span>
+                <span className="text-muted truncate flex-1">{summary}</span>
                 <span className="text-muted tabular-nums">{call.durationMs} ms</span>
             </button>
             {open && (
