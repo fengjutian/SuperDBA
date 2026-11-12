@@ -2908,6 +2908,13 @@
       "denied": "已拒绝",
       "limitReached": "已暂停"
     },
+    "toolDenial": {
+      "explainEstimatedRows": "EXPLAIN 预计最多需要处理 {{rows}} 行。请缩小筛选范围或检查更小的数据区间。",
+      "explainFullScan": "EXPLAIN 预计需要全表扫描 {{rows}} 行（{{relation}}）。请缩小筛选范围或添加合适的索引。",
+      "explainScanAndSort": "EXPLAIN 预计需要扫描并排序 {{rows}} 行。请缩小查询范围或使用有索引支持的排序。",
+      "explainCartesianJoin": "EXPLAIN 检测到笛卡尔连接，已阻止 AI 查询。",
+      "explainUnsafeOutput": "无法安全评估 EXPLAIN 输出，已阻止 AI 查询。"
+    },
     "toolActivity": "{{count}} 次工具调用 · {{completed}} 次完成",
     "toolIssues": "{{count}} 个问题",
     "evidenceWarning": {

@@ -3077,6 +3077,13 @@
       "denied": "denied",
       "limitReached": "paused"
     },
+    "toolDenial": {
+      "explainEstimatedRows": "EXPLAIN estimates that up to {{rows}} rows may be processed. Narrow the filters or inspect a smaller range.",
+      "explainFullScan": "EXPLAIN estimates a full scan of {{rows}} rows ({{relation}}). Narrow the filters or add an appropriate index.",
+      "explainScanAndSort": "EXPLAIN estimates a scan and sort of {{rows}} rows. Narrow the query or use an indexed order.",
+      "explainCartesianJoin": "EXPLAIN detected a Cartesian join, so the AI query was blocked.",
+      "explainUnsafeOutput": "The EXPLAIN output could not be evaluated safely, so the AI query was blocked."
+    },
     "toolActivity": "{{count}} tool calls · {{completed}} completed",
     "toolIssues": "{{count}} issues",
     "evidenceWarning": {
