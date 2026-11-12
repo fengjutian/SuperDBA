@@ -1350,7 +1350,7 @@ async fn tool_run_query(
         let approval_id = ai_approval::new_approval_id();
         audit.approval_id = Some(approval_id.clone());
 
-        let pending = PendingApproval {
+        let mut pending = PendingApproval {
             id: approval_id.clone(),
             created_at: ai_activity::now_iso8601(),
             session_id: session_id.to_string(),
@@ -1362,10 +1362,25 @@ async fn tool_run_query(
             query_hash: Some(ai_approval::query_hash(query)),
             policy_version: Some(initial_decision.policy_version.clone()),
             security_decision_id: Some(initial_decision.decision_id.to_string()),
+            signature: None,
             client_hint: ai_activity::get_client_hint(),
             explain_plan,
             explain_error,
         };
+        let signing_key = ai_approval::approval_signing_key(
+            &crate::runtime::secrets::KeyringRuntimeSecrets,
+            &paths::get_app_config_dir(),
+        )
+        .map_err(|error| JsonRpcError {
+            code: -32000,
+            message: format!("Could not load the approval signing key: {error}"),
+            data: None,
+        })?;
+        ai_approval::sign_pending(&mut pending, &signing_key).map_err(|error| JsonRpcError {
+            code: -32000,
+            message: format!("Could not sign the approval: {error}"),
+            data: None,
+        })?;
 
         if let Err(e) = ai_approval::write_pending(&pending) {
             audit.status = "error".to_string();
@@ -1387,7 +1402,9 @@ async fn tool_run_query(
         .await
         {
             Ok(PollOutcome::Decided(decision)) => {
-                if let Err(error) = ai_approval::validate_decision_binding(&pending, &decision) {
+                if let Err(error) =
+                    ai_approval::verify_signed_decision(&pending, &decision, &signing_key)
+                {
                     audit.status = "blocked_security".to_string();
                     let message = format!("Approval binding validation failed: {error}");
                     audit.error = Some(message.clone());

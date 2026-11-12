@@ -1,5 +1,5 @@
 use super::{
-    ai, connection_files, connections, database_objects, database_transfers, generic_exports,
+    accounts, ai, connection_files, connections, database_objects, database_transfers, generic_exports,
     host_settings, mcp_host, metadata, notebooks, operations, persistence, plugins, productivity,
     queries, records, themes, tunnels, ui_state,
 };
@@ -51,6 +51,16 @@ impl ApplicationError {
 #[async_trait]
 pub trait ApplicationApi: Send + Sync {
     fn clear_session(&self, session_id: Uuid);
+
+    async fn execute_account_command(
+        &self,
+        _context: ApplicationRequestContext,
+        _command: accounts::AccountCommand,
+    ) -> Result<Value, ApplicationError> {
+        Err(ApplicationError::new(
+            "Application account management is not available",
+        ))
+    }
 
     async fn is_debug_mode(
         &self,
@@ -232,6 +242,15 @@ impl ApplicationApi for RuntimeApplicationApi {
             .lock()
             .unwrap_or_else(|error| error.into_inner())
             .retain(|_, owner| *owner != session_id);
+    }
+
+    async fn execute_account_command(
+        &self,
+        _context: ApplicationRequestContext,
+        command: accounts::AccountCommand,
+    ) -> Result<Value, ApplicationError> {
+        accounts::execute(self.runtime.paths.data_dir(), command)
+            .map_err(ApplicationError::new)
     }
 
     async fn is_debug_mode(

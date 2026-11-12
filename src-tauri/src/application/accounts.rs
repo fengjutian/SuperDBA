@@ -1,12 +1,26 @@
 use argon2::password_hash::rand_core::OsRng;
 use argon2::password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString};
 use argon2::Argon2;
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock, Weak};
 use uuid::Uuid;
 
 const ACCOUNTS_FILE: &str = "accounts.json";
+
+static ACCOUNT_STORES: Lazy<Mutex<HashMap<PathBuf, Weak<RwLock<AccountsFile>>>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
+
+#[derive(Debug)]
+pub enum AccountCommand {
+    List,
+    Create { username: String, password: String },
+    SetDisabled { id: Uuid, disabled: bool },
+    ChangePassword { id: Uuid, password: String },
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AccountPrincipal {
@@ -46,6 +60,13 @@ struct AccountRecord {
 impl AccountStore {
     pub fn open(data_dir: &Path) -> Result<Self, String> {
         let path = data_dir.join(ACCOUNTS_FILE);
+        let mut stores = ACCOUNT_STORES
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        stores.retain(|_, store| store.strong_count() > 0);
+        if let Some(accounts) = stores.get(&path).and_then(Weak::upgrade) {
+            return Ok(Self { path, accounts });
+        }
         let accounts = if path.exists() {
             let bytes = std::fs::read(&path)
                 .map_err(|error| format!("Failed to read application accounts: {error}"))?;
@@ -64,10 +85,9 @@ impl AccountStore {
                 accounts: Vec::new(),
             }
         };
-        Ok(Self {
-            path,
-            accounts: Arc::new(RwLock::new(accounts)),
-        })
+        let accounts = Arc::new(RwLock::new(accounts));
+        stores.insert(path.clone(), Arc::downgrade(&accounts));
+        Ok(Self { path, accounts })
     }
 
     pub fn has_accounts(&self) -> bool {
@@ -216,6 +236,25 @@ impl AccountStore {
         crate::persistence::write_private_file(&temporary, bytes)?;
         std::fs::rename(&temporary, &self.path)
             .map_err(|error| format!("Failed to replace application accounts: {error}"))
+    }
+}
+
+pub fn execute(data_dir: &Path, command: AccountCommand) -> Result<Value, String> {
+    let store = AccountStore::open(data_dir)?;
+    match command {
+        AccountCommand::List => serde_json::to_value(store.list()).map_err(|error| error.to_string()),
+        AccountCommand::Create { username, password } => serde_json::to_value(
+            store.create(&username, &password)?,
+        )
+        .map_err(|error| error.to_string()),
+        AccountCommand::SetDisabled { id, disabled } => {
+            serde_json::to_value(store.set_disabled(id, disabled)?)
+                .map_err(|error| error.to_string())
+        }
+        AccountCommand::ChangePassword { id, password } => {
+            store.change_password(id, &password)?;
+            Ok(Value::Null)
+        }
     }
 }
 

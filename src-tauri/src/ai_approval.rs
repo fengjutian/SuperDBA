@@ -8,6 +8,9 @@
 //!
 //! Storage: `<config_dir>/pending_approvals/`.
 
+use base64::engine::general_purpose::STANDARD as BASE64;
+use base64::Engine;
+use hmac::{Hmac, Mac};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fs;
@@ -17,6 +20,8 @@ use std::time::Duration;
 use crate::paths::get_app_config_dir;
 
 const DIR_NAME: &str = "pending_approvals";
+const SIGNING_KEY_ACCOUNT: &str = "ai-approval-signing-key-v1";
+const SIGNING_KEY_LOCK: &str = ".signing-key.lock";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -38,6 +43,8 @@ pub struct PendingApproval {
     pub policy_version: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub security_decision_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signature: Option<String>,
     pub client_hint: Option<String>,
     pub explain_plan: Option<serde_json::Value>,
     pub explain_error: Option<String>,
@@ -54,10 +61,167 @@ pub struct ApprovalDecision {
     pub edited_query: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub query_hash: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signature: Option<String>,
+}
+
+type HmacSha256 = Hmac<Sha256>;
+
+fn sign_fields(key: &[u8], fields: &[&str]) -> Result<String, String> {
+    let mut mac = HmacSha256::new_from_slice(key).map_err(|error| error.to_string())?;
+    for field in fields {
+        mac.update(&(field.len() as u64).to_be_bytes());
+        mac.update(field.as_bytes());
+    }
+    Ok(BASE64.encode(mac.finalize().into_bytes()))
+}
+
+fn verify_fields(key: &[u8], fields: &[&str], signature: &str) -> Result<(), String> {
+    let signature = BASE64
+        .decode(signature)
+        .map_err(|_| "Approval signature is malformed".to_string())?;
+    let mut mac = HmacSha256::new_from_slice(key).map_err(|error| error.to_string())?;
+    for field in fields {
+        mac.update(&(field.len() as u64).to_be_bytes());
+        mac.update(field.as_bytes());
+    }
+    mac.verify_slice(&signature)
+        .map_err(|_| "Approval signature is invalid".to_string())
+}
+
+pub fn sign_pending(pending: &mut PendingApproval, key: &[u8]) -> Result<(), String> {
+    let query_hash = pending
+        .query_hash
+        .as_deref()
+        .ok_or_else(|| "Pending approval has no SQL binding".to_string())?;
+    let policy_version = pending.policy_version.as_deref().unwrap_or_default();
+    let decision_id = pending.security_decision_id.as_deref().unwrap_or_default();
+    pending.signature = Some(sign_fields(
+        key,
+        &[
+            &pending.id,
+            &pending.created_at,
+            &pending.session_id,
+            &pending.connection_id,
+            pending.database.as_deref().unwrap_or_default(),
+            query_hash,
+            policy_version,
+            decision_id,
+        ],
+    )?);
+    Ok(())
+}
+
+pub fn verify_pending_signature(pending: &PendingApproval, key: &[u8]) -> Result<(), String> {
+    let signature = pending
+        .signature
+        .as_deref()
+        .ok_or_else(|| "Pending approval has no signature".to_string())?;
+    verify_fields(
+        key,
+        &[
+            &pending.id,
+            &pending.created_at,
+            &pending.session_id,
+            &pending.connection_id,
+            pending.database.as_deref().unwrap_or_default(),
+            pending.query_hash.as_deref().unwrap_or_default(),
+            pending.policy_version.as_deref().unwrap_or_default(),
+            pending.security_decision_id.as_deref().unwrap_or_default(),
+        ],
+        signature,
+    )
+}
+
+pub fn sign_decision(
+    pending: &PendingApproval,
+    decision: &mut ApprovalDecision,
+    key: &[u8],
+) -> Result<(), String> {
+    validate_decision_binding(pending, decision)?;
+    decision.signature = Some(sign_fields(
+        key,
+        &[
+            &decision.approval_id,
+            &decision.decided_at,
+            &decision.decision,
+            decision.reason.as_deref().unwrap_or_default(),
+            decision.query_hash.as_deref().unwrap_or_default(),
+            pending.signature.as_deref().unwrap_or_default(),
+        ],
+    )?);
+    Ok(())
+}
+
+pub fn verify_signed_decision(
+    pending: &PendingApproval,
+    decision: &ApprovalDecision,
+    key: &[u8],
+) -> Result<(), String> {
+    verify_pending_signature(pending, key)?;
+    validate_decision_binding(pending, decision)?;
+    let signature = decision
+        .signature
+        .as_deref()
+        .ok_or_else(|| "Approval decision has no signature".to_string())?;
+    verify_fields(
+        key,
+        &[
+            &decision.approval_id,
+            &decision.decided_at,
+            &decision.decision,
+            decision.reason.as_deref().unwrap_or_default(),
+            decision.query_hash.as_deref().unwrap_or_default(),
+            pending.signature.as_deref().unwrap_or_default(),
+        ],
+        signature,
+    )
 }
 
 pub fn query_hash(query: &str) -> String {
     format!("sha256:{:x}", Sha256::digest(query.as_bytes()))
+}
+
+pub fn approval_signing_key(
+    secrets: &dyn crate::runtime::secrets::RuntimeSecrets,
+    base: &Path,
+) -> Result<Vec<u8>, String> {
+    use fs2::FileExt;
+    use std::io::Write;
+
+    let directory = ensure_dir(base)?;
+    let mut options = fs::OpenOptions::new();
+    options.read(true).write(true).create(true).truncate(false);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut lock = options
+        .open(directory.join(SIGNING_KEY_LOCK))
+        .map_err(|error| error.to_string())?;
+    lock.lock_exclusive().map_err(|error| error.to_string())?;
+
+    let encoded = match secrets.get(SIGNING_KEY_ACCOUNT)? {
+        Some(encoded) => encoded,
+        None => {
+            let mut key = [0u8; 32];
+            use aes_gcm::aead::rand_core::RngCore;
+            aes_gcm::aead::OsRng.fill_bytes(&mut key);
+            let encoded = BASE64.encode(key);
+            secrets.set(SIGNING_KEY_ACCOUNT, &encoded)?;
+            lock.write_all(b"initialized")
+                .map_err(|error| error.to_string())?;
+            encoded
+        }
+    };
+    let key = BASE64
+        .decode(encoded)
+        .map_err(|_| "Approval signing key is malformed".to_string())?;
+    if key.len() != 32 {
+        return Err("Approval signing key must be 32 bytes".to_string());
+    }
+    Ok(key)
 }
 
 pub fn validate_decision_binding(

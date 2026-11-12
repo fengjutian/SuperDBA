@@ -969,7 +969,7 @@ async fn request_approval(
 ) -> ApprovalOutcome {
     let config_dir = tool.runtime.paths.config_dir().to_path_buf();
     let approval_id = ai_approval::new_approval_id();
-    let pending = PendingApproval {
+    let mut pending = PendingApproval {
         id: approval_id.clone(),
         created_at: crate::ai_activity::now_iso8601(),
         session_id: tool.chat_session_id.to_string(),
@@ -986,10 +986,23 @@ async fn request_approval(
         query_hash: Some(ai_approval::query_hash(sql)),
         policy_version: Some(security_decision.policy_version.clone()),
         security_decision_id: Some(security_decision.decision_id.to_string()),
+        signature: None,
         client_hint: Some("SuperDBA chat".to_string()),
         explain_plan: None,
         explain_error: None,
     };
+    let signing_key =
+        match ai_approval::approval_signing_key(tool.runtime.secrets.as_ref(), &config_dir) {
+            Ok(key) => key,
+            Err(error) => {
+                return ApprovalOutcome::Denied(format!(
+                    "Could not load the approval signing key: {error}"
+                ))
+            }
+        };
+    if let Err(error) = ai_approval::sign_pending(&mut pending, &signing_key) {
+        return ApprovalOutcome::Denied(format!("Could not sign the approval: {error}"));
+    }
     if let Err(error) = ai_approval::write_pending_in(&config_dir, &pending) {
         return ApprovalOutcome::Denied(format!("Could not request approval: {error}"));
     }
@@ -1035,7 +1048,9 @@ async fn request_approval(
         }
         match ai_approval::read_decision_in(&config_dir, &approval_id) {
             Ok(Some(decision)) => {
-                if let Err(error) = ai_approval::validate_decision_binding(&pending, &decision) {
+                if let Err(error) =
+                    ai_approval::verify_signed_decision(&pending, &decision, &signing_key)
+                {
                     let _ = ai_approval::clear_in(&config_dir, &approval_id);
                     return ApprovalOutcome::Denied(format!(
                         "Approval binding validation failed: {error}"

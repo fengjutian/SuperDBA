@@ -26,6 +26,7 @@ mod tests {
             )),
             policy_version: Some("test-policy-v1".to_string()),
             security_decision_id: Some("decision-1".to_string()),
+            signature: None,
             client_hint: Some("claude-desktop".to_string()),
             explain_plan: Some(serde_json::json!({"node": "Seq Scan"})),
             explain_error: None,
@@ -42,6 +43,7 @@ mod tests {
             query_hash: Some(crate::ai_approval::query_hash(
                 "UPDATE orders SET status = 'x'",
             )),
+            signature: None,
         }
     }
 
@@ -141,6 +143,34 @@ mod tests {
             read_decision_in(tmp.path(), "edited").unwrap(),
             Some(decision)
         );
+    }
+
+    #[test]
+    fn signed_approval_rejects_tampered_context_or_decision() {
+        let key = [7u8; 32];
+        let mut pending = make_pending("signed");
+        crate::ai_approval::sign_pending(&mut pending, &key).unwrap();
+        let mut decision = make_decision("signed", "approve");
+        crate::ai_approval::sign_decision(&pending, &mut decision, &key).unwrap();
+        crate::ai_approval::verify_signed_decision(&pending, &decision, &key).unwrap();
+
+        let mut tampered_pending = pending.clone();
+        tampered_pending.connection_id = "other-connection".to_string();
+        assert!(crate::ai_approval::verify_signed_decision(
+            &tampered_pending,
+            &decision,
+            &key
+        )
+        .is_err());
+
+        let mut tampered_decision = decision.clone();
+        tampered_decision.reason = Some("changed after signing".to_string());
+        assert!(crate::ai_approval::verify_signed_decision(
+            &pending,
+            &tampered_decision,
+            &key
+        )
+        .is_err());
     }
 
     // Polling --------------------------------------------------------------

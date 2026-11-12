@@ -381,7 +381,7 @@ async fn decide_pending_approval(
     }
 
     let edited_query = edited_query.filter(|query| !query.trim().is_empty());
-    let payload = ApprovalDecision {
+    let mut payload = ApprovalDecision {
         approval_id: approval_id.clone(),
         decided_at: crate::ai_activity::now_iso8601(),
         decision,
@@ -390,7 +390,12 @@ async fn decide_pending_approval(
             edited_query.as_deref().unwrap_or(&pending.query),
         )),
         edited_query,
+        signature: None,
     };
+    let signing_key =
+        crate::ai_approval::approval_signing_key(runtime.secrets.as_ref(), &config_dir)?;
+    crate::ai_approval::verify_pending_signature(&pending, &signing_key)?;
+    crate::ai_approval::sign_decision(&pending, &mut payload, &signing_key)?;
     tokio::task::spawn_blocking(move || {
         crate::ai_approval::write_decision_in(&config_dir, &payload)
     })

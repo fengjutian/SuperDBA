@@ -112,7 +112,7 @@ async fn pending_approvals_are_owned_by_an_authorized_web_session() {
         .unwrap()
         .insert(other_session, HashSet::new());
 
-    let pending = PendingApproval {
+    let mut pending = PendingApproval {
         id: "approval-1".to_string(),
         created_at: "2026-08-22T00:00:00Z".to_string(),
         session_id: "mcp-session".to_string(),
@@ -123,11 +123,18 @@ async fn pending_approvals_are_owned_by_an_authorized_web_session() {
         query_hash: Some(crate::ai_approval::query_hash("DELETE FROM values")),
         policy_version: Some("test-policy-v1".to_string()),
         security_decision_id: Some("decision-1".to_string()),
+        signature: None,
         database: None,
         client_hint: None,
         explain_plan: None,
         explain_error: None,
     };
+    let signing_key = crate::ai_approval::approval_signing_key(
+        runtime.secrets.as_ref(),
+        runtime.paths.config_dir(),
+    )
+    .unwrap();
+    crate::ai_approval::sign_pending(&mut pending, &signing_key).unwrap();
     crate::ai_approval::write_pending_in(runtime.paths.config_dir(), &pending).unwrap();
 
     let authorized = execute(
