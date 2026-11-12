@@ -22,21 +22,29 @@ const principles = [
         '01',
         'One core, two transports',
         'Desktop and Web call the same Rust application services. Product behavior and policy stay in one place; only the delivery channel changes.',
+        '一个核心，两种传输',
+        '桌面端与 Web 调用相同的 Rust 应用服务。产品行为与策略只维护一份，变化的只是交付通道。',
     ],
     [
         '02',
         'Capabilities, not assumptions',
         'The interface asks what a driver or runtime can do, then exposes only the operations that are actually supported.',
+        '以能力为准，而非假设',
+        '界面先询问驱动或运行环境支持什么，再只呈现真正可用的操作。',
     ],
     [
         '03',
         'Local-first by default',
         'The desktop app keeps daily database work close to your machine while Web mode supports controlled shared access.',
+        '默认本地优先',
+        '桌面应用让日常数据库工作靠近本机；需要协作时，Web 模式提供可控的共享访问。',
     ],
     [
         '04',
         'Open and inspectable',
         'The interface, application layer, transports, and plugin contracts are open source—so teams can review how access really works.',
+        '开放且可审查',
+        '界面、应用层、传输层和插件契约全部开源，团队可以直接审查访问逻辑。',
     ],
 ] as const;
 
@@ -46,34 +54,55 @@ const securityLayers = [
         'WHO',
         'Identity & session',
         'Named local accounts or trusted reverse-proxy identity establish who makes each Web request. Passwords are stored as Argon2id hashes.',
+        '身份与会话',
+        '具名本地账户或可信反向代理身份用于确认每个 Web 请求的发起者；密码以 Argon2id 哈希保存。',
     ],
     [
         '02',
         'WHAT',
         'Authorization',
         'Commands carry an authorization level, from session access through database and sensitive operations to local administration.',
+        '授权控制',
+        '命令携带授权等级，覆盖会话访问、数据库操作、敏感操作到本地管理。',
     ],
     [
         '03',
         'HOW',
         'Request boundary',
         'Same-origin sessions, CSRF tokens, capability negotiation, and server-side checks protect the browser-to-backend boundary.',
+        '请求边界',
+        '同源会话、CSRF 令牌、能力协商与服务端检查共同保护浏览器到后端的边界。',
     ],
     [
         '04',
         'WHERE',
         'Secrets & network',
         'Connection and plugin secrets stay behind backend APIs. SSH and Kubernetes tunnels provide controlled routes to private databases.',
+        '密钥与网络',
+        '连接和插件密钥保留在后端 API 之后；SSH 与 Kubernetes 隧道为私有数据库提供受控路径。',
     ],
     [
         '05',
         'PROOF',
         'Audit trail',
         'Backend-generated events attribute auditable operations to an application principal without recording passwords, tokens, or result sets.',
+        '审计轨迹',
+        '后端生成的事件将可审计操作归属到应用主体，同时不记录密码、令牌或结果集。',
     ],
 ] as const;
 
 export function App() {
+    const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+        const savedTheme = localStorage.getItem('superdba-website-theme');
+        if (savedTheme === 'dark' || savedTheme === 'light') return savedTheme;
+        return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    });
+
+    useEffect(() => {
+        document.documentElement.dataset.theme = theme;
+        localStorage.setItem('superdba-website-theme', theme);
+    }, [theme]);
+
     return (
         <div className="site-shell">
             <header className="topbar">
@@ -81,16 +110,42 @@ export function App() {
                     <DatabaseMark />
                     <span>SuperDBA</span>
                 </a>
-                <nav aria-label="Primary navigation">
-                    <a href="#principles">Principles</a>
-                    <a href="#architecture">How it works</a>
-                    <a href="#security">Security</a>
-                    <a href="https://superdba.dev/wiki">Docs</a>
+                <nav aria-label="Primary navigation / 主导航">
+                    <a href="#principles">
+                        Principles <small>原则</small>
+                    </a>
+                    <a href="#architecture">
+                        How it works <small>原理</small>
+                    </a>
+                    <a href="#security">
+                        Security <small>安全</small>
+                    </a>
+                    <a href="https://superdba.dev/wiki">
+                        Docs <small>文档</small>
+                    </a>
                 </nav>
-                <a className="nav-action" href="https://github.com/SuperDBA/SuperDBA">
-                    <GithubIcon />
-                    <span>GitHub</span>
-                </a>
+                <div className="topbar-actions">
+                    <span className="language-badge" aria-label="English and Chinese">
+                        EN / 中文
+                    </span>
+                    <button
+                        className="theme-toggle"
+                        type="button"
+                        onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                        aria-label={
+                            theme === 'dark'
+                                ? 'Use light theme / 使用浅色主题'
+                                : 'Use dark theme / 使用深色主题'
+                        }
+                        aria-pressed={theme === 'light'}
+                    >
+                        <span aria-hidden="true">{theme === 'dark' ? '☼' : '◐'}</span>
+                    </button>
+                    <a className="nav-action" href="https://github.com/SuperDBA/SuperDBA">
+                        <GithubIcon />
+                        <span>GitHub</span>
+                    </a>
+                </div>
             </header>
 
             <main id="top">
@@ -98,35 +153,44 @@ export function App() {
                     <div>
                         <p className="eyebrow">
                             <span /> Open source database workspace
+                            <b lang="zh-CN">开源数据库工作台</b>
                         </p>
                         <h1 id="hero-title">
                             See the data.
                             <br />
                             <em>Keep the control.</em>
                         </h1>
+                        <p className="hero-title-zh" lang="zh-CN">
+                            看清数据，掌控始终在手。
+                        </p>
                         <p className="hero-lede">
                             SuperDBA brings schemas, SQL, results, visual tools, and AI into one
                             workspace—built on a shared Rust core with explicit security boundaries.
+                            <span className="zh-copy" lang="zh-CN">
+                                SuperDBA 将模式浏览、SQL、结果集、可视化工具与 AI
+                                集成在同一工作台中，并以共享的 Rust 核心和清晰的安全边界为基础。
+                            </span>
                         </p>
                         <div className="actions">
                             <a className="button primary" href="https://superdba.dev/download">
-                                Download SuperDBA <ArrowIcon />
+                                Download SuperDBA <small lang="zh-CN">下载</small> <ArrowIcon />
                             </a>
                             <a
                                 className="button secondary"
                                 href="https://github.com/SuperDBA/SuperDBA"
                             >
-                                <GithubIcon /> Read the source
+                                <GithubIcon /> Read the source <small lang="zh-CN">查看源码</small>
                             </a>
                         </div>
                         <p className="hero-note">
                             Free and open source · Windows, macOS, Linux &amp; Web
+                            <span lang="zh-CN">免费开源 · 支持桌面端与 Web</span>
                         </p>
                     </div>
                     <div className="hero-system" aria-label="SuperDBA request flow illustration">
                         <div className="system-header">
-                            <span>REQUEST / QUERY</span>
-                            <i>protected path</i>
+                            <span>REQUEST / QUERY · 请求 / 查询</span>
+                            <i>protected path · 受保护路径</i>
                         </div>
                         <div className="system-flow">
                             {[
@@ -146,13 +210,17 @@ export function App() {
                             ))}
                         </div>
                         <div className="system-status">
-                            <span /> Application policy checked before execution
+                            <span /> Application policy checked before execution ·
+                            执行前统一策略检查
                         </div>
                     </div>
                 </section>
 
                 <section className="database-strip" aria-label="Supported databases">
-                    <p>One workspace. Your databases.</p>
+                    <p>
+                        One workspace. Your databases.{' '}
+                        <b lang="zh-CN">一个工作台，连接你的数据库。</b>
+                    </p>
                     <div>
                         <span>PostgreSQL</span>
                         <span>MySQL</span>
@@ -168,23 +236,31 @@ export function App() {
                     <div className="section-intro">
                         <p className="eyebrow">
                             <span /> Design principles
+                            <b lang="zh-CN">设计原则</b>
                         </p>
                         <h2>
                             Powerful tools.
                             <br />
                             <em>Understandable boundaries.</em>
                         </h2>
+                        <p className="heading-zh" lang="zh-CN">
+                            工具足够强大，边界依然清晰。
+                        </p>
                         <p>
                             SuperDBA is designed as a system you can reason about—not a black box
                             between you and your data.
                         </p>
                     </div>
                     <div className="principle-grid">
-                        {principles.map(([number, title, copy]) => (
+                        {principles.map(([number, title, copy, zhTitle, zhCopy]) => (
                             <article key={number}>
                                 <span>{number}</span>
                                 <h3>{title}</h3>
+                                <h4 lang="zh-CN">{zhTitle}</h4>
                                 <p>{copy}</p>
+                                <p className="zh-copy" lang="zh-CN">
+                                    {zhCopy}
+                                </p>
                             </article>
                         ))}
                     </div>
@@ -194,16 +270,24 @@ export function App() {
                     <div>
                         <p className="eyebrow">
                             <span /> How it works
+                            <b lang="zh-CN">工作原理</b>
                         </p>
                         <h2>
                             The interface changes.
                             <br />
                             <em>The rules do not.</em>
                         </h2>
+                        <p className="heading-zh" lang="zh-CN">
+                            界面可以变化，规则保持一致。
+                        </p>
                         <p className="section-copy">
                             The desktop app and <code>superdba web</code> use the same React
                             interface and Rust application layer. Thin transports translate native
                             commands or HTTP requests into the same application operations.
+                            <span className="zh-copy" lang="zh-CN">
+                                桌面应用与 superdba web 使用同一套 React 界面和 Rust
+                                应用层。轻量传输层把原生命令或 HTTP 请求转换为相同的应用操作。
+                            </span>
                         </p>
                         <ol className="steps">
                             <li>
@@ -211,6 +295,9 @@ export function App() {
                                 <span>
                                     <strong>Describe the operation</strong>Typed commands define the
                                     request, response, and required authorization.
+                                    <small lang="zh-CN">
+                                        描述操作：类型化命令声明请求、响应以及所需授权等级。
+                                    </small>
                                 </span>
                             </li>
                             <li>
@@ -219,6 +306,10 @@ export function App() {
                                     <strong>Cross the transport</strong>Tauri handles native
                                     integration; Web RPC handles browser sessions and request
                                     security.
+                                    <small lang="zh-CN">
+                                        穿过传输层：Tauri 负责原生集成；Web RPC
+                                        负责浏览器会话与请求安全。
+                                    </small>
                                 </span>
                             </li>
                             <li>
@@ -226,6 +317,9 @@ export function App() {
                                 <span>
                                     <strong>Enforce shared policy</strong>The application layer owns
                                     behavior so transports cannot quietly diverge.
+                                    <small lang="zh-CN">
+                                        执行共享策略：行为由应用层统一负责，避免规则悄然分叉。
+                                    </small>
                                 </span>
                             </li>
                             <li>
@@ -233,29 +327,32 @@ export function App() {
                                 <span>
                                     <strong>Use a capable driver</strong>Database-specific features
                                     are exposed through explicit driver capabilities.
+                                    <small lang="zh-CN">
+                                        调用能力驱动：数据库特有功能通过明确的能力声明对外提供。
+                                    </small>
                                 </span>
                             </li>
                         </ol>
                     </div>
                     <div className="layers" aria-label="SuperDBA architecture diagram">
                         <div className="layer">
-                            <span>Interface</span>
-                            <strong>One React workspace</strong>
+                            <span>Interface · 界面层</span>
+                            <strong>One React workspace · 同一套 React 工作台</strong>
                             <small>Editor · Explorer · Results · AI</small>
                         </div>
                         <div className="transport">
-                            <span>Desktop transport</span>
+                            <span>Desktop transport · 桌面传输</span>
                             <i />
-                            <span>Web transport</span>
+                            <span>Web transport · Web 传输</span>
                         </div>
                         <div className="layer core">
-                            <span>Application</span>
-                            <strong>One policy and service layer</strong>
+                            <span>Application · 应用层</span>
+                            <strong>One policy and service layer · 统一策略与服务层</strong>
                             <small>Queries · Connections · Audit · Plugins</small>
                         </div>
                         <div className="layer">
-                            <span>Drivers</span>
-                            <strong>Capability-aware database access</strong>
+                            <span>Drivers · 驱动层</span>
+                            <strong>Capability-aware database access · 能力感知的数据库访问</strong>
                             <small>PostgreSQL · MySQL · SQLite · more</small>
                         </div>
                     </div>
@@ -266,12 +363,16 @@ export function App() {
                         <div>
                             <p className="eyebrow">
                                 <span /> Defense in depth
+                                <b lang="zh-CN">纵深防御</b>
                             </p>
                             <h2>
                                 Security is a stack,
                                 <br />
                                 <em>not a switch.</em>
                             </h2>
+                            <p className="heading-zh" lang="zh-CN">
+                                安全是一套层次，不是一个开关。
+                            </p>
                         </div>
                         <p>
                             Each layer has a narrow job. Together they establish identity, limit
@@ -280,24 +381,34 @@ export function App() {
                         </p>
                     </div>
                     <div className="security-stack">
-                        {securityLayers.map(([number, tag, title, copy]) => (
+                        {securityLayers.map(([number, tag, title, copy, zhTitle, zhCopy]) => (
                             <article className="security-layer" key={number}>
                                 <span>{number}</span>
                                 <div>
                                     <small>{tag}</small>
                                     <h3>{title}</h3>
+                                    <h4 lang="zh-CN">{zhTitle}</h4>
                                 </div>
                                 <p>{copy}</p>
+                                <p className="zh-copy" lang="zh-CN">
+                                    {zhCopy}
+                                </p>
                                 <i aria-hidden="true" />
                             </article>
                         ))}
                     </div>
                     <aside className="security-note">
-                        <strong>Shared responsibility</strong>
+                        <strong>
+                            Shared responsibility <span lang="zh-CN">共同责任</span>
+                        </strong>
                         <p>
                             SuperDBA adds application controls; it does not replace TLS, network
                             policy, individual database accounts, least-privilege grants, backups,
                             or database-native auditing.
+                            <span className="zh-copy" lang="zh-CN">
+                                SuperDBA 提供应用层控制，但不能替代
+                                TLS、网络策略、个人数据库账户、最小权限授权、备份或数据库原生审计。
+                            </span>
                         </p>
                     </aside>
                 </section>
@@ -305,16 +416,23 @@ export function App() {
                 <section className="proof">
                     <p className="eyebrow">
                         <span /> Inspect the implementation
+                        <b lang="zh-CN">审查实现</b>
                     </p>
                     <h2>
                         Trust is better
                         <br />
                         <em>when it is verifiable.</em>
                     </h2>
+                    <p className="heading-zh" lang="zh-CN">
+                        信任更可靠，当它可以被验证。
+                    </p>
                     <div>
                         <p>
                             Read the source, review the architecture, and deploy the runtime that
                             fits your environment.
+                            <span className="zh-copy" lang="zh-CN">
+                                阅读源代码、审查架构，并选择适合你环境的运行方式。
+                            </span>
                         </p>
                         <a className="button primary" href="https://github.com/SuperDBA/SuperDBA">
                             Explore on GitHub <ArrowIcon />
@@ -338,3 +456,4 @@ export function App() {
         </div>
     );
 }
+import {useEffect, useState} from 'react';
