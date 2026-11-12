@@ -192,6 +192,46 @@ fn bounds_the_session_store_without_displacing_live_sessions() {
 }
 
 #[test]
+fn authenticates_named_accounts_and_binds_the_principal_to_the_session() {
+    let directory = tempfile::tempdir().unwrap();
+    let accounts = crate::application::accounts::AccountStore::open(directory.path()).unwrap();
+    let account_id = accounts
+        .bootstrap_administrator("alice@example.com", "correct horse battery staple")
+        .unwrap();
+    let security = LocalSessionSecurity::new_remote(
+        RemoteSessionSecurityConfig {
+            trusted_proxies: Vec::new(),
+            public_origin: "https://superdba.example.com".to_string(),
+            allowed_origins: vec!["https://superdba.example.com".to_string()],
+            session_ttl: Duration::from_secs(60),
+            max_body_bytes: 1_048_576,
+            authorization: AuthorizationLevel::Database,
+            rate_limit: LoginRateLimitConfig::default(),
+        },
+        RemoteAuthentication::accounts(accounts),
+    )
+    .unwrap();
+    let issued = security
+        .authenticate_account(
+            "alice@example.com",
+            "correct horse battery staple",
+            "198.51.100.8".parse().unwrap(),
+        )
+        .unwrap();
+    let session = security.authenticate(&issued.cookie_value).unwrap();
+
+    assert_eq!(session.principal_id(), Some(account_id));
+    assert_eq!(session.principal_subject(), "alice@example.com");
+    assert!(security
+        .authenticate_account(
+            "alice@example.com",
+            "wrong password",
+            "198.51.100.9".parse().unwrap(),
+        )
+        .is_err());
+}
+
+#[test]
 fn advertises_mcp_host_configuration_only_for_loopback_web_origins() {
     for origin in [
         "http://127.0.0.1:8080",

@@ -53,6 +53,20 @@ Desktop requests use a reserved local principal. Desktop attribution means “th
 - The first administrator is created through a one-time bootstrap flow. Startup must not create a known default password.
 - Password changes and account disablement revoke existing sessions.
 
+### Initial administrator bootstrap
+
+Until the account-management UI is available, a deployment with no `accounts.json` may create its first named administrator at startup:
+
+```bash
+export SUPERDBA_WEB_ADMIN_USERNAME='admin@example.com'
+export SUPERDBA_WEB_ADMIN_PASSWORD='replace-with-a-long-unique-password'
+superdba web --auth password # plus the required remote URL and origin options
+```
+
+Both variables are required together. SuperDBA writes only an Argon2id password hash to `accounts.json` under the server data directory. After the first successful bootstrap, remove the plaintext bootstrap variables from the process environment; subsequent startups load the account store and ignore them.
+
+`SUPERDBA_WEB_PASSWORD` remains a temporary shared-password migration path when no account store and no administrator bootstrap variables exist. It does not identify a human user and should not be used for a multi-user deployment.
+
 ## Authorization model
 
 Authorization has two layers:

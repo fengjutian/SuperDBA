@@ -40,8 +40,9 @@ fn refuses_a_second_bootstrap_account() {
 fn rejects_weak_bootstrap_credentials() {
     let directory = tempfile::tempdir().unwrap();
     let store = AccountStore::open(directory.path()).unwrap();
-    assert!(store.bootstrap_administrator("", "long enough password").is_err());
+    assert!(store
+        .bootstrap_administrator("", "long enough password")
+        .is_err());
     assert!(store.bootstrap_administrator("alice", "short").is_err());
     assert!(!store.has_accounts());
 }
-

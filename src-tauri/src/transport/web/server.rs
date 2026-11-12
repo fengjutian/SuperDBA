@@ -572,7 +572,11 @@ async fn rpc(
         &request_id_text,
         Some(session_id),
         &format!(
-            "principal={:?} command={audited_command} status={}",
+            "principal_id={} principal={:?} command={audited_command} status={}",
+            session
+                .principal_id()
+                .map(|id| id.to_string())
+                .unwrap_or_else(|| "none".to_string()),
             session.principal_subject(),
             response.status().as_u16()
         ),

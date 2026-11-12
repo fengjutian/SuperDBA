@@ -157,6 +157,7 @@ struct SessionRecord {
     expires_at: Instant,
     authorization: AuthorizationLevel,
     remote: bool,
+    principal_id: Option<Uuid>,
     principal_subject: String,
 }
 
@@ -178,6 +179,7 @@ pub struct AuthenticatedSession {
     pub csrf_token: String,
     authorization: AuthorizationLevel,
     remote: bool,
+    principal_id: Option<Uuid>,
     principal_subject: String,
 }
 
@@ -256,8 +258,9 @@ impl LocalSessionSecurity {
                 return Err("SUPERDBA_WEB_PASSWORD must contain at least 12 characters".to_string())
             }
             RemoteAuthentication::Accounts(_) => {
-                return Err("Application account authentication requires at least one account"
-                    .to_string())
+                return Err(
+                    "Application account authentication requires at least one account".to_string(),
+                )
             }
             RemoteAuthentication::Proxy { .. } => {
                 return Err(
@@ -353,7 +356,8 @@ impl LocalSessionSecurity {
             return None;
         }
         state.bootstrap = None;
-        self.issue_session(&mut state, now, "local-bootstrap").ok()
+        self.issue_session(&mut state, now, None, "local-bootstrap")
+            .ok()
     }
 
     pub(crate) fn login_client(&self, peer: Option<IpAddr>, forwarded_for: Option<&str>) -> IpAddr {
@@ -368,7 +372,12 @@ impl LocalSessionSecurity {
         let Authentication::Password(expected) = &self.inner.authentication else {
             return Err(AuthenticationError::UnsupportedMode);
         };
-        self.authenticate_remote(hash_token(candidate) == *expected, "shared-password", client)
+        self.authenticate_remote(
+            hash_token(candidate) == *expected,
+            None,
+            "shared-password",
+            client,
+        )
     }
 
     pub fn authenticate_account(
@@ -382,11 +391,12 @@ impl LocalSessionSecurity {
         };
         let principal = store.authenticate(username, password);
         let valid = principal.is_some();
+        let principal_id = principal.as_ref().map(|principal| principal.id);
         let subject = principal
             .as_ref()
             .map(|principal| principal.subject.as_str())
             .unwrap_or("invalid-account");
-        self.authenticate_remote(valid, subject, client)
+        self.authenticate_remote(valid, principal_id, subject, client)
     }
 
     pub fn authenticate_proxy(
@@ -405,7 +415,7 @@ impl LocalSessionSecurity {
             return Err(AuthenticationError::InvalidCredentials);
         }
         let mut state = self.lock_state();
-        self.issue_session(&mut state, Instant::now(), user)
+        self.issue_session(&mut state, Instant::now(), None, user)
     }
 
     pub fn authenticate(&self, cookie_value: &str) -> Option<AuthenticatedSession> {
@@ -423,6 +433,7 @@ impl LocalSessionSecurity {
             csrf_token: session.csrf_token.clone(),
             authorization: session.authorization,
             remote: session.remote,
+            principal_id: session.principal_id,
             principal_subject: session.principal_subject.clone(),
         })
     }
@@ -447,6 +458,7 @@ impl LocalSessionSecurity {
     fn authenticate_remote(
         &self,
         valid_credentials: bool,
+        principal_id: Option<Uuid>,
         principal_subject: &str,
         client: IpAddr,
     ) -> Result<IssuedSession, AuthenticationError> {
@@ -488,13 +500,14 @@ impl LocalSessionSecurity {
         }
 
         state.login_attempts.remove(&client);
-        self.issue_session(&mut state, now, principal_subject)
+        self.issue_session(&mut state, now, principal_id, principal_subject)
     }
 
     fn issue_session(
         &self,
         state: &mut SecurityState,
         now: Instant,
+        principal_id: Option<Uuid>,
         principal_subject: &str,
     ) -> Result<IssuedSession, AuthenticationError> {
         if state
@@ -516,6 +529,7 @@ impl LocalSessionSecurity {
                 expires_at: now + self.inner.config.session_ttl,
                 authorization: self.inner.authorization,
                 remote: self.inner.remote,
+                principal_id,
                 principal_subject: principal_subject.to_string(),
             },
         );
@@ -536,13 +550,20 @@ impl LocalSessionSecurity {
 }
 
 /// Only explicitly configured proxies may supply the client address.
-pub(crate) fn login_client(peer: Option<IpAddr>, forwarded_for: Option<&str>, trusted_proxies: &[ipnet::IpNet]) -> IpAddr {
+pub(crate) fn login_client(
+    peer: Option<IpAddr>,
+    forwarded_for: Option<&str>,
+    trusted_proxies: &[ipnet::IpNet],
+) -> IpAddr {
     let peer = peer.unwrap_or(IpAddr::from([0, 0, 0, 0]));
     let address = match peer {
         IpAddr::V6(address) => address.to_ipv4_mapped().map(IpAddr::V4).unwrap_or(peer),
         _ => peer,
     };
-    if !trusted_proxies.iter().any(|network| network.contains(&address)) {
+    if !trusted_proxies
+        .iter()
+        .any(|network| network.contains(&address))
+    {
         return peer;
     }
     forwarded_for
@@ -566,6 +587,10 @@ impl AuthenticatedSession {
 
     pub fn principal_subject(&self) -> &str {
         &self.principal_subject
+    }
+
+    pub fn principal_id(&self) -> Option<Uuid> {
+        self.principal_id
     }
 }
 

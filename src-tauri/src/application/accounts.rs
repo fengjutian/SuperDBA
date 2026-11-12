@@ -141,16 +141,18 @@ fn validate_username(username: &str) -> Result<(), String> {
         || username.chars().any(char::is_control)
         || username.trim() != username
     {
-        return Err("Username must contain 1-128 printable characters without outer whitespace"
-            .to_string());
+        return Err(
+            "Username must contain 1-128 printable characters without outer whitespace".to_string(),
+        );
     }
     Ok(())
 }
 
 fn validate_password(password: &str) -> Result<(), String> {
     if password.len() < 12 {
-        return Err("Application account passwords must contain at least 12 characters".to_string());
+        return Err(
+            "Application account passwords must contain at least 12 characters".to_string(),
+        );
     }
     Ok(())
 }
-
