@@ -8,10 +8,10 @@
 //! Do not add logic here: put it in `application/` and re-export it.
 
 pub use crate::application::cancellation::QueryCancellationState;
+pub(crate) use crate::application::connection_params::restore_runtime_connection_uri;
 pub use crate::application::connection_params::{
     build_connection_url, resolve_connection_params, resolve_connection_params_with_id,
 };
-pub(crate) use crate::application::connection_params::restore_runtime_connection_uri;
 pub use crate::application::driver_catalog::{
     get_active_connections, get_data_types, get_driver_manifest, get_registered_drivers,
 };
@@ -1277,5 +1277,3 @@ mod tests {
         );
     }
 }
-
-

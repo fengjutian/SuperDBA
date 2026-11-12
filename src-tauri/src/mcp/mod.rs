@@ -71,6 +71,7 @@ struct CallAudit {
     status: String,
     error: Option<String>,
     approval_id: Option<String>,
+    security_decision: Option<crate::ai_activity::SecurityAuditDecision>,
 }
 
 impl CallAudit {
@@ -86,6 +87,7 @@ impl CallAudit {
             status: "success".to_string(),
             error: None,
             approval_id: None,
+            security_decision: None,
         }
     }
 }
@@ -901,6 +903,7 @@ fn emit_audit(
         error: audit.error.clone(),
         client_hint: client_hint.clone(),
         approval_id: audit.approval_id.clone(),
+        security_decision: audit.security_decision.clone(),
     };
     if let Err(e) = ai_activity::append_and_rotate(&event, max_entries) {
         eprintln!("[MCP] Failed to write audit log: {}", e);
@@ -1295,6 +1298,7 @@ async fn tool_run_query(
         max_rows,
         kind != "select" && !needs_approval,
     );
+    audit.security_decision = Some((&initial_decision).into());
     let expected_initial_verdict = if kind != "select" && needs_approval {
         SecurityVerdict::RequireApproval
     } else {
@@ -1482,6 +1486,7 @@ async fn tool_run_query(
         max_rows,
         effective_kind != "select" && (!needs_approval || approval_granted),
     );
+    audit.security_decision = Some((&final_decision).into());
     if final_decision.verdict != SecurityVerdict::Allow {
         return Err(mcp_security_denied(audit, &final_decision));
     }
@@ -1600,6 +1605,7 @@ fn authorize_mcp_sql(
 
 fn mcp_security_denied(audit: &mut CallAudit, decision: &SecurityDecision) -> JsonRpcError {
     audit.status = "blocked_security".to_string();
+    audit.security_decision = Some(decision.into());
     let message = format!(
         "Security policy denied the operation ({}).",
         decision.reason_code

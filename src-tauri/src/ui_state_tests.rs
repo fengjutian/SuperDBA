@@ -46,13 +46,9 @@ async fn stores_reads_and_deletes_entries() {
     set_entry(&database, "superdba_sidebar_width", &json!(320))
         .await
         .unwrap();
-    set_entry(
-        &database,
-        "superdba_support_prompt_dismissed",
-        &json!(true),
-    )
-    .await
-    .unwrap();
+    set_entry(&database, "superdba_support_prompt_dismissed", &json!(true))
+        .await
+        .unwrap();
     set_entry(&database, "superdba_sidebar_width", &json!(280))
         .await
         .unwrap();

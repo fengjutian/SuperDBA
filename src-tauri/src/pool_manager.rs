@@ -1,6 +1,8 @@
 use crate::models::ConnectionParams;
 use crate::sqlite_database::expand_sqlite_filename;
-use deadpool_postgres::{Hook as PgHook, HookError as PgHookError, Manager as PgPoolManager, Pool as PgPool};
+use deadpool_postgres::{
+    Hook as PgHook, HookError as PgHookError, Manager as PgPoolManager, Pool as PgPool,
+};
 use once_cell::sync::Lazy;
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::client::{verify_server_cert_signed_by_trust_anchor, WebPkiServerVerifier};
@@ -13,7 +15,9 @@ use rustls::DigitallySignedStruct;
 use rustls::{ClientConfig, Error as TlsError, RootCertStore};
 use rustls_platform_verifier::BuilderVerifierExt;
 use sha2::{Digest, Sha256};
-use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, Connection, Executor, MySql, Pool, Sqlite};
+use sqlx::{
+    sqlite::SqliteConnectOptions, ConnectOptions, Connection, Executor, MySql, Pool, Sqlite,
+};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
@@ -486,8 +490,7 @@ async fn build_and_connect_mysql_pool(
     } else {
         10
     };
-    let mut pool_options =
-        sqlx::mysql::MySqlPoolOptions::new().max_connections(max_connections);
+    let mut pool_options = sqlx::mysql::MySqlPoolOptions::new().max_connections(max_connections);
     if let Some(script) = script {
         let script = script.to_owned();
         pool_options = pool_options.after_connect(move |conn, _meta| {
@@ -921,8 +924,7 @@ async fn run_postgres_startup_script(
     tls: MakeRustlsConnect,
     script: &str,
 ) -> Result<(), String> {
-    let (mut client, connection) =
-        cfg.connect(tls).await.map_err(|e| format_error_chain(&e))?;
+    let (mut client, connection) = cfg.connect(tls).await.map_err(|e| format_error_chain(&e))?;
     // tokio_postgres needs the connection future polled on its own task.
     let driver = tokio::spawn(async move {
         let _ = connection.await;
@@ -1100,22 +1102,20 @@ pub async fn get_postgres_pool_with_id(
         })??;
     }
 
-    let max_size = if connection_id
-        .is_some_and(|id| id.ends_with(crate::drivers::common::AI_POOL_SUFFIX))
-    {
-        1
-    } else {
-        postgres_pool_max_size()
-    };
+    let max_size =
+        if connection_id.is_some_and(|id| id.ends_with(crate::drivers::common::AI_POOL_SUFFIX)) {
+            1
+        } else {
+            postgres_pool_max_size()
+        };
     let mut builder = PgPool::builder(PgPoolManager::new(cfg, tls_connector)).max_size(max_size);
     if let Some(script) = startup_script(params) {
         builder = builder.post_create(PgHook::async_fn(move |client, _metrics| {
             let script = script.clone();
             Box::pin(async move {
-                client
-                    .batch_execute(&script)
-                    .await
-                    .map_err(|e| PgHookError::message(startup_script_error(format_error_chain(&e))))?;
+                client.batch_execute(&script).await.map_err(|e| {
+                    PgHookError::message(startup_script_error(format_error_chain(&e)))
+                })?;
                 Ok(())
             })
         }));
@@ -1172,15 +1172,13 @@ pub async fn get_sqlite_pool_with_id(
         key
     );
     let options = build_sqlite_connectoptions(params);
-    let max_connections = if connection_id
-        .is_some_and(|id| id.ends_with(crate::drivers::common::AI_POOL_SUFFIX))
-    {
-        1
-    } else {
-        5
-    };
-    let mut pool_options =
-        sqlx::sqlite::SqlitePoolOptions::new().max_connections(max_connections);
+    let max_connections =
+        if connection_id.is_some_and(|id| id.ends_with(crate::drivers::common::AI_POOL_SUFFIX)) {
+            1
+        } else {
+            5
+        };
+    let mut pool_options = sqlx::sqlite::SqlitePoolOptions::new().max_connections(max_connections);
     if let Some(script) = startup_script(params) {
         let timeout = Duration::from_millis(SQLITE_STARTUP_SCRIPT_TIMEOUT_MS);
         tokio::time::timeout(timeout, run_sqlite_startup_script(&options, &script))

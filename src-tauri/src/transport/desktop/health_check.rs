@@ -123,8 +123,10 @@ async fn ping_single_connection(app: &tauri::AppHandle, connection_id: &str) -> 
     let expanded_params =
         crate::transport::desktop::commands::expand_k8s_connection_params(app, &expanded_params)
             .await?;
-    let params =
-        crate::application::connection_params::resolve_connection_params_with_id(&expanded_params, connection_id)?;
+    let params = crate::application::connection_params::resolve_connection_params_with_id(
+        &expanded_params,
+        connection_id,
+    )?;
 
     // Check if pool exists before attempting ping (avoid creating new pools).
     let is_builtin = matches!(params.driver.as_str(), "mysql" | "postgres" | "sqlite");

@@ -16,15 +16,17 @@ pub mod superdba;
 pub mod types;
 
 mod beekeeper;
-mod dbeaver;
 mod datagrip;
+mod dbeaver;
 mod sequelace;
 mod tableplus;
 
 #[cfg(test)]
 mod importer_tests;
 
-pub use types::{ImportEnvelope, ImportedConnection, ImportedCredentials, ImportedSsh, ImportedSsl};
+pub use types::{
+    ImportEnvelope, ImportedConnection, ImportedCredentials, ImportedSsh, ImportedSsl,
+};
 
 /// Errors surfaced while importing from a foreign app.
 #[derive(Debug, Clone)]

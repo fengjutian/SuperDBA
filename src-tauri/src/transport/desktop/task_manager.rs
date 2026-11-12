@@ -4,7 +4,7 @@ use crate::runtime::RuntimeContext;
 use tauri::{AppHandle, Manager, State, WebviewUrl, WebviewWindowBuilder};
 
 pub use operations::{
-    ChildProcessInfo, ProcessInfo, SystemStats, SuperDBAChildProcess, SuperDBASelfStats,
+    ChildProcessInfo, ProcessInfo, SuperDBAChildProcess, SuperDBASelfStats, SystemStats,
 };
 
 #[cfg_attr(feature = "desktop", tauri::command)]
