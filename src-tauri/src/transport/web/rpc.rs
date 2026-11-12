@@ -40,7 +40,7 @@ fn authorization_role(authorization: AuthorizationLevel) -> &'static str {
         AuthorizationLevel::Session => "session-user",
         AuthorizationLevel::Database => "database-user",
         AuthorizationLevel::Sensitive => "sensitive-data-user",
-        AuthorizationLevel::LocalAdmin => "local-admin",
+        AuthorizationLevel::LocalAdmin => "administrator",
     }
 }
 

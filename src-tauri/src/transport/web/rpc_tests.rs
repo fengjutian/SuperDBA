@@ -3171,7 +3171,7 @@ fn chat_send_uses_only_the_server_injected_security_identity() {
     .expect("chat request should serialize");
     let trusted = crate::application::chat::ChatSecurityIdentity {
         subject: "alice".to_string(),
-        roles: vec!["local-admin".to_string()],
+        roles: vec!["administrator".to_string()],
         tenant_id: None,
     };
 
@@ -3200,6 +3200,6 @@ fn authorization_levels_have_stable_security_roles() {
     );
     assert_eq!(
         authorization_role(AuthorizationLevel::LocalAdmin),
-        "local-admin"
+        "administrator"
     );
 }
