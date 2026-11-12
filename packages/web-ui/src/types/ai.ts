@@ -109,6 +109,9 @@ export interface PendingApproval {
     database?: string | null;
     query: string;
     queryKind: AiQueryKind;
+    queryHash?: string | null;
+    policyVersion?: string | null;
+    securityDecisionId?: string | null;
     clientHint: string | null;
     explainPlan: unknown | null;
     explainError: string | null;

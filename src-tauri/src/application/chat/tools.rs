@@ -538,7 +538,7 @@ async fn run_query(
             if initial_decision.verdict != SecurityVerdict::RequireApproval {
                 return security_denied(&initial_decision);
             }
-            match request_approval(tool, &args.sql, kind).await {
+            match request_approval(tool, &args.sql, kind, &initial_decision).await {
             ApprovalOutcome::Approved(sql) => {
                 if let Err(reason) = ai_sql_safety::validate_ai_sql(&sql) {
                     return ToolOutcome::denied(reason).with_security_decision(&initial_decision);
@@ -959,7 +959,12 @@ enum ApprovalOutcome {
 /// Holds a write statement behind the same pending-approval queue the MCP
 /// server uses, so the approval modal, audit trail, and edited-query override
 /// apply unchanged.
-async fn request_approval(tool: &ToolCallContext<'_>, sql: &str, kind: &str) -> ApprovalOutcome {
+async fn request_approval(
+    tool: &ToolCallContext<'_>,
+    sql: &str,
+    kind: &str,
+    security_decision: &SecurityDecision,
+) -> ApprovalOutcome {
     let config_dir = tool.runtime.paths.config_dir().to_path_buf();
     let approval_id = ai_approval::new_approval_id();
     let pending = PendingApproval {
@@ -976,6 +981,9 @@ async fn request_approval(tool: &ToolCallContext<'_>, sql: &str, kind: &str) -> 
         database: tool.chat.database.clone(),
         query: sql.to_string(),
         query_kind: kind.to_string(),
+        query_hash: Some(ai_approval::query_hash(sql)),
+        policy_version: Some(security_decision.policy_version.clone()),
+        security_decision_id: Some(security_decision.decision_id.to_string()),
         client_hint: Some("SuperDBA chat".to_string()),
         explain_plan: None,
         explain_error: None,
@@ -1025,6 +1033,12 @@ async fn request_approval(tool: &ToolCallContext<'_>, sql: &str, kind: &str) -> 
         }
         match ai_approval::read_decision_in(&config_dir, &approval_id) {
             Ok(Some(decision)) => {
+                if let Err(error) = ai_approval::validate_decision_binding(&pending, &decision) {
+                    let _ = ai_approval::clear_in(&config_dir, &approval_id);
+                    return ApprovalOutcome::Denied(format!(
+                        "Approval binding validation failed: {error}"
+                    ));
+                }
                 let _ = ai_approval::clear_in(&config_dir, &approval_id);
                 emit_chat_event(
                     tool.runtime,

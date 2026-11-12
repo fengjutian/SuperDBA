@@ -1359,6 +1359,9 @@ async fn tool_run_query(
             database: database.map(str::to_string),
             query: query.to_string(),
             query_kind: kind.to_string(),
+            query_hash: Some(ai_approval::query_hash(query)),
+            policy_version: Some(initial_decision.policy_version.clone()),
+            security_decision_id: Some(initial_decision.decision_id.to_string()),
             client_hint: ai_activity::get_client_hint(),
             explain_plan,
             explain_error,
@@ -1384,6 +1387,16 @@ async fn tool_run_query(
         .await
         {
             Ok(PollOutcome::Decided(decision)) => {
+                if let Err(error) = ai_approval::validate_decision_binding(&pending, &decision) {
+                    audit.status = "blocked_security".to_string();
+                    let message = format!("Approval binding validation failed: {error}");
+                    audit.error = Some(message.clone());
+                    return Err(JsonRpcError {
+                        code: -32000,
+                        message,
+                        data: None,
+                    });
+                }
                 if decision.decision == "approve" {
                     approval_granted = true;
                     if let Some(edited) = decision

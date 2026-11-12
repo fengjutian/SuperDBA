@@ -9,6 +9,7 @@
 //! Storage: `<config_dir>/pending_approvals/`.
 
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -31,6 +32,12 @@ pub struct PendingApproval {
     pub database: Option<String>,
     pub query: String,
     pub query_kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub query_hash: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub policy_version: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub security_decision_id: Option<String>,
     pub client_hint: Option<String>,
     pub explain_plan: Option<serde_json::Value>,
     pub explain_error: Option<String>,
@@ -45,6 +52,37 @@ pub struct ApprovalDecision {
     pub decision: String,
     pub reason: Option<String>,
     pub edited_query: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub query_hash: Option<String>,
+}
+
+pub fn query_hash(query: &str) -> String {
+    format!("sha256:{:x}", Sha256::digest(query.as_bytes()))
+}
+
+pub fn validate_decision_binding(
+    pending: &PendingApproval,
+    decision: &ApprovalDecision,
+) -> Result<(), String> {
+    if decision.approval_id != pending.id {
+        return Err("Approval decision id does not match the pending request".to_string());
+    }
+    let expected_pending_hash = pending
+        .query_hash
+        .as_deref()
+        .ok_or_else(|| "Pending approval has no SQL binding".to_string())?;
+    if expected_pending_hash != query_hash(&pending.query) {
+        return Err("Pending approval SQL binding is invalid".to_string());
+    }
+    let effective_query = decision.edited_query.as_deref().unwrap_or(&pending.query);
+    let decision_hash = decision
+        .query_hash
+        .as_deref()
+        .ok_or_else(|| "Approval decision has no SQL binding".to_string())?;
+    if decision_hash != query_hash(effective_query) {
+        return Err("Approval decision SQL binding is invalid".to_string());
+    }
+    Ok(())
 }
 
 /// Result of polling for an approval decision when liveness checking is in
@@ -138,6 +176,9 @@ pub fn list_pending_in(base: &Path) -> Result<Vec<PendingApproval>, String> {
 
 pub fn write_decision_in(base: &Path, decision: &ApprovalDecision) -> Result<(), String> {
     ensure_dir(base)?;
+    let pending = read_pending_in(base, &decision.approval_id)?
+        .ok_or_else(|| "Cannot decide an approval that is no longer pending".to_string())?;
+    validate_decision_binding(&pending, decision)?;
     let path = decision_file(base, &decision.approval_id);
     let content = serde_json::to_string_pretty(decision).map_err(|e| e.to_string())?;
     fs::write(&path, content).map_err(|e| e.to_string())

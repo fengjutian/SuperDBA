@@ -21,6 +21,11 @@ mod tests {
             database: None,
             query: "UPDATE orders SET status = 'x'".to_string(),
             query_kind: "write".to_string(),
+            query_hash: Some(crate::ai_approval::query_hash(
+                "UPDATE orders SET status = 'x'",
+            )),
+            policy_version: Some("test-policy-v1".to_string()),
+            security_decision_id: Some("decision-1".to_string()),
             client_hint: Some("claude-desktop".to_string()),
             explain_plan: Some(serde_json::json!({"node": "Seq Scan"})),
             explain_error: None,
@@ -34,6 +39,9 @@ mod tests {
             decision: decision.to_string(),
             reason: None,
             edited_query: None,
+            query_hash: Some(crate::ai_approval::query_hash(
+                "UPDATE orders SET status = 'x'",
+            )),
         }
     }
 
@@ -99,8 +107,40 @@ mod tests {
     fn read_decision_roundtrip() {
         let tmp = TempDir::new().unwrap();
         let d = make_decision("xyz", "deny");
+        write_pending_in(tmp.path(), &make_pending("xyz")).unwrap();
         write_decision_in(tmp.path(), &d).unwrap();
         assert_eq!(read_decision_in(tmp.path(), "xyz").unwrap(), Some(d));
+    }
+
+    #[test]
+    fn decision_rejects_tampered_sql_binding() {
+        let tmp = TempDir::new().unwrap();
+        write_pending_in(tmp.path(), &make_pending("bound")).unwrap();
+        let mut decision = make_decision("bound", "approve");
+        decision.edited_query = Some("DROP TABLE orders".to_string());
+
+        let error = write_decision_in(tmp.path(), &decision).unwrap_err();
+
+        assert!(error.contains("SQL binding is invalid"));
+        assert!(read_decision_in(tmp.path(), "bound").unwrap().is_none());
+    }
+
+    #[test]
+    fn decision_accepts_a_bound_edited_query() {
+        let tmp = TempDir::new().unwrap();
+        write_pending_in(tmp.path(), &make_pending("edited")).unwrap();
+        let mut decision = make_decision("edited", "approve");
+        decision.edited_query = Some("UPDATE orders SET status = 'approved'".to_string());
+        decision.query_hash = Some(crate::ai_approval::query_hash(
+            "UPDATE orders SET status = 'approved'",
+        ));
+
+        write_decision_in(tmp.path(), &decision).unwrap();
+
+        assert_eq!(
+            read_decision_in(tmp.path(), "edited").unwrap(),
+            Some(decision)
+        );
     }
 
     // Polling --------------------------------------------------------------

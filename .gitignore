@@ -28,6 +28,12 @@ dist-ssr
 
 devdiary
 /docs
+!/docs/
+/docs/*
+!/docs/features/
+/docs/features/*
+!/docs/features/account-audit/
+!/docs/features/account-audit/REQUIREMENTS.md
 coverage
 plugins/**/target
 target-check/

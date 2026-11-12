@@ -137,6 +137,7 @@ fn enforces_remote_credentials_origins_rate_limits_and_capability_policy() {
         .unwrap();
     assert!(session.is_remote());
     assert_eq!(session.authorization(), AuthorizationLevel::Database);
+    assert_eq!(session.principal_subject(), "shared-password");
 
     let proxy_security = LocalSessionSecurity::new_remote(
         config,
@@ -153,7 +154,8 @@ fn enforces_remote_credentials_origins_rate_limits_and_capability_policy() {
     let issued = proxy_security
         .authenticate_proxy("a-proxy-shared-secret-with-32-bytes", "alice@example.com")
         .unwrap();
-    assert!(proxy_security.authenticate(&issued.cookie_value).is_some());
+    let session = proxy_security.authenticate(&issued.cookie_value).unwrap();
+    assert_eq!(session.principal_subject(), "alice@example.com");
 }
 
 #[test]
@@ -799,6 +801,10 @@ async fn authenticates_remote_password_and_proxy_requests_with_auditing() {
         entry.target.as_deref() == Some("superdba::web_audit")
             && entry.message.contains("request_id=")
             && entry.message.contains("session_id=")
+    }));
+    assert!(logs.iter().any(|entry| {
+        entry.target.as_deref() == Some("superdba::web_audit")
+            && entry.message.contains("principal=\"alice@example.com\"")
     }));
     assert!(!logs
         .iter()

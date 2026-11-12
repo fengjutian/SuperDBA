@@ -536,7 +536,8 @@ async fn rpc(
         &request_id_text,
         Some(session_id),
         &format!(
-            "command={audited_command} status={}",
+            "principal={:?} command={audited_command} status={}",
+            session.principal_subject(),
             response.status().as_u16()
         ),
     );
@@ -1107,7 +1108,7 @@ async fn security_gate(
                         "authentication",
                         request_id,
                         Some(issued.session_id()),
-                        "method=proxy outcome=success",
+                        &format!("method=proxy principal={user:?} outcome=success"),
                     );
                     issued_session = Some(issued);
                     session

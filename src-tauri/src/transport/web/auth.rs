@@ -151,6 +151,7 @@ struct SessionRecord {
     expires_at: Instant,
     authorization: AuthorizationLevel,
     remote: bool,
+    principal_subject: String,
 }
 
 type TokenHash = [u8; 32];
@@ -171,6 +172,7 @@ pub struct AuthenticatedSession {
     pub csrf_token: String,
     authorization: AuthorizationLevel,
     remote: bool,
+    principal_subject: String,
 }
 
 impl LocalSessionSecurity {
@@ -331,7 +333,7 @@ impl LocalSessionSecurity {
             return None;
         }
         state.bootstrap = None;
-        self.issue_session(&mut state, now).ok()
+        self.issue_session(&mut state, now, "local-bootstrap").ok()
     }
 
     pub(crate) fn login_client(&self, peer: Option<IpAddr>, forwarded_for: Option<&str>) -> IpAddr {
@@ -365,7 +367,7 @@ impl LocalSessionSecurity {
             return Err(AuthenticationError::InvalidCredentials);
         }
         let mut state = self.lock_state();
-        self.issue_session(&mut state, Instant::now())
+        self.issue_session(&mut state, Instant::now(), user)
     }
 
     pub fn authenticate(&self, cookie_value: &str) -> Option<AuthenticatedSession> {
@@ -383,6 +385,7 @@ impl LocalSessionSecurity {
             csrf_token: session.csrf_token.clone(),
             authorization: session.authorization,
             remote: session.remote,
+            principal_subject: session.principal_subject.clone(),
         })
     }
 
@@ -447,13 +450,14 @@ impl LocalSessionSecurity {
         }
 
         state.login_attempts.remove(&client);
-        self.issue_session(&mut state, now)
+        self.issue_session(&mut state, now, "shared-password")
     }
 
     fn issue_session(
         &self,
         state: &mut SecurityState,
         now: Instant,
+        principal_subject: &str,
     ) -> Result<IssuedSession, AuthenticationError> {
         if state
             .sessions
@@ -474,6 +478,7 @@ impl LocalSessionSecurity {
                 expires_at: now + self.inner.config.session_ttl,
                 authorization: self.inner.authorization,
                 remote: self.inner.remote,
+                principal_subject: principal_subject.to_string(),
             },
         );
 
@@ -519,6 +524,10 @@ impl AuthenticatedSession {
 
     pub fn is_remote(&self) -> bool {
         self.remote
+    }
+
+    pub fn principal_subject(&self) -> &str {
+        &self.principal_subject
     }
 }
 

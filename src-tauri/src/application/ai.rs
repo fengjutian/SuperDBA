@@ -380,11 +380,15 @@ async fn decide_pending_approval(
         }
     }
 
+    let edited_query = edited_query.filter(|query| !query.trim().is_empty());
     let payload = ApprovalDecision {
         approval_id: approval_id.clone(),
         decided_at: crate::ai_activity::now_iso8601(),
         decision,
         reason,
+        query_hash: Some(crate::ai_approval::query_hash(
+            edited_query.as_deref().unwrap_or(&pending.query),
+        )),
         edited_query,
     };
     tokio::task::spawn_blocking(move || {
