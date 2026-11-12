@@ -52,8 +52,8 @@ No AI tool or transport may bypass this application-layer path.
 9. Before an unapproved read executes, ChatDBA runs plain `EXPLAIN` with its own timeout.
    Unrecognized plans, Cartesian joins, extreme cardinality estimates, large full scans,
    and large scan-plus-sort plans fail closed.
-10. Each turn also has cumulative ceilings: 30 seconds of database tool time, 8 MiB
-    of tool results, eight query preflights, and two consecutive queries taking at
+10. Each turn also has cumulative ceilings: 20 database queries, 30 seconds of
+    database tool time, 8 MiB of tool results, 20 query preflights, and two consecutive queries taking at
     least eight seconds.
 11. Automated reads use a separate one-connection pool identity. Editor, backup, and
     other user-initiated workloads retain their normal pools.
@@ -75,9 +75,10 @@ No AI tool or transport may bypass this application-layer path.
 | Scheduler wait | 5 seconds |
 | Concurrent AI queries globally | 4 |
 | AI pool connections per connection | 1 |
+| Database queries per turn | 20 |
 | Cumulative database tool time per turn | 30 seconds |
 | Cumulative tool-result bytes per turn | 8 MiB |
-| EXPLAIN preflights per turn | 8 |
+| EXPLAIN preflights per turn | 20 |
 | Consecutive queries at least 8 seconds | 2 |
 | Consecutive failures before circuit opens | 3 |
 | Circuit cooldown | 30 seconds |

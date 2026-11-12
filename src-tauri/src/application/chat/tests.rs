@@ -15,7 +15,7 @@ use serde_json::json;
 #[test]
 fn cumulative_turn_budget_stops_preflights_slow_queries_and_large_results() {
     let mut preflights = TurnResourceBudget::default();
-    for _ in 0..8 {
+    for _ in 0..20 {
         assert!(preflights.reserve("run_query").is_ok());
     }
     assert_eq!(
@@ -300,7 +300,7 @@ fn chat_tool_audit_event_treats_query_limits_as_checkpoints() {
     let outcome = tools::ToolOutcome {
         status: ChatToolStatus::LimitReached,
         summary: "The per-turn query budget was reached.".to_string(),
-        result: json!({"limitReached": true, "queryLimit": 12}),
+        result: json!({"limitReached": true, "queryLimit": 20}),
         security_decision: None,
     };
     let event = build_audit_event("chat-session", &ChatContext::default(), &call, &outcome, 0);

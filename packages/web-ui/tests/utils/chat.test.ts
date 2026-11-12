@@ -304,7 +304,7 @@ describe('chat utils', () => {
     describe('tool activity summaries', () => {
         it('treats a resumable query budget checkpoint as completed work', () => {
             const summary =
-                'Stopped after 12 queries in one turn to protect database stability. Ask a follow-up to continue.';
+                'Stopped after 20 queries in one turn to protect database stability. Ask a follow-up to continue.';
             expect(
                 summarizeChatTools([
                     {
