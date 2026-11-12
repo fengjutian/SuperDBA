@@ -13,9 +13,10 @@ use crate::application::ai_sql_safety;
 use crate::application::metadata;
 use crate::application::queries::{self, QueryRequestScope, QueryResponsePolicy};
 use crate::application::security::{
-    SecurityDecision, SecurityEngine, SecurityOperation, SecurityRequest, SecuritySubject,
-    SecurityVerdict,
+    extract_sql_resources, SecurityDecision, SecurityEngine, SecurityOperation, SecurityRequest,
+    SecuritySubject, SecurityVerdict,
 };
+use crate::drivers::driver_trait::SqlDialect;
 use crate::runtime::{state::ApplicationState, RuntimeContext};
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -503,11 +504,24 @@ async fn run_query(
     if let Err(reason) = ai_sql_safety::validate_ai_sql(&args.sql) {
         return ToolOutcome::denied(reason);
     }
+    let dialect = match chat_sql_dialect(tool, connection_id).await {
+        Ok(dialect) => dialect,
+        Err(error) => return ToolOutcome::denied(error),
+    };
+    let resources = match extract_sql_resources(&args.sql, dialect) {
+        Ok(resources) => resources,
+        Err(error) => return ToolOutcome::denied(error),
+    };
     let (sql, approved, decision) = match classify_statement(&args.sql) {
         StatementClass::Rejected(reason) => return ToolOutcome::denied(reason),
         StatementClass::ReadOnly => {
-            let decision =
-                authorize_chat_sql(tool, connection_id, SecurityOperation::SqlRead, limit);
+            let decision = authorize_chat_sql(
+                tool,
+                connection_id,
+                resources.clone(),
+                SecurityOperation::SqlRead,
+                limit,
+            );
             if decision.verdict != SecurityVerdict::Allow {
                 return security_denied(&decision);
             }
@@ -517,6 +531,7 @@ async fn run_query(
             let initial_decision = authorize_chat_sql(
                 tool,
                 connection_id,
+                resources,
                 SecurityOperation::SqlWrite { approved: false },
                 limit,
             );
@@ -536,7 +551,15 @@ async fn run_query(
                     StatementClass::ReadOnly => SecurityOperation::SqlRead,
                     StatementClass::Write(_) => SecurityOperation::SqlWrite { approved: true },
                 };
-                let decision = authorize_chat_sql(tool, connection_id, operation, limit);
+                let resources = match extract_sql_resources(&sql, dialect) {
+                    Ok(resources) => resources,
+                    Err(error) => {
+                        return ToolOutcome::denied(error)
+                            .with_security_decision(&initial_decision)
+                    }
+                };
+                let decision =
+                    authorize_chat_sql(tool, connection_id, resources, operation, limit);
                 if decision.verdict != SecurityVerdict::Allow {
                     return security_denied(&decision);
                 }
@@ -570,6 +593,7 @@ async fn run_query(
 fn authorize_chat_sql(
     tool: &ToolCallContext<'_>,
     connection_id: &str,
+    resources: Vec<String>,
     operation: SecurityOperation,
     requested_max_rows: u32,
 ) -> SecurityDecision {
@@ -591,6 +615,7 @@ fn authorize_chat_sql(
                 session_id: tool.web_session_id,
             },
             connection_id: connection_id.to_string(),
+            resources,
             operation,
             requested_max_rows,
             requested_timeout: QUERY_TIMEOUT,
@@ -599,6 +624,30 @@ fn authorize_chat_sql(
         },
         tool.runtime.paths.config_dir(),
     )
+}
+
+async fn chat_sql_dialect(
+    tool: &ToolCallContext<'_>,
+    connection_id: &str,
+) -> Result<SqlDialect, String> {
+    let runtime = tool.runtime.clone();
+    let session_id = tool.web_session_id;
+    let connection_id = connection_id.to_string();
+    let (_driver_id, params) = tokio::task::spawn_blocking(move || {
+        crate::application::connections::resolve_saved_connection_params(
+            &runtime,
+            session_id,
+            &connection_id,
+        )
+    })
+    .await
+    .map_err(|error| error.to_string())??;
+    let driver = crate::drivers::registry::get_connection_driver(&params).await?;
+    Ok(driver
+        .manifest()
+        .capabilities
+        .sql_dialect
+        .unwrap_or(SqlDialect::Generic))
 }
 
 fn security_denied(decision: &SecurityDecision) -> ToolOutcome {

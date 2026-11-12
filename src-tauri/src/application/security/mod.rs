@@ -5,12 +5,14 @@
 //! policy engines can replace the baseline without changing callers.
 
 pub mod policy;
+mod resources;
 mod types;
 
 pub use types::{
     RiskLevel, SecurityDecision, SecurityOperation, SecurityRequest, SecurityRestrictions,
     SecuritySubject, SecurityVerdict,
 };
+pub use resources::extract_sql_resources;
 
 use std::path::Path;
 use std::time::Duration;

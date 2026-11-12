@@ -4,8 +4,8 @@ use crate::application::ai_query_guard;
 use crate::application::ai_sql_safety;
 use crate::application::connection_params;
 use crate::application::security::{
-    SecurityDecision, SecurityEngine, SecurityOperation, SecurityRequest, SecuritySubject,
-    SecurityVerdict,
+    extract_sql_resources, SecurityDecision, SecurityEngine, SecurityOperation, SecurityRequest,
+    SecuritySubject, SecurityVerdict,
 };
 use crate::config::{
     self, AppConfig, DEFAULT_AI_AUDIT_ENABLED, DEFAULT_AI_AUDIT_MAX_ENTRIES,
@@ -1250,6 +1250,7 @@ async fn tool_run_query(
     let (conn, mut db_params, driver) =
         resolve_db_driver(conn_id, config.active_external_drivers.as_deref()).await?;
     let capabilities = driver.manifest().capabilities.clone();
+    let dialect = capabilities.sql_dialect.unwrap_or(SqlDialect::Generic);
     let kind = ai_activity::classify_query_kind_for_capabilities(query, Some(&capabilities));
     audit.query_kind = Some(kind.to_string());
     audit.connection_name = Some(conn.name.clone());
@@ -1294,6 +1295,10 @@ async fn tool_run_query(
     let initial_decision = authorize_mcp_sql(
         session_id,
         conn_id,
+        match extract_sql_resources(query, dialect) {
+            Ok(resources) => resources,
+            Err(error) => return Err(mcp_resource_parse_denied(audit, error)),
+        },
         kind,
         max_rows,
         kind != "select" && !needs_approval,
@@ -1482,6 +1487,10 @@ async fn tool_run_query(
     let final_decision = authorize_mcp_sql(
         session_id,
         conn_id,
+        match extract_sql_resources(&effective_query, dialect) {
+            Ok(resources) => resources,
+            Err(error) => return Err(mcp_resource_parse_denied(audit, error)),
+        },
         effective_kind,
         max_rows,
         effective_kind != "select" && (!needs_approval || approval_granted),
@@ -1568,6 +1577,7 @@ async fn tool_run_query(
 fn authorize_mcp_sql(
     session_id: &str,
     connection_id: &str,
+    resources: Vec<String>,
     query_kind: &str,
     requested_max_rows: u32,
     write_approved: bool,
@@ -1593,6 +1603,7 @@ fn authorize_mcp_sql(
                 session_id: None,
             },
             connection_id: connection_id.to_string(),
+            resources,
             operation,
             requested_max_rows,
             requested_timeout: ai_query_guard::QUERY_TIMEOUT,
@@ -1601,6 +1612,16 @@ fn authorize_mcp_sql(
         },
         &paths::get_app_config_dir(),
     )
+}
+
+fn mcp_resource_parse_denied(audit: &mut CallAudit, message: String) -> JsonRpcError {
+    audit.status = "blocked_security".to_string();
+    audit.error = Some(message.clone());
+    JsonRpcError {
+        code: -32000,
+        message,
+        data: None,
+    }
 }
 
 fn mcp_security_denied(audit: &mut CallAudit, decision: &SecurityDecision) -> JsonRpcError {

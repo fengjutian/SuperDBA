@@ -25,6 +25,7 @@ pub struct SecurityRequest {
     pub purpose: String,
     pub subject: SecuritySubject,
     pub connection_id: String,
+    pub resources: Vec<String>,
     pub operation: SecurityOperation,
     pub requested_max_rows: u32,
     pub requested_timeout: Duration,
