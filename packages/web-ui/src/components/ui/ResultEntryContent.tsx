@@ -135,8 +135,6 @@ export function ResultEntryContent({
                     tableName={null}
                     pkColumns={null}
                     connectionId={connectionId}
-                    selectedRows={new Set()}
-                    onSelectionChange={() => {}}
                     copyFormat={copyFormat}
                     csvDelimiter={csvDelimiter}
                     csvIncludeHeaders={csvIncludeHeaders}
@@ -215,8 +213,6 @@ export function ResultEntryContent({
                         tableName={null}
                         pkColumns={null}
                         connectionId={connectionId}
-                        selectedRows={new Set()}
-                        onSelectionChange={() => {}}
                         copyFormat={copyFormat}
                         csvDelimiter={csvDelimiter}
                         csvIncludeHeaders={csvIncludeHeaders}

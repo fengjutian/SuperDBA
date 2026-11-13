@@ -5,7 +5,14 @@ import {resetResultChartStates} from '@/hooks/useResultChartState';
 import type {QueryResult, QueryResultEntry} from '@/types/editor';
 
 vi.mock('@/components/ui/DataGrid', () => ({
-    DataGrid: () => <div data-testid="mock-data-grid" />,
+    DataGrid: (props: Record<string, unknown>) => (
+        <div
+            data-testid="mock-data-grid"
+            data-selection-controlled={String(
+                'selectedRows' in props || 'onSelectionChange' in props,
+            )}
+        />
+    ),
 }));
 
 vi.mock('@/hooks/useChartPalette', () => ({
@@ -31,6 +38,32 @@ vi.mock('@/components/ui/ResultChartPlot', () => ({
 }));
 
 describe('ResultEntryContent timing tooltip', () => {
+    it('lets query-result grids own their row selection state', () => {
+        const entry: QueryResultEntry = {
+            id: 'entry-selection',
+            queryIndex: 0,
+            query: 'SELECT id FROM users',
+            isLoading: false,
+            error: '',
+            executionTime: 5,
+            page: 1,
+            activeTable: null,
+            pkColumns: null,
+            result: {
+                columns: ['id'],
+                rows: [[1], [2]],
+                affected_rows: 0,
+            },
+        };
+
+        render(<ResultEntryContent entry={entry} connectionId="conn-1" />);
+
+        expect(screen.getByTestId('mock-data-grid')).toHaveAttribute(
+            'data-selection-controlled',
+            'false',
+        );
+    });
+
     it('renders timing tooltip on total duration when server_time_ms and fetch_time_ms are present', () => {
         const entry: QueryResultEntry = {
             id: 'entry-1',
