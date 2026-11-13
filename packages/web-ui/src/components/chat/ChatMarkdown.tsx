@@ -1,5 +1,7 @@
+import {isValidElement} from 'react';
 import Markdown, {type Components} from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import {MermaidDiagram} from './MermaidDiagram';
 import {linkChatEvidenceReferences} from '@/utils/chat';
 
 /**
@@ -41,6 +43,25 @@ const STYLES = [
 ].join(' ');
 
 const BASE_COMPONENTS: Components = {
+    pre: ({children}) => {
+        if (
+            isValidElement<{className?: string}>(children) &&
+            children.props.className?.split(' ').includes('language-mermaid')
+        ) {
+            return children;
+        }
+        return <pre>{children}</pre>;
+    },
+    code: ({className, children, ...props}) => {
+        if (className?.split(' ').includes('language-mermaid')) {
+            return <MermaidDiagram source={String(children).replace(/\n$/, '')} />;
+        }
+        return (
+            <code className={className} {...props}>
+                {children}
+            </code>
+        );
+    },
     // A wide table must scroll inside the panel instead of widening the transcript.
     table: ({children}) => (
         <div className="my-2 overflow-x-auto rounded-md border border-default">

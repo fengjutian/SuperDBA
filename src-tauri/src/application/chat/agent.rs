@@ -831,6 +831,7 @@ pub(crate) fn system_prompt(context: &ChatContext) -> String {
          - Apply the entity predicate and time predicate together in every user/account-specific query. State the exact analyzed time window in the answer, and never label a bounded result as lifetime coverage.\n\
          - Read-only statements run immediately. A single write or DDL statement is sent to the user for approval before it runs: explain the impact in one sentence first, and never try to batch several statements.\n\
          - Keep answers short and concrete. Put SQL in fenced ```sql blocks.\n\
+         - Use fenced ```mermaid blocks for relationship graphs and multi-step flows; do not draw diagrams with ASCII characters.\n\
          - Cite what you observed (row counts, columns, plan nodes) instead of guessing.\n\
          - When a tool fails, report the error and continue with what you know.\n",
     );
