@@ -1,8 +1,27 @@
-import {describe, it, expect, vi} from 'vitest';
-import {fireEvent, render, screen} from '@testing-library/react';
+import {beforeEach, describe, it, expect, vi} from 'vitest';
+import {fireEvent, render, screen, waitFor} from '@testing-library/react';
 import {ChatMarkdown} from '@/components/chat/ChatMarkdown';
 
+const mermaidRender = vi.hoisted(() => vi.fn());
+
+vi.mock('mermaid', () => ({
+    default: {
+        initialize: vi.fn(),
+        render: mermaidRender,
+    },
+}));
+
+vi.mock('@/hooks/useTheme', async () => {
+    const {superdbaLight} = await import('@/themes/presets/superdbaLight');
+    return {useTheme: () => ({currentTheme: superdbaLight})};
+});
+
 describe('ChatMarkdown', () => {
+    beforeEach(() => {
+        mermaidRender.mockReset();
+        mermaidRender.mockResolvedValue({svg: '<svg data-testid="mermaid-svg"></svg>'});
+    });
+
     it('allows users to select and copy rendered text', () => {
         const {container} = render(<ChatMarkdown content="Selectable response" />);
 
@@ -50,6 +69,27 @@ describe('ChatMarkdown', () => {
         expect(code.tagName).toBe('CODE');
         expect(code.closest('pre')).not.toBeNull();
         expect(screen.queryByText(/```/)).not.toBeInTheDocument();
+    });
+
+    it('renders fenced Mermaid source as a themed diagram', async () => {
+        const source = 'flowchart LR\nA[order] --> B[nanopore]';
+        const {container} = render(<ChatMarkdown content={`\`\`\`mermaid\n${source}\n\`\`\``} />);
+
+        await waitFor(() =>
+            expect(container.querySelector('[data-testid="mermaid-svg"]')).not.toBeNull(),
+        );
+        expect(mermaidRender).toHaveBeenCalledWith(expect.stringMatching(/^chat-mermaid-/), source);
+        expect(screen.getByRole('img', {name: 'Mermaid'})).toBeInTheDocument();
+        expect(screen.queryByText(source)).not.toBeInTheDocument();
+    });
+
+    it('falls back to selectable Mermaid source when rendering fails', async () => {
+        mermaidRender.mockRejectedValueOnce(new Error('invalid diagram'));
+        const source = 'flowchart invalid';
+        render(<ChatMarkdown content={`\`\`\`mermaid\n${source}\n\`\`\``} />);
+
+        await waitFor(() => expect(screen.getByText(source)).toBeInTheDocument());
+        expect(screen.getByText(source).closest('pre')).not.toBeNull();
     });
 
     it('opens links in a new tab without leaking the opener', () => {

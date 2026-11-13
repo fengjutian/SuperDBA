@@ -364,6 +364,8 @@ fn system_prompt_carries_connection_context() {
     assert!(prompt.contains("do not scan all history"));
     assert!(prompt.contains("Do not wrap the timestamp column in a function"));
     assert!(prompt.contains("entity predicate and time predicate together"));
+    assert!(prompt.contains("```mermaid"));
+    assert!(prompt.contains("do not draw diagrams with ASCII characters"));
     assert!(batch_limits(&crate::config::AppConfig::default()).total_calls > 16);
 }
 
