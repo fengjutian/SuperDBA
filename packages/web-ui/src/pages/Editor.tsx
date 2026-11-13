@@ -106,6 +106,7 @@ import {ErrorDisplay} from '@/components/ui/ErrorDisplay';
 import {PageSizeSelector} from '@/components/ui/PageSizeSelector';
 import {ResultChart} from '@/components/ui/ResultChart';
 import {ResultViewToggle} from '@/components/ui/ResultViewToggle';
+import {ResultExportButtons} from '@/components/ui/ResultExportButtons';
 import {NewRowModal} from '@/components/modals/NewRowModal';
 import {QuerySelectionModal} from '@/components/modals/QuerySelectionModal';
 import {ConfirmModal} from '@/components/modals/ConfirmModal';
@@ -5670,6 +5671,7 @@ export const Editor = ({commandScopeId}: EditorProps) => {
                                                 )}
                                             </div>
                                         )}
+                                        <ResultExportButtons result={activeTab.result} />
                                     </div>
                                 )}
 
