@@ -3064,6 +3064,8 @@
     "arguments": "Arguments",
     "result": "Result",
     "copySql": "Copy SQL",
+    "mermaidFullscreen": "Fullscreen",
+    "mermaidTitle": "Mermaid diagram",
     "insertSql": "Insert into editor",
     "inserted": "Inserted",
     "waitingApproval": "Waiting for approval: {{kind}}",

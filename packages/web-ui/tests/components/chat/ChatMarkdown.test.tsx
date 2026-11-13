@@ -3,6 +3,7 @@ import {fireEvent, render, screen, waitFor} from '@testing-library/react';
 import {ChatMarkdown} from '@/components/chat/ChatMarkdown';
 
 const mermaidRender = vi.hoisted(() => vi.fn());
+const clipboardWriteText = vi.hoisted(() => vi.fn());
 
 vi.mock('mermaid', () => ({
     default: {
@@ -20,6 +21,11 @@ describe('ChatMarkdown', () => {
     beforeEach(() => {
         mermaidRender.mockReset();
         mermaidRender.mockResolvedValue({svg: '<svg data-testid="mermaid-svg"></svg>'});
+        clipboardWriteText.mockReset().mockResolvedValue(undefined);
+        Object.defineProperty(navigator, 'clipboard', {
+            value: {writeText: clipboardWriteText},
+            configurable: true,
+        });
     });
 
     it('allows users to select and copy rendered text', () => {
@@ -94,6 +100,39 @@ describe('ChatMarkdown', () => {
             expect.stringMatching(/^chat-mermaid-/),
             'erDiagram\ncountry ||--o{ state : relates',
         );
+    });
+
+    it('copies valid Mermaid source from the rendered diagram', async () => {
+        const source = 'erDiagram\ncountry ||--o{ state';
+        const {container} = render(<ChatMarkdown content={`\`\`\`mermaid\n${source}\n\`\`\``} />);
+        await waitFor(() =>
+            expect(container.querySelector('[data-testid="mermaid-svg"]')).not.toBeNull(),
+        );
+
+        const copyButton = screen.getByRole('button', {name: 'common.copy'});
+        fireEvent.click(copyButton);
+
+        await waitFor(() =>
+            expect(clipboardWriteText).toHaveBeenCalledWith(
+                'erDiagram\ncountry ||--o{ state : relates',
+            ),
+        );
+        expect(copyButton).toHaveTextContent('chat.copied');
+    });
+
+    it('opens the rendered Mermaid diagram fullscreen and closes it with Escape', async () => {
+        const source = 'flowchart LR\nA --> B';
+        const {container} = render(<ChatMarkdown content={`\`\`\`mermaid\n${source}\n\`\`\``} />);
+        await waitFor(() =>
+            expect(container.querySelector('[data-testid="mermaid-svg"]')).not.toBeNull(),
+        );
+
+        fireEvent.click(screen.getByRole('button', {name: 'chat.mermaidFullscreen'}));
+        expect(screen.getByRole('dialog')).toBeInTheDocument();
+        expect(screen.getAllByRole('img', {name: 'Mermaid'})).toHaveLength(2);
+
+        fireEvent.keyDown(window, {key: 'Escape'});
+        await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     });
 
     it('falls back to selectable Mermaid source when rendering fails', async () => {
