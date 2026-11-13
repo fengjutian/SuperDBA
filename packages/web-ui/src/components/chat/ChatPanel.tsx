@@ -52,6 +52,7 @@ import type {ChatMessage, ChatToolCall} from '@/types/chat';
 import {useCopyFeedback} from '@/hooks/useCopyFeedback';
 import {isDbaChatProviderSupported} from '@/utils/dbaChat';
 import {localizeChatToolSummary} from '@/utils/chatToolSummary';
+import {ChatCodeViewer} from './ChatCodeViewer';
 
 function ToolCallRow({
     call,
@@ -72,7 +73,11 @@ function ToolCallRow({
               ? 'text-accent-warning'
               : 'text-accent-error';
     const statusLabel = t(`chat.toolStatus.${call.status}`, {defaultValue: call.status});
-    const summary = localizeChatToolSummary(call.summary, i18n.resolvedLanguage ?? i18n.language, t);
+    const summary = localizeChatToolSummary(
+        call.summary,
+        i18n.resolvedLanguage ?? i18n.language,
+        t,
+    );
 
     return (
         <div
@@ -103,18 +108,22 @@ function ToolCallRow({
                         <div className="text-[10px] uppercase tracking-wide text-muted mb-1">
                             {t('chat.arguments', {defaultValue: 'Arguments'})}
                         </div>
-                        <pre className="text-[11px] font-mono bg-base border border-default rounded p-2 overflow-x-auto max-h-40">
-                            {JSON.stringify(call.arguments, null, 2)}
-                        </pre>
+                        <ChatCodeViewer
+                            value={JSON.stringify(call.arguments, null, 2)}
+                            label={t('chat.arguments', {defaultValue: 'Arguments'})}
+                            maxHeight={160}
+                        />
                     </div>
                     {result && (
                         <div>
                             <div className="text-[10px] uppercase tracking-wide text-muted mb-1">
                                 {t('chat.result', {defaultValue: 'Result'})}
                             </div>
-                            <pre className="text-[11px] font-mono bg-base border border-default rounded p-2 overflow-auto max-h-52">
-                                {result}
-                            </pre>
+                            <ChatCodeViewer
+                                value={result}
+                                label={t('chat.result', {defaultValue: 'Result'})}
+                                maxHeight={208}
+                            />
                         </div>
                     )}
                 </div>
@@ -973,14 +982,27 @@ export function ChatPanel() {
                     {activeConnectionId ? (
                         <span
                             className="inline-flex items-center gap-1 rounded border border-default bg-surface-secondary px-1.5 py-0.5 text-[10px] text-secondary"
-                            title={connectionName}
+                            title={`${t('chat.contextConnection')}: ${connectionName ?? activeConnectionId}`}
                         >
                             <Database size={10} aria-hidden="true" />
-                            {t('chat.contextConnection')}
+                            <span className="text-muted">{t('chat.contextConnection')}:</span>
+                            <span className="max-w-32 truncate">
+                                {connectionName ?? activeConnectionId}
+                            </span>
                         </span>
                     ) : (
                         <span className="text-[10px] text-accent-warning">
                             {t('chat.contextNoConnection')}
+                        </span>
+                    )}
+                    {activeConnectionId && activeDatabaseName && (
+                        <span
+                            className="inline-flex items-center gap-1 rounded border border-default bg-surface-secondary px-1.5 py-0.5 text-[10px] text-secondary"
+                            title={`${t('editor.activeDatabase')}: ${activeDatabaseName}`}
+                        >
+                            <Database size={10} aria-hidden="true" />
+                            <span className="text-muted">{t('editor.activeDatabase')}:</span>
+                            <span className="max-w-32 truncate">{activeDatabaseName}</span>
                         </span>
                     )}
                     {includesCurrentSql && (
