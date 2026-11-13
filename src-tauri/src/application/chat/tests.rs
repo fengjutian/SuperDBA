@@ -366,6 +366,7 @@ fn system_prompt_carries_connection_context() {
     assert!(prompt.contains("entity predicate and time predicate together"));
     assert!(prompt.contains("```mermaid"));
     assert!(prompt.contains("do not draw diagrams with ASCII characters"));
+    assert!(prompt.contains("every relationship line must end with a colon"));
     assert!(batch_limits(&crate::config::AppConfig::default()).total_calls > 16);
 }
 

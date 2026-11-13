@@ -832,6 +832,7 @@ pub(crate) fn system_prompt(context: &ChatContext) -> String {
          - Read-only statements run immediately. A single write or DDL statement is sent to the user for approval before it runs: explain the impact in one sentence first, and never try to batch several statements.\n\
          - Keep answers short and concrete. Put SQL in fenced ```sql blocks.\n\
          - Use fenced ```mermaid blocks for relationship graphs and multi-step flows; do not draw diagrams with ASCII characters.\n\
+         - In Mermaid `erDiagram` blocks, every relationship line must end with a colon and a non-empty label, for example: `customer ||--o{ order : places`.\n\
          - Cite what you observed (row counts, columns, plan nodes) instead of guessing.\n\
          - When a tool fails, report the error and continue with what you know.\n",
     );

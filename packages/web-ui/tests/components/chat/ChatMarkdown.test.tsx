@@ -83,6 +83,19 @@ describe('ChatMarkdown', () => {
         expect(screen.queryByText(source)).not.toBeInTheDocument();
     });
 
+    it('repairs ER relationships without labels before rendering', async () => {
+        const source = 'erDiagram\ncountry ||--o{ state';
+        const {container} = render(<ChatMarkdown content={`\`\`\`mermaid\n${source}\n\`\`\``} />);
+
+        await waitFor(() =>
+            expect(container.querySelector('[data-testid="mermaid-svg"]')).not.toBeNull(),
+        );
+        expect(mermaidRender).toHaveBeenCalledWith(
+            expect.stringMatching(/^chat-mermaid-/),
+            'erDiagram\ncountry ||--o{ state : relates',
+        );
+    });
+
     it('falls back to selectable Mermaid source when rendering fails', async () => {
         mermaidRender.mockRejectedValueOnce(new Error('invalid diagram'));
         const source = 'flowchart invalid';

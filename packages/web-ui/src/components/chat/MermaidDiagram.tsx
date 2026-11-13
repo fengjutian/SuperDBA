@@ -1,6 +1,7 @@
 import {useEffect, useId, useState} from 'react';
 import {Loader2} from 'lucide-react';
 import {useTheme} from '@/hooks/useTheme';
+import {normalizeMermaidSource} from '@/utils/mermaid';
 
 interface RenderedDiagram {
     source: string;
@@ -22,6 +23,7 @@ export function MermaidDiagram({source}: {source: string}) {
             try {
                 const {default: mermaid} = await import('mermaid');
                 const {colors, typography} = currentTheme;
+                const renderSource = normalizeMermaidSource(source);
                 mermaid.initialize({
                     startOnLoad: false,
                     securityLevel: 'strict',
@@ -42,7 +44,7 @@ export function MermaidDiagram({source}: {source: string}) {
                     },
                     flowchart: {htmlLabels: false, useMaxWidth: true},
                 });
-                const {svg} = await mermaid.render(diagramId, source);
+                const {svg} = await mermaid.render(diagramId, renderSource);
                 if (!cancelled) {
                     setRendered({source, themeId: currentTheme.id, svg});
                 }
