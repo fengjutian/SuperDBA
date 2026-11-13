@@ -837,6 +837,7 @@ export const DataGrid = React.memo(function DataGrid({
     // "N of M" so a page-only copy of a larger result is never silent.
     const selectionCoversAllLoaded =
         selectedRowIndices.size > 0 && selectedRowIndices.size === mergedRows.length;
+    const allRowsSelected = mergedRows.length > 0 && selectedRowIndices.size === mergedRows.length;
 
     const rowsCopiedToast = useCallback(
         (count: number) =>
@@ -850,7 +851,7 @@ export const DataGrid = React.memo(function DataGrid({
         setFocusedCell(null);
         setCellRange(null);
         onForeignKeyHidePanel?.();
-        if (selectedRowIndices.size === mergedRows.length) {
+        if (allRowsSelected) {
             updateSelection(new Set());
         } else {
             // Select only — copying is a separate, explicit action (Cmd/Ctrl+C or
@@ -858,7 +859,7 @@ export const DataGrid = React.memo(function DataGrid({
             const allIndices = new Set(mergedRows.map((_, i) => i));
             updateSelection(allIndices);
         }
-    }, [selectedRowIndices.size, mergedRows, updateSelection, onForeignKeyHidePanel]);
+    }, [allRowsSelected, mergedRows, updateSelection, onForeignKeyHidePanel]);
 
     useEffect(() => {
         if (editingCell && editInputRef.current) {
@@ -3152,16 +3153,30 @@ export const DataGrid = React.memo(function DataGrid({
                     >
                         {table.getHeaderGroups().map((headerGroup) => (
                             <tr key={headerGroup.id} ref={theadRowRef}>
-                                <th
-                                    onClick={handleSelectAll}
-                                    title={
-                                        selectedRowIndices.size === mergedRows.length
-                                            ? t('dataGrid.deselectAll')
-                                            : t('dataGrid.selectAll')
-                                    }
-                                    className="px-2 py-2 text-xs font-semibold text-muted border-b border-r border-default bg-base sticky left-0 z-20 text-center select-none w-[50px] min-w-[50px] cursor-pointer hover:bg-elevated"
-                                >
-                                    #
+                                <th className="p-0 text-xs font-semibold text-muted border-b border-r border-default bg-base sticky left-0 z-20 text-center select-none w-[50px] min-w-[50px]">
+                                    <button
+                                        type="button"
+                                        onClick={handleSelectAll}
+                                        aria-label={
+                                            allRowsSelected
+                                                ? t('dataGrid.deselectAll')
+                                                : t('dataGrid.selectAll')
+                                        }
+                                        aria-pressed={allRowsSelected}
+                                        disabled={mergedRows.length === 0}
+                                        title={
+                                            allRowsSelected
+                                                ? t('dataGrid.deselectAll')
+                                                : t('dataGrid.selectAll')
+                                        }
+                                        className={`w-full px-2 py-2 hover:bg-elevated disabled:cursor-default disabled:hover:bg-transparent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-focus ${
+                                            allRowsSelected
+                                                ? 'bg-accent-primary/10 text-accent'
+                                                : ''
+                                        }`}
+                                    >
+                                        #
+                                    </button>
                                 </th>
                                 {headerGroup.headers.map((header, headerColIndex) => (
                                     <th

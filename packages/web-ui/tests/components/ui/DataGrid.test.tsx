@@ -1179,7 +1179,7 @@ describe('DataGrid select all', () => {
         expect(onSelectionChange).not.toHaveBeenCalled();
     });
 
-    it('toggles select all via the # header cell', () => {
+    it('toggles select all via the accessible corner button', () => {
         const calls: Set<number>[] = [];
         const Harness = () => {
             const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -1196,13 +1196,16 @@ describe('DataGrid select all', () => {
                 />
             );
         };
-        const {container} = render(<Harness />);
+        render(<Harness />);
 
-        const headerCell = container.querySelector('th')!;
-        fireEvent.click(headerCell);
+        const selectButton = screen.getByRole('button', {name: 'dataGrid.selectAll'});
+        expect(selectButton).toHaveAttribute('aria-pressed', 'false');
+        fireEvent.click(selectButton);
         expect(calls[0]).toEqual(new Set([0, 1]));
 
-        fireEvent.click(headerCell);
+        const deselectButton = screen.getByRole('button', {name: 'dataGrid.deselectAll'});
+        expect(deselectButton).toHaveAttribute('aria-pressed', 'true');
+        fireEvent.click(deselectButton);
         expect(calls[1]).toEqual(new Set());
     });
 
