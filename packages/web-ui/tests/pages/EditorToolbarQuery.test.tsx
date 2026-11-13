@@ -267,6 +267,15 @@ function executeQueryCalls() {
     return vi.mocked(invoke).mock.calls.filter(([command]) => command === 'execute_query');
 }
 
+describe('console result export actions', () => {
+    it('shows CSV and JSON downloads beside the result pagination controls', () => {
+        render(<Harness />);
+
+        expect(screen.getByRole('button', {name: 'CSV'})).toBeInTheDocument();
+        expect(screen.getByRole('button', {name: 'JSON'})).toBeInTheDocument();
+    });
+});
+
 describe('runToolbarQuery database field', () => {
     beforeEach(() => {
         vi.useFakeTimers();

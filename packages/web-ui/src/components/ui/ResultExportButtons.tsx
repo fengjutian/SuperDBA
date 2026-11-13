@@ -47,7 +47,7 @@ export function ResultExportButtons({result}: ResultExportButtonsProps) {
                         onClick={() => handleExport(format)}
                         className="p-1 text-muted hover:text-secondary hover:bg-surface-secondary rounded transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
                         title={label}
-                        aria-label={label}
+                        aria-label={format.toUpperCase()}
                     >
                         <span className="flex items-center gap-0.5">
                             <Download size={12} />
